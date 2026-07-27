@@ -152,18 +152,26 @@ export function StationPicker() {
             </Section>
           )}
 
-          <Section title="All stations">
-            <div className="divide-y divide-edge">
+          {/* Rendered without a card wrapper: `overflow-hidden` would trap the
+              sticky letter headers in a non-scrolling container, and a flat
+              list suits 167 rows better anyway. */}
+          <section className="mt-7">
+            <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
+              All stations
+            </h2>
+            <div className="border-t border-edge bg-surface">
               {grouped.map(([letter, group]) => (
                 <div key={letter}>
-                  <h3 className="bg-bg px-4 py-1.5 text-xs font-semibold text-muted">
+                  {/* Opaque, not translucent: rows scrolling underneath would
+                      otherwise ghost through the stuck header. */}
+                  <h3 className="sticky top-0 z-10 border-b border-edge bg-bg px-4 py-1.5 text-xs font-semibold text-muted">
                     {letter}
                   </h3>
-                  <StationList items={group} flush />
+                  <StationList items={group} />
                 </div>
               ))}
             </div>
-          </Section>
+          </section>
         </>
       )}
     </main>
@@ -192,16 +200,14 @@ function Section({
 function StationList({
   items,
   subtitle,
-  flush = false,
 }: {
   items: Station[];
   subtitle?: string;
-  flush?: boolean;
 }) {
   return (
-    <ul className={flush ? "" : "divide-y divide-edge"}>
+    <ul className="divide-y divide-edge">
       {items.map((station) => (
-        <li key={station.code} className={flush ? "border-t border-edge" : ""}>
+        <li key={station.code}>
           <Link
             href={`/station/${station.code}`}
             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"

@@ -1,4 +1,4 @@
-import { cacheLife, cacheTag, revalidateTag } from "next/cache";
+import { revalidateTag } from "next/cache";
 import { normalizeDepartures, type Departure } from "@/lib/departures";
 import {
   InvalidTokenError,
@@ -16,22 +16,39 @@ export type DeparturesResponse = {
   fixtures: boolean;
 };
 
-const departuresTag = (stationCode: string) => `departures:${stationCode}`;
-
 /**
- * Departures for one station, briefly shared between everyone watching it.
+ * Briefly shares departures between everyone watching the same station.
  *
- * The short cache means a station polled every 30 seconds by several clients
- * still costs roughly one upstream call per cache window, which keeps us well
- * inside NJT's 40,000 requests/day.
+ * Deliberately a plain in-process map rather than `use cache`: an error thrown
+ * inside a cached function is wrapped by the Server Components runtime into an
+ * opaque error, which would break the token-refresh branch below. Per-instance
+ * caching is enough here — even several instances polling every 30 seconds stay
+ * far below NJ Transit's 40,000 requests a day. The token, where the limit is
+ * tight, is cached durably in lib/njtClient instead.
  */
-async function cachedDepartures(stationCode: string): Promise<Departure[]> {
-  "use cache";
-  cacheLife("departures");
-  cacheTag(departuresTag(stationCode));
+const TTL_MS = 20_000;
+const cache = new Map<string, { at: number; departures: Departure[] }>();
 
-  const items = await fetchDepartures(stationCode);
-  return normalizeDepartures(items, stationCode);
+async function getDepartures(stationCode: string): Promise<Departure[]> {
+  const hit = cache.get(stationCode);
+  const now = Date.now();
+  if (hit && now - hit.at < TTL_MS) return hit.departures;
+
+  let items;
+  try {
+    items = await fetchDepartures(stationCode);
+  } catch (error) {
+    if (!(error instanceof InvalidTokenError)) throw error;
+    // The token went bad before its cache lifetime ran out. Expire it now —
+    // stale-while-revalidate would just hand the same dead token back — and
+    // retry once with a fresh one.
+    revalidateTag(TOKEN_TAG, { expire: 0 });
+    items = await fetchDepartures(stationCode);
+  }
+
+  const departures = normalizeDepartures(items, stationCode);
+  cache.set(stationCode, { at: now, departures });
+  return departures;
 }
 
 export async function GET(
@@ -50,17 +67,7 @@ export async function GET(
 
   let departures: Departure[];
   try {
-    try {
-      departures = await cachedDepartures(station.code);
-    } catch (error) {
-      if (!(error instanceof InvalidTokenError)) throw error;
-      // The token went bad before its cache lifetime ran out. Expire it and the
-      // station's cached departures immediately — stale-while-revalidate would
-      // just hand the same dead token back — then retry once.
-      revalidateTag(TOKEN_TAG, { expire: 0 });
-      revalidateTag(departuresTag(station.code), { expire: 0 });
-      departures = await cachedDepartures(station.code);
-    }
+    departures = await getDepartures(station.code);
   } catch (error) {
     console.error(`Departures for ${station.code} failed:`, error);
     return Response.json(
