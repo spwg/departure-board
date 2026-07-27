@@ -11,12 +11,21 @@ npm install
 npm run dev
 ```
 
-Requires NJ Transit Rail Data Web Services API credentials. Copy `.env.example` to `.env.local` and fill in:
+Requires NJ Transit RailData API credentials from
+[developer.njtransit.com/registration](https://developer.njtransit.com/registration).
+Copy `.env.example` to `.env.local` and fill in:
 
 ```
 NJT_API_USERNAME=
 NJT_API_PASSWORD=
 ```
+
+Without them the app serves stand-in departure data, so it still runs.
+
+> **Host:** requests go to `https://raildata.njt.gov/api`, which is what the
+> developer portal documents. The PDF manual still prints the older
+> `raildata.njtransit.com`; that host answers `Missing user account` for valid
+> credentials, so it is worth checking first if authentication fails.
 
 ## A note on the API token
 
