@@ -2,6 +2,8 @@
 
 A pure NJ Transit rail departure board — just your trains, destinations, tracks, and status. No Amtrak, no bus/light rail, no station alerts, no announcements.
 
+Tap a departure for its **stops**: every station that train calls at, with the estimated time at each.
+
 Built with Next.js (App Router), TypeScript, and Tailwind CSS. Installable as a home-screen app on iPhone/Android/iPad.
 
 ## Development
@@ -47,6 +49,14 @@ Departure data is cached separately, in a plain in-process map, because
 throwing across a `use cache` boundary loses the error type the token-refresh
 path depends on. Its limit (40,000/day) is loose enough that per-instance
 caching is fine.
+
+Stops are a second data call, `getTrainStopList`, cached the same way and
+against the same 40,000/day limit. It has to be its own request: NJ Transit's
+API manual notes that `getTrainSchedule19Rec` — the board's endpoint — returns
+DepartureVision's data "but without train stop list information". Its `TIME`
+field is an *estimated* arrival, not a timetable time, and comes back empty for
+stops far enough down the line, which is why the stops view shows a dash there
+rather than treating it as an error.
 
 ## Scripts
 
