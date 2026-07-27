@@ -18,7 +18,13 @@ import { fixtureDepartures } from "./fixtures";
 
 export const TOKEN_TAG = "njt-token";
 
-const DEFAULT_BASE_URL = "https://raildata.njtransit.com/api";
+/**
+ * The host NJ Transit's developer portal currently documents. Note that the
+ * RailData PDF manual still prints the older raildata.njtransit.com, which is
+ * where accounts fail to resolve; override with NJT_API_BASE_URL if NJT moves
+ * again.
+ */
+const DEFAULT_BASE_URL = "https://raildata.njt.gov/api";
 
 /** Thrown when NJT rejects the cached token, so the caller can refresh and retry. */
 export class InvalidTokenError extends Error {
