@@ -32,6 +32,8 @@ export type Departure = {
   destination: string;
   /** ISO 8601, so the client can render in the viewer's timezone. */
   scheduledTime: string;
+  /** When the train should actually leave: scheduled time plus any delay. */
+  expectedTime: string;
   trainNumber: string;
   line: string;
   lineCode: string;
@@ -142,11 +144,13 @@ export function normalizeDeparture(
     ? Math.max(0, Math.round(secondsLate / 60))
     : 0;
   const statusText = (item.STATUS ?? "").trim();
+  const expected = new Date(scheduled.getTime() + delayMinutes * 60_000);
 
   return {
     id: `${item.TRAIN_ID}-${scheduled.toISOString()}`,
     destination: (item.DESTINATION ?? "").trim(),
     scheduledTime: scheduled.toISOString(),
+    expectedTime: expected.toISOString(),
     trainNumber: (item.TRAIN_ID ?? "").trim(),
     line: (item.LINE ?? "").trim(),
     lineCode: (item.LINECODE ?? "").trim().toUpperCase(),
@@ -157,7 +161,13 @@ export function normalizeDeparture(
   };
 }
 
-/** Filters out non-NJT trains and normalizes the rest, in departure order. */
+/**
+ * Filters out non-NJT trains and normalizes the rest.
+ *
+ * Ordered by when each train will actually leave rather than by its timetable
+ * slot, so the countdown column reads straight down and a badly delayed train
+ * does not sit above one that will depart sooner.
+ */
 export function normalizeDepartures(
   items: RawDeparture[],
   stationCode: string,
@@ -166,5 +176,5 @@ export function normalizeDepartures(
     .filter((item) => !isExcluded(item))
     .map((item) => normalizeDeparture(item, stationCode))
     .filter((d): d is Departure => d !== null)
-    .sort((a, b) => a.scheduledTime.localeCompare(b.scheduledTime));
+    .sort((a, b) => a.expectedTime.localeCompare(b.expectedTime));
 }

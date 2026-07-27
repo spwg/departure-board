@@ -54,10 +54,11 @@ export async function GET(
       departures = await cachedDepartures(station.code);
     } catch (error) {
       if (!(error instanceof InvalidTokenError)) throw error;
-      // The token went bad before its cache lifetime ran out. Drop it and the
-      // station's cached departures, then retry once with a fresh token.
-      revalidateTag(TOKEN_TAG);
-      revalidateTag(departuresTag(station.code));
+      // The token went bad before its cache lifetime ran out. Expire it and the
+      // station's cached departures immediately — stale-while-revalidate would
+      // just hand the same dead token back — then retry once.
+      revalidateTag(TOKEN_TAG, { expire: 0 });
+      revalidateTag(departuresTag(station.code), { expire: 0 });
       departures = await cachedDepartures(station.code);
     }
   } catch (error) {
