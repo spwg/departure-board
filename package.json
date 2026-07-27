@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:njt-test": "NJT_API_BASE_URL=https://testraildata.njtransit.com/api next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

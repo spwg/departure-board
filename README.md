@@ -10,6 +10,7 @@ Built with Next.js (App Router), TypeScript, and Tailwind CSS. Installable as a 
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
@@ -29,6 +30,26 @@ Without them the app serves stand-in departure and stop data, so it still runs.
 > A record and cannot be reached; `njtransit.com` is what actually serves
 > traffic, and what NJ Transit's own DepartureVision site calls. Set
 > `NJT_API_BASE_URL` to switch once the `.gov` host comes up.
+
+## NJ Transit test backend
+
+For local testing without consuming production RailData tokens, use NJ
+Transit's test backend:
+
+```bash
+npm run dev:njt-test
+```
+
+This starts the same app with
+`NJT_API_BASE_URL=https://testraildata.njtransit.com/api`. It still reads
+`NJT_API_USERNAME` and `NJT_API_PASSWORD` from your ignored `.env.local`; do
+not commit credentials. Start a fresh dev server after changing environment
+variables. Verify it with `curl http://127.0.0.1:3000/api/departures/NY` — a
+successful live response has `"fixtures":false`.
+
+The test backend has its own data and may return imperfect or stale labels.
+Use it to exercise the integration and error states, not to validate current
+operational train information.
 
 ## A note on the API token
 
