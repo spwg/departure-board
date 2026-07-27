@@ -31,8 +31,10 @@ export default async function StationPage({
   if (!station) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 sm:py-6">
-      <div className="overflow-hidden border-edge bg-surface sm:rounded-2xl sm:border sm:shadow-sm">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
+      {/* Fills the screen on phones so a short board does not leave a band of
+          page background below it; a self-contained card from tablet up. */}
+      <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
           <Link
             // ?pick keeps the picker from sending you straight back here.

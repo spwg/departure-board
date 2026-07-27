@@ -26,9 +26,8 @@ export const metadata: Metadata = {
     title: "Departures",
     statusBarStyle: "default",
   },
-  icons: {
-    apple: "/apple-icon.png",
-  },
+  // Icons are picked up from app/icon.png, app/apple-icon.png, and
+  // app/favicon.ico. Declaring them here would override that detection.
 };
 
 export const viewport: Viewport = {

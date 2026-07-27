@@ -14,13 +14,6 @@ const nextConfig: NextConfig = {
       revalidate: 60 * 60 * 12,
       expire: 60 * 60 * 23,
     },
-    // Departures are shared briefly between everyone watching the same station,
-    // so 30s client polling costs fewer upstream calls than it looks like.
-    departures: {
-      stale: 20,
-      revalidate: 20,
-      expire: 60,
-    },
   },
 };
 

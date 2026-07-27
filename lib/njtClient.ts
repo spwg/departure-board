@@ -102,7 +102,18 @@ async function getToken(): Promise<string> {
   });
 
   const error = errorMessageOf(payload);
-  if (error) throw new Error(`NJT authentication failed: ${error}`);
+  if (error) {
+    // NJT allows 10 getToken calls a day. Hitting that means the token is not
+    // being reused across requests, so say so rather than leaving a bare
+    // "daily usage limit" to puzzle over.
+    if (/daily usage limit/i.test(error)) {
+      throw new Error(
+        `NJT authentication failed: ${error}. The token cache is not holding ` +
+          `between requests — see the caching note in README.md.`,
+      );
+    }
+    throw new Error(`NJT authentication failed: ${error}`);
+  }
 
   const token =
     payload && typeof payload === "object" && "UserToken" in payload
