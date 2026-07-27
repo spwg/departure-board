@@ -1,26 +1,92 @@
 @import "tailwindcss";
 
+/*
+ * A small semantic palette rather than raw greys everywhere, so light and dark
+ * stay in step and the board can be restyled from one place.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --bg: #f4f4f5;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --text: #18181b;
+  --text-muted: #71717a;
+  --text-faint: #a1a1aa;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --ok: #15803d;
+  --ok-soft: #dcfce7;
+  --warn: #b45309;
+  --warn-soft: #fef3c7;
+  --danger: #b91c1c;
+  --danger-soft: #fee2e2;
+
+  --track-bg: #18181b;
+  --track-text: #fafafa;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #09090b;
+    --surface: #121214;
+    --surface-raised: #1a1a1d;
+    --text: #fafafa;
+    --text-muted: #a1a1aa;
+    --text-faint: #71717a;
+    --border: #27272a;
+    --border-strong: #3f3f46;
+
+    --ok: #4ade80;
+    --ok-soft: #052e16;
+    --warn: #fbbf24;
+    --warn-soft: #2e1c04;
+    --danger: #f87171;
+    --danger-soft: #300c0c;
+
+    --track-bg: #fafafa;
+    --track-text: #18181b;
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-edge: var(--border);
+  --color-edge-strong: var(--border-strong);
+
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-track: var(--track-bg);
+  --color-track-fg: var(--track-text);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  /* Times and countdowns sit in columns, so digits must not shift width. */
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Respect the OS setting for people who get motion sick from the refresh pulse. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

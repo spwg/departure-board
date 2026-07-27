@@ -41,6 +41,30 @@ export function lineName(code: string): string {
   return LINE_NAMES[code] ?? code;
 }
 
+/**
+ * NJ Transit's own line colours, taken from the rail map data behind
+ * njtransit.com, so a line reads the same here as on station signage.
+ * Princeton shares the Northeast Corridor's colour, as it does on NJT's map.
+ */
+export const LINE_COLORS: Record<string, string> = {
+  AC: "#2E55A5",
+  BC: "#98A8BF",
+  GS: "#A1D5AE",
+  MC: "#C36366",
+  ME: "#00953B",
+  ML: "#F2B826",
+  NC: "#009CDB",
+  NE: "#F7505E",
+  PR: "#F7505E",
+  PV: "#A34F8B",
+  RV: "#FF993E",
+  SL: "#6B7280",
+};
+
+export function lineColor(code: string): string {
+  return LINE_COLORS[code] ?? "#6B7280";
+}
+
 const EARTH_RADIUS_KM = 6371;
 const toRad = (deg: number) => (deg * Math.PI) / 180;
 
