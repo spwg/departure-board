@@ -91,10 +91,66 @@ export function isExcluded(item: RawDeparture): boolean {
 }
 
 /**
- * Parses NJT's "30-May-2024 11:56:00 AM" timestamps. These carry no timezone
- * and are always America/New_York, which is also the timezone of everyone
- * using this board, so they are interpreted in the server's local zone.
+ * The zone NJ Transit's timestamps are in. Per the API manual, SCHED_DEP_DATE
+ * is the departure time "at selected location" — always Eastern, with no
+ * offset in the string.
  */
+export const NJT_TIME_ZONE = "America/New_York";
+
+/** How far `timeZone`'s wall clock is ahead of UTC at a given instant, in ms. */
+function zoneOffset(timestamp: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(new Date(timestamp));
+
+  const field: Record<string, string> = {};
+  for (const part of parts) field[part.type] = part.value;
+
+  const asUtc = Date.UTC(
+    Number(field.year),
+    Number(field.month) - 1,
+    Number(field.day),
+    // en-US with hour12:false renders midnight as 24.
+    Number(field.hour) % 24,
+    Number(field.minute),
+    Number(field.second),
+  );
+  return asUtc - timestamp;
+}
+
+/**
+ * Converts a wall-clock reading in `timeZone` to the instant it refers to.
+ *
+ * Deliberately not `new Date(y, m, d, ...)`, which would interpret the reading
+ * in whatever zone the server happens to run in — UTC on most hosts, putting
+ * every departure four or five hours out.
+ */
+function fromZonedTime(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+  timeZone: string,
+): Date {
+  const asIfUtc = Date.UTC(year, month, day, hour, minute, second);
+  let timestamp = asIfUtc - zoneOffset(asIfUtc, timeZone);
+  // Around a DST change the first guess can land on the wrong side of the
+  // transition, so resolve the offset once more at the corrected instant.
+  const corrected = asIfUtc - zoneOffset(timestamp, timeZone);
+  if (corrected !== timestamp) timestamp = corrected;
+  return new Date(timestamp);
+}
+
+/** Parses NJT's "30-May-2024 11:56:00 AM" timestamps, which are Eastern time. */
 export function parseNjtDate(value: string): Date | null {
   const match = /^(\d{1,2})-([A-Za-z]{3})-(\d{4}) (\d{1,2}):(\d{2}):(\d{2}) (AM|PM)$/.exec(
     (value ?? "").trim(),
@@ -112,8 +168,14 @@ export function parseNjtDate(value: string): Date | null {
   let hour = Number(rawHour) % 12;
   if (meridiem.toUpperCase() === "PM") hour += 12;
 
-  const date = new Date(
-    Number(year), month, Number(day), hour, Number(minute), Number(second),
+  const date = fromZonedTime(
+    Number(year),
+    month,
+    Number(day),
+    hour,
+    Number(minute),
+    Number(second),
+    NJT_TIME_ZONE,
   );
   return Number.isNaN(date.getTime()) ? null : date;
 }
