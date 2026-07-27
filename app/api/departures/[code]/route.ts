@@ -46,7 +46,7 @@ async function getDepartures(stationCode: string): Promise<Departure[]> {
     items = await fetchDepartures(stationCode);
   }
 
-  const departures = normalizeDepartures(items, stationCode);
+  const departures = normalizeDepartures(items);
   cache.set(stationCode, { at: now, departures });
   return departures;
 }
