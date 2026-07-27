@@ -1,8 +1,8 @@
 /**
  * Turns NJ Transit's raw departure records into the small, stable shape the UI
- * renders. Everything NJT-specific — Amtrak rows, non-revenue moves, railroad
- * vs. public track numbering, status strings — is dealt with here so the
- * components stay simple.
+ * renders. Everything NJT-specific — Amtrak rows, non-revenue moves, Eastern
+ * timestamps, free-text status strings — is dealt with here so the components
+ * stay simple.
  */
 
 /** A record from the API's `ITEMS` array. Only fields we actually use. */
@@ -37,7 +37,7 @@ export type Departure = {
   trainNumber: string;
   line: string;
   lineCode: string;
-  /** Public-facing track, already translated. Empty until NJT assigns one. */
+  /** Track as NJT reports it. Empty until one is assigned. */
   track: string;
   status: DepartureStatus;
   /** NJT's own wording, e.g. "in 13 Min" — shown verbatim when useful. */
@@ -60,23 +60,48 @@ const EXCLUDED_LINE_ABBREVIATIONS = new Set(["AMTK", "SEPTA"]);
 const EXCLUDED_TRAIN_PREFIXES = /^[ASX]/i;
 
 /**
- * Railroad track -> the track riders actually see on station signage, per
- * Appendix II. Keyed by station code. Without this, Newark Airport would show
- * track "0" instead of "A".
+ * Tracks are passed through as sent.
+ *
+ * Appendix II of the API manual lists railroad-to-public track translations
+ * (Newark Airport "0" -> "A" and so on), but this endpoint already applies
+ * them: Newark Airport returns "A", and Secaucus returns "E"/"F"/"G"/"H"
+ * rather than digits. Translating again would be worse than useless — at
+ * Metropark, where the API returns real public tracks 1-4, the appendix's
+ * "2" -> "1" rule would send riders to the wrong platform.
  */
-const TRACK_TRANSLATIONS: Record<string, Record<string, string>> = {
-  NA: { "0": "A" }, // Newark Airport
-  TS: { "1": "G", "2": "F", "3": "H", "4": "E" }, // Secaucus Lower Lvl
-  MP: { "2": "1" }, // Metropark
-  ON: { Single: "1" }, // Lebanon
-  UV: { B: "2", Single: "1" }, // Montclair State U
-  ST: { Single: "S" }, // Summit
+export function displayTrack(track: string): string {
+  return (track ?? "").trim();
+}
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
 };
 
-export function translateTrack(stationCode: string, track: string): string {
-  const trimmed = (track ?? "").trim();
-  if (!trimmed) return "";
-  return TRACK_TRANSLATIONS[stationCode.toUpperCase()]?.[trimmed] ?? trimmed;
+/**
+ * Decodes the HTML entities NJ Transit embeds in text fields.
+ *
+ * Destinations arrive with markup in them — "Long Branch -SEC &#9992", where
+ * &#9992 is the plane marking a train that serves Newark Airport. React escapes
+ * strings, so without this the board would print the entity source instead of
+ * the glyph. Note the trailing semicolon is optional in this feed, which is why
+ * the pattern does not require one.
+ */
+export function decodeEntities(value: string): string {
+  return (value ?? "")
+    .replace(/&#x([0-9a-f]+);?/gi, (_, hex) =>
+      String.fromCodePoint(Number.parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);?/g, (_, dec) =>
+      String.fromCodePoint(Number.parseInt(dec, 10)),
+    )
+    .replace(/&(\w+);/g, (match, name) => NAMED_ENTITIES[name] ?? match)
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** True for trains this board should never show. */
@@ -194,10 +219,7 @@ export function toStatus(statusText: string, delayMinutes: number): DepartureSta
   return "on-time";
 }
 
-export function normalizeDeparture(
-  item: RawDeparture,
-  stationCode: string,
-): Departure | null {
+export function normalizeDeparture(item: RawDeparture): Departure | null {
   const scheduled = parseNjtDate(item.SCHED_DEP_DATE);
   if (!scheduled) return null;
 
@@ -205,18 +227,18 @@ export function normalizeDeparture(
   const delayMinutes = Number.isFinite(secondsLate)
     ? Math.max(0, Math.round(secondsLate / 60))
     : 0;
-  const statusText = (item.STATUS ?? "").trim();
+  const statusText = decodeEntities(item.STATUS);
   const expected = new Date(scheduled.getTime() + delayMinutes * 60_000);
 
   return {
     id: `${item.TRAIN_ID}-${scheduled.toISOString()}`,
-    destination: (item.DESTINATION ?? "").trim(),
+    destination: decodeEntities(item.DESTINATION),
     scheduledTime: scheduled.toISOString(),
     expectedTime: expected.toISOString(),
     trainNumber: (item.TRAIN_ID ?? "").trim(),
-    line: (item.LINE ?? "").trim(),
+    line: decodeEntities(item.LINE),
     lineCode: (item.LINECODE ?? "").trim().toUpperCase(),
-    track: translateTrack(stationCode, item.TRACK),
+    track: displayTrack(item.TRACK),
     status: toStatus(statusText, delayMinutes),
     statusText,
     delayMinutes,
@@ -230,13 +252,10 @@ export function normalizeDeparture(
  * slot, so the countdown column reads straight down and a badly delayed train
  * does not sit above one that will depart sooner.
  */
-export function normalizeDepartures(
-  items: RawDeparture[],
-  stationCode: string,
-): Departure[] {
+export function normalizeDepartures(items: RawDeparture[]): Departure[] {
   return items
     .filter((item) => !isExcluded(item))
-    .map((item) => normalizeDeparture(item, stationCode))
+    .map((item) => normalizeDeparture(item))
     .filter((d): d is Departure => d !== null)
     .sort((a, b) => a.expectedTime.localeCompare(b.expectedTime));
 }
