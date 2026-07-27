@@ -22,10 +22,11 @@ NJT_API_PASSWORD=
 
 Without them the app serves stand-in departure data, so it still runs.
 
-> **Host:** requests go to `https://raildata.njt.gov/api`, which is what the
-> developer portal documents. The PDF manual still prints the older
-> `raildata.njtransit.com`; that host answers `Missing user account` for valid
-> credentials, so it is worth checking first if authentication fails.
+> **Host:** requests go to `https://raildata.njtransit.com/api`. NJ Transit's
+> developer portal documents `raildata.njt.gov`, but that name currently has no
+> A record and cannot be reached; `njtransit.com` is what actually serves
+> traffic, and what NJ Transit's own DepartureVision site calls. Set
+> `NJT_API_BASE_URL` to switch once the `.gov` host comes up.
 
 ## A note on the API token
 
