@@ -104,6 +104,17 @@ export function decodeEntities(value: string): string {
     .trim();
 }
 
+/**
+ * True for train numbers this board should never show, by prefix alone.
+ *
+ * Split out from `isExcluded` so routes reached by URL rather than by tapping a
+ * row — where there is no full record to inspect — can turn away the same
+ * trains the board filters out.
+ */
+export function isExcludedTrainId(trainId: string): boolean {
+  return EXCLUDED_TRAIN_PREFIXES.test((trainId ?? "").trim());
+}
+
 /** True for trains this board should never show. */
 export function isExcluded(item: RawDeparture): boolean {
   return (
@@ -111,7 +122,7 @@ export function isExcluded(item: RawDeparture): boolean {
     EXCLUDED_LINE_ABBREVIATIONS.has(
       (item.LINEABBREVIATION ?? "").toUpperCase(),
     ) ||
-    EXCLUDED_TRAIN_PREFIXES.test((item.TRAIN_ID ?? "").trim())
+    isExcludedTrainId(item.TRAIN_ID)
   );
 }
 
@@ -203,6 +214,20 @@ export function parseNjtDate(value: string): Date | null {
     NJT_TIME_ZONE,
   );
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Renders an instant as a clock time, always Eastern rather than the viewer's
+ * zone, so what is on screen matches the clock at the station. Checking New
+ * York departures from another timezone should not shift every time on the
+ * page.
+ */
+export function formatClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    timeZone: NJT_TIME_ZONE,
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 /**

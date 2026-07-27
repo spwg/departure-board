@@ -106,7 +106,12 @@ export function DepartureBoard({ code }: { code: string }) {
       )}
       <ul className="divide-y divide-edge">
         {departures.map((departure) => (
-          <DepartureRow key={departure.id} departure={departure} now={now} />
+          <DepartureRow
+            key={departure.id}
+            departure={departure}
+            now={now}
+            stationCode={code}
+          />
         ))}
       </ul>
     </>
