@@ -1,0 +1,1566 @@
+[
+  {
+    "code": "AM",
+    "name": "Aberdeen-Matawan",
+    "lat": 40.419734,
+    "lng": -74.222014,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "AB",
+    "name": "Absecon",
+    "lat": 39.42399,
+    "lng": -74.50161,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "AZ",
+    "name": "Allendale",
+    "lat": 41.030871,
+    "lng": -74.131176,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "AH",
+    "name": "Allenhurst",
+    "lat": 40.237588,
+    "lng": -74.006557,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "AS",
+    "name": "Anderson Street",
+    "lat": 40.89431,
+    "lng": -74.044016,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "AN",
+    "name": "Annandale",
+    "lat": 40.645131,
+    "lng": -74.878889,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "AP",
+    "name": "Asbury Park",
+    "lat": 40.21629,
+    "lng": -74.014543,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "AO",
+    "name": "Atco",
+    "lat": 39.783594,
+    "lng": -74.90779,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "AC",
+    "name": "Atlantic City Rail Terminal",
+    "lat": 39.362893,
+    "lng": -74.440336,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "AV",
+    "name": "Avenel",
+    "lat": 40.577692,
+    "lng": -74.277421,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "BI",
+    "name": "Basking Ridge",
+    "lat": 40.711369,
+    "lng": -74.555386,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "BH",
+    "name": "Bay Head",
+    "lat": 40.077225,
+    "lng": -74.046091,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "MC",
+    "name": "Bay Street",
+    "lat": 40.808196,
+    "lng": -74.20872,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "BS",
+    "name": "Belmar",
+    "lat": 40.180317,
+    "lng": -74.027473,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "BY",
+    "name": "Berkeley Heights",
+    "lat": 40.682433,
+    "lng": -74.44272,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "BV",
+    "name": "Bernardsville",
+    "lat": 40.716947,
+    "lng": -74.571156,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "BM",
+    "name": "Bloomfield",
+    "lat": 40.792772,
+    "lng": -74.19995,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "BN",
+    "name": "Boonton",
+    "lat": 40.903147,
+    "lng": -74.408252,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "BK",
+    "name": "Bound Brook",
+    "lat": 40.56109,
+    "lng": -74.530304,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "BB",
+    "name": "Bradley Beach",
+    "lat": 40.203734,
+    "lng": -74.018706,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "BU",
+    "name": "Brick Church",
+    "lat": 40.765552,
+    "lng": -74.21925,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "BW",
+    "name": "Bridgewater",
+    "lat": 40.559814,
+    "lng": -74.55171,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "BF",
+    "name": "Broadway Fair Lawn",
+    "lat": 40.922291,
+    "lng": -74.115243,
+    "lines": [
+      "BC"
+    ]
+  },
+  {
+    "code": "CB",
+    "name": "Campbell Hall",
+    "lat": 41.450601,
+    "lng": -74.26574,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "CM",
+    "name": "Chatham",
+    "lat": 40.740085,
+    "lng": -74.385107,
+    "lines": [
+      "ME"
+    ]
+  },
+  {
+    "code": "CY",
+    "name": "Cherry Hill",
+    "lat": 39.928452,
+    "lng": -75.04176,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "IF",
+    "name": "Clifton",
+    "lat": 40.867888,
+    "lng": -74.153396,
+    "lines": [
+      "ML"
+    ]
+  },
+  {
+    "code": "CN",
+    "name": "Convent Station",
+    "lat": 40.778914,
+    "lng": -74.443463,
+    "lines": [
+      "ME"
+    ]
+  },
+  {
+    "code": "XC",
+    "name": "Cranford",
+    "lat": 40.655277,
+    "lng": -74.302788,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "DL",
+    "name": "Delawanna",
+    "lat": 40.831824,
+    "lng": -74.131497,
+    "lines": [
+      "ML"
+    ]
+  },
+  {
+    "code": "DV",
+    "name": "Denville",
+    "lat": 40.883423,
+    "lng": -74.481839,
+    "lines": [
+      "MC",
+      "ME"
+    ]
+  },
+  {
+    "code": "DO",
+    "name": "Dover",
+    "lat": 40.883628,
+    "lng": -74.555524,
+    "lines": [
+      "MC",
+      "ME"
+    ]
+  },
+  {
+    "code": "DN",
+    "name": "Dunellen",
+    "lat": 40.590749,
+    "lng": -74.462946,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "EO",
+    "name": "East Orange",
+    "lat": 40.761348,
+    "lng": -74.210981,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "ED",
+    "name": "Edison",
+    "lat": 40.519096,
+    "lng": -74.410808,
+    "lines": [
+      "NE"
+    ]
+  },
+  {
+    "code": "EH",
+    "name": "Egg Harbor City",
+    "lat": 39.526426,
+    "lng": -74.648064,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "EL",
+    "name": "Elberon",
+    "lat": 40.265264,
+    "lng": -73.997416,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "EZ",
+    "name": "Elizabeth",
+    "lat": 40.666781,
+    "lng": -74.215757,
+    "lines": [
+      "NC",
+      "NE"
+    ]
+  },
+  {
+    "code": "EN",
+    "name": "Emerson",
+    "lat": 40.975086,
+    "lng": -74.027346,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "EX",
+    "name": "Essex Street",
+    "lat": 40.87928,
+    "lng": -74.05184,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "FW",
+    "name": "Fanwood",
+    "lat": 40.640832,
+    "lng": -74.385135,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "FH",
+    "name": "Far Hills",
+    "lat": 40.685561,
+    "lng": -74.633801,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "GD",
+    "name": "Garfield",
+    "lat": 40.866659,
+    "lng": -74.105652,
+    "lines": [
+      "BC"
+    ]
+  },
+  {
+    "code": "GW",
+    "name": "Garwood",
+    "lat": 40.652606,
+    "lng": -74.324944,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "GI",
+    "name": "Gillette",
+    "lat": 40.678246,
+    "lng": -74.468062,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "GL",
+    "name": "Gladstone",
+    "lat": 40.720284,
+    "lng": -74.666286,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "GG",
+    "name": "Glen Ridge",
+    "lat": 40.800345,
+    "lng": -74.204725,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "GK",
+    "name": "Glen Rock Boro Hall",
+    "lat": 40.961363,
+    "lng": -74.12944,
+    "lines": [
+      "BC"
+    ]
+  },
+  {
+    "code": "RS",
+    "name": "Glen Rock Main Line",
+    "lat": 40.962268,
+    "lng": -74.133708,
+    "lines": [
+      "ML"
+    ]
+  },
+  {
+    "code": "HQ",
+    "name": "Hackettstown",
+    "lat": 40.851953,
+    "lng": -74.834709,
+    "lines": [
+      "MC",
+      "ME"
+    ]
+  },
+  {
+    "code": "HL",
+    "name": "Hamilton",
+    "lat": 40.255225,
+    "lng": -74.703857,
+    "lines": [
+      "NE"
+    ]
+  },
+  {
+    "code": "HN",
+    "name": "Hammonton",
+    "lat": 39.631666,
+    "lng": -74.799459,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "RM",
+    "name": "Harriman",
+    "lat": 41.293273,
+    "lng": -74.139891,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "HW",
+    "name": "Hawthorne",
+    "lat": 40.942682,
+    "lng": -74.15247,
+    "lines": [
+      "ML"
+    ]
+  },
+  {
+    "code": "HZ",
+    "name": "Hazlet",
+    "lat": 40.415295,
+    "lng": -74.190281,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "HG",
+    "name": "High Bridge",
+    "lat": 40.666736,
+    "lng": -74.895946,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "HI",
+    "name": "Highland Avenue",
+    "lat": 40.766844,
+    "lng": -74.243614,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "HD",
+    "name": "Hillsdale",
+    "lat": 41.002436,
+    "lng": -74.040912,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "HB",
+    "name": "Hoboken",
+    "lat": 40.734976,
+    "lng": -74.027591,
+    "lines": [
+      "BC",
+      "GS",
+      "MC",
+      "ME",
+      "ML",
+      "PV",
+      "RV"
+    ]
+  },
+  {
+    "code": "UF",
+    "name": "Hohokus",
+    "lat": 40.997396,
+    "lng": -74.113358,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "JA",
+    "name": "Jersey Avenue",
+    "lat": 40.476473,
+    "lng": -74.467932,
+    "lines": [
+      "NE"
+    ]
+  },
+  {
+    "code": "KG",
+    "name": "Kingsland",
+    "lat": 40.810132,
+    "lng": -74.11729,
+    "lines": [
+      "ML"
+    ]
+  },
+  {
+    "code": "HP",
+    "name": "Lake Hopatcong",
+    "lat": 40.904186,
+    "lng": -74.665572,
+    "lines": [
+      "MC",
+      "ME"
+    ]
+  },
+  {
+    "code": "ON",
+    "name": "Lebanon",
+    "lat": 40.636847,
+    "lng": -74.836067,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "LP",
+    "name": "Lincoln Park",
+    "lat": 40.924126,
+    "lng": -74.302352,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "LI",
+    "name": "Linden",
+    "lat": 40.629772,
+    "lng": -74.250908,
+    "lines": [
+      "NC",
+      "NE"
+    ]
+  },
+  {
+    "code": "LW",
+    "name": "Lindenwold",
+    "lat": 39.834015,
+    "lng": -75.00066,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "FA",
+    "name": "Little Falls",
+    "lat": 40.880638,
+    "lng": -74.235243,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "LS",
+    "name": "Little Silver",
+    "lat": 40.326671,
+    "lng": -74.040589,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "LB",
+    "name": "Long Branch",
+    "lat": 40.297113,
+    "lng": -73.988301,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "LN",
+    "name": "Lyndhurst",
+    "lat": 40.816353,
+    "lng": -74.124247,
+    "lines": [
+      "ML"
+    ]
+  },
+  {
+    "code": "LY",
+    "name": "Lyons",
+    "lat": 40.684767,
+    "lng": -74.549559,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "MA",
+    "name": "Madison",
+    "lat": 40.756998,
+    "lng": -74.415376,
+    "lines": [
+      "ME"
+    ]
+  },
+  {
+    "code": "MZ",
+    "name": "Mahwah",
+    "lat": 41.094176,
+    "lng": -74.146748,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "SQ",
+    "name": "Manasquan",
+    "lat": 40.120759,
+    "lng": -74.047796,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "MW",
+    "name": "Maplewood",
+    "lat": 40.731059,
+    "lng": -74.275339,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "MP",
+    "name": "Metropark",
+    "lat": 40.568095,
+    "lng": -74.329633,
+    "lines": [
+      "NE"
+    ]
+  },
+  {
+    "code": "MU",
+    "name": "Metuchen",
+    "lat": 40.540698,
+    "lng": -74.360341,
+    "lines": [
+      "NE"
+    ]
+  },
+  {
+    "code": "MI",
+    "name": "Middletown NJ",
+    "lat": 40.390798,
+    "lng": -74.11695,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "MD",
+    "name": "Middletown NY",
+    "lat": 41.457481,
+    "lng": -74.370389,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "MB",
+    "name": "Millburn",
+    "lat": 40.725733,
+    "lng": -74.303699,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "GO",
+    "name": "Millington",
+    "lat": 40.673616,
+    "lng": -74.523489,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "MK",
+    "name": "Monmouth Park",
+    "lat": 40.313425,
+    "lng": -74.014921,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "HS",
+    "name": "Montclair Heights",
+    "lat": 40.857619,
+    "lng": -74.202581,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "UV",
+    "name": "Montclair State University",
+    "lat": 40.869858,
+    "lng": -74.197402,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "ZM",
+    "name": "Montvale",
+    "lat": 41.040533,
+    "lng": -74.029277,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "MX",
+    "name": "Morris Plains",
+    "lat": 40.828573,
+    "lng": -74.478353,
+    "lines": [
+      "ME"
+    ]
+  },
+  {
+    "code": "MR",
+    "name": "Morristown",
+    "lat": 40.79717,
+    "lng": -74.474359,
+    "lines": [
+      "ME"
+    ]
+  },
+  {
+    "code": "HV",
+    "name": "Mount Arlington",
+    "lat": 40.896505,
+    "lng": -74.632791,
+    "lines": [
+      "MC",
+      "ME"
+    ]
+  },
+  {
+    "code": "OL",
+    "name": "Mount Olive",
+    "lat": 40.907424,
+    "lng": -74.730776,
+    "lines": [
+      "MC",
+      "ME"
+    ]
+  },
+  {
+    "code": "TB",
+    "name": "Mount Tabor",
+    "lat": 40.875859,
+    "lng": -74.481857,
+    "lines": [
+      "ME"
+    ]
+  },
+  {
+    "code": "MS",
+    "name": "Mountain Avenue",
+    "lat": 40.84884,
+    "lng": -74.205465,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "ML",
+    "name": "Mountain Lakes",
+    "lat": 40.885861,
+    "lng": -74.433644,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "MT",
+    "name": "Mountain Station",
+    "lat": 40.75536,
+    "lng": -74.253024,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "MV",
+    "name": "Mountain View",
+    "lat": 40.913946,
+    "lng": -74.267754,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "MH",
+    "name": "Murray Hill",
+    "lat": 40.694945,
+    "lng": -74.403186,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "NN",
+    "name": "Nanuet",
+    "lat": 41.090268,
+    "lng": -74.01482,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "NT",
+    "name": "Netcong",
+    "lat": 40.897692,
+    "lng": -74.70736,
+    "lines": [
+      "MC",
+      "ME"
+    ]
+  },
+  {
+    "code": "NE",
+    "name": "Netherwood",
+    "lat": 40.629072,
+    "lng": -74.403351,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "NH",
+    "name": "New Bridge Landing",
+    "lat": 40.910961,
+    "lng": -74.035096,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "NB",
+    "name": "New Brunswick",
+    "lat": 40.496648,
+    "lng": -74.446092,
+    "lines": [
+      "NE"
+    ]
+  },
+  {
+    "code": "NV",
+    "name": "New Providence",
+    "lat": 40.712119,
+    "lng": -74.386395,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "NY",
+    "name": "New York Penn Station",
+    "lat": 40.750569,
+    "lng": -73.993519,
+    "lines": [
+      "GS",
+      "MC",
+      "ME",
+      "NC",
+      "NE",
+      "RV"
+    ]
+  },
+  {
+    "code": "NA",
+    "name": "Newark Airport",
+    "lat": 40.704368,
+    "lng": -74.190679,
+    "lines": [
+      "NC",
+      "NE"
+    ]
+  },
+  {
+    "code": "ND",
+    "name": "Newark Broad Street",
+    "lat": 40.747446,
+    "lng": -74.171922,
+    "lines": [
+      "GS",
+      "MC",
+      "ME"
+    ]
+  },
+  {
+    "code": "NP",
+    "name": "Newark Penn Station",
+    "lat": 40.734697,
+    "lng": -74.164466,
+    "lines": [
+      "NC",
+      "NE",
+      "RV"
+    ]
+  },
+  {
+    "code": "OR",
+    "name": "North Branch",
+    "lat": 40.592497,
+    "lng": -74.684339,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "NZ",
+    "name": "North Elizabeth",
+    "lat": 40.680673,
+    "lng": -74.205553,
+    "lines": [
+      "NC",
+      "NE"
+    ]
+  },
+  {
+    "code": "NF",
+    "name": "North Philadelphia",
+    "lat": 39.997186,
+    "lng": -75.155252,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "OD",
+    "name": "Oradell",
+    "lat": 40.953807,
+    "lng": -74.030198,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "OG",
+    "name": "Orange",
+    "lat": 40.771774,
+    "lng": -74.233301,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "OS",
+    "name": "Otisville",
+    "lat": 41.471814,
+    "lng": -74.529216,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "PV",
+    "name": "Park Ridge",
+    "lat": 41.032931,
+    "lng": -74.035774,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "PS",
+    "name": "Passaic",
+    "lat": 40.849438,
+    "lng": -74.133801,
+    "lines": [
+      "ML"
+    ]
+  },
+  {
+    "code": "RN",
+    "name": "Paterson",
+    "lat": 40.914952,
+    "lng": -74.167315,
+    "lines": [
+      "ML"
+    ]
+  },
+  {
+    "code": "PC",
+    "name": "Peapack",
+    "lat": 40.708803,
+    "lng": -74.658374,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "PQ",
+    "name": "Pearl River",
+    "lat": 41.058553,
+    "lng": -74.022265,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "PN",
+    "name": "Pennsauken",
+    "lat": 39.977992,
+    "lng": -75.061928,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "PE",
+    "name": "Perth Amboy",
+    "lat": 40.509325,
+    "lng": -74.273567,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "PH",
+    "name": "Philadelphia",
+    "lat": 39.955779,
+    "lng": -75.181968,
+    "lines": [
+      "AC"
+    ]
+  },
+  {
+    "code": "PF",
+    "name": "Plainfield",
+    "lat": 40.618406,
+    "lng": -74.420414,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "PL",
+    "name": "Plauderville",
+    "lat": 40.884797,
+    "lng": -74.10282,
+    "lines": [
+      "BC"
+    ]
+  },
+  {
+    "code": "PP",
+    "name": "Point Pleasant Beach",
+    "lat": 40.092848,
+    "lng": -74.04806,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "PO",
+    "name": "Port Jervis",
+    "lat": 41.374892,
+    "lng": -74.694623,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "PR",
+    "name": "Princeton",
+    "lat": 40.34209,
+    "lng": -74.65887,
+    "lines": [
+      "PR"
+    ]
+  },
+  {
+    "code": "PJ",
+    "name": "Princeton Junction",
+    "lat": 40.315821,
+    "lng": -74.624064,
+    "lines": [
+      "NE",
+      "PR"
+    ]
+  },
+  {
+    "code": "FZ",
+    "name": "Radburn Fair Lawn",
+    "lat": 40.939537,
+    "lng": -74.121559,
+    "lines": [
+      "BC"
+    ]
+  },
+  {
+    "code": "RH",
+    "name": "Rahway",
+    "lat": 40.606141,
+    "lng": -74.27652,
+    "lines": [
+      "NC",
+      "NE"
+    ]
+  },
+  {
+    "code": "RY",
+    "name": "Ramsey Main St",
+    "lat": 41.056846,
+    "lng": -74.142216,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "17",
+    "name": "Ramsey Route 17",
+    "lat": 41.07415,
+    "lng": -74.144378,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "RA",
+    "name": "Raritan",
+    "lat": 40.570709,
+    "lng": -74.634396,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "RB",
+    "name": "Red Bank",
+    "lat": 40.34778,
+    "lng": -74.07393,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "RW",
+    "name": "Ridgewood",
+    "lat": 40.981182,
+    "lng": -74.120613,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "RG",
+    "name": "River Edge",
+    "lat": 40.935171,
+    "lng": -74.029259,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "RL",
+    "name": "Roselle Park",
+    "lat": 40.667166,
+    "lng": -74.266599,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "RF",
+    "name": "Rutherford",
+    "lat": 40.828275,
+    "lng": -74.100806,
+    "lines": [
+      "BC"
+    ]
+  },
+  {
+    "code": "CW",
+    "name": "Salisbury Mills-Cornwall",
+    "lat": 41.436656,
+    "lng": -74.101674,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "TS",
+    "name": "Secaucus Lower Lvl",
+    "lat": 40.760947,
+    "lng": -74.07539,
+    "lines": [
+      "BC",
+      "ML",
+      "PV"
+    ]
+  },
+  {
+    "code": "SE",
+    "name": "Secaucus Upper Lvl",
+    "lat": 40.761561,
+    "lng": -74.075886,
+    "lines": [
+      "GS",
+      "MC",
+      "ME",
+      "NC",
+      "NE",
+      "RV"
+    ]
+  },
+  {
+    "code": "RT",
+    "name": "Short Hills",
+    "lat": 40.725155,
+    "lng": -74.323791,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "XG",
+    "name": "Sloatsburg",
+    "lat": 41.157138,
+    "lng": -74.191308,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "SM",
+    "name": "Somerville",
+    "lat": 40.566075,
+    "lng": -74.613971,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "CH",
+    "name": "South Amboy",
+    "lat": 40.484792,
+    "lng": -74.280511,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "SO",
+    "name": "South Orange",
+    "lat": 40.745894,
+    "lng": -74.26043,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "LA",
+    "name": "Spring Lake",
+    "lat": 40.150509,
+    "lng": -74.035293,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "SV",
+    "name": "Spring Valley",
+    "lat": 41.111879,
+    "lng": -74.044031,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "SG",
+    "name": "Stirling",
+    "lat": 40.674716,
+    "lng": -74.493406,
+    "lines": [
+      "GS"
+    ]
+  },
+  {
+    "code": "SF",
+    "name": "Suffern",
+    "lat": 41.11399,
+    "lng": -74.153877,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "ST",
+    "name": "Summit",
+    "lat": 40.716697,
+    "lng": -74.357681,
+    "lines": [
+      "GS",
+      "ME"
+    ]
+  },
+  {
+    "code": "TE",
+    "name": "Teterboro",
+    "lat": 40.864857,
+    "lng": -74.062677,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "TO",
+    "name": "Towaco",
+    "lat": 40.923231,
+    "lng": -74.343625,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "TR",
+    "name": "Trenton",
+    "lat": 40.218805,
+    "lng": -74.754301,
+    "lines": [
+      "NE"
+    ]
+  },
+  {
+    "code": "TC",
+    "name": "Tuxedo",
+    "lat": 41.19423,
+    "lng": -74.184504,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "US",
+    "name": "Union",
+    "lat": 40.683326,
+    "lng": -74.238546,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "UM",
+    "name": "Upper Montclair",
+    "lat": 40.842038,
+    "lng": -74.209482,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "WK",
+    "name": "Waldwick",
+    "lat": 41.012121,
+    "lng": -74.123082,
+    "lines": [
+      "BC",
+      "ML"
+    ]
+  },
+  {
+    "code": "WA",
+    "name": "Walnut Street",
+    "lat": 40.817262,
+    "lng": -74.209796,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "WG",
+    "name": "Watchung Avenue",
+    "lat": 40.829663,
+    "lng": -74.207023,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "WT",
+    "name": "Watsessing Avenue",
+    "lat": 40.782764,
+    "lng": -74.198439,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "23",
+    "name": "Wayne-Route 23",
+    "lat": 40.899813,
+    "lng": -74.256622,
+    "lines": [
+      "MC"
+    ]
+  },
+  {
+    "code": "WM",
+    "name": "Wesmont",
+    "lat": 40.855221,
+    "lng": -74.096941,
+    "lines": [
+      "BC"
+    ]
+  },
+  {
+    "code": "WF",
+    "name": "Westfield",
+    "lat": 40.649273,
+    "lng": -74.347639,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "WW",
+    "name": "Westwood",
+    "lat": 40.990766,
+    "lng": -74.032904,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "WH",
+    "name": "White House",
+    "lat": 40.615505,
+    "lng": -74.770737,
+    "lines": [
+      "RV"
+    ]
+  },
+  {
+    "code": "WR",
+    "name": "Wood Ridge",
+    "lat": 40.843689,
+    "lng": -74.078855,
+    "lines": [
+      "PV"
+    ]
+  },
+  {
+    "code": "WB",
+    "name": "Woodbridge",
+    "lat": 40.556548,
+    "lng": -74.27781,
+    "lines": [
+      "NC"
+    ]
+  },
+  {
+    "code": "WL",
+    "name": "Woodcliff Lake",
+    "lat": 41.02109,
+    "lng": -74.040847,
+    "lines": [
+      "PV"
+    ]
+  }
+]
