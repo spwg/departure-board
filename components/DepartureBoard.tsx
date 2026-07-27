@@ -33,7 +33,9 @@ export function DepartureBoard({ code }: { code: string }) {
         const data: DeparturesResponse = await response.json();
         setDepartures(data.departures);
         setFixtures(data.fixtures);
-        setStale(false);
+        // The service worker serves its cached copy when the network is gone.
+        // Those times are old, so say so rather than showing them as current.
+        setStale(response.headers.get("X-From-Cache") === "1");
         setNow(Date.now());
         loadedOnce.current = true;
       } catch {
