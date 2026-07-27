@@ -22,7 +22,7 @@ NJT_API_USERNAME=
 NJT_API_PASSWORD=
 ```
 
-Without them the app serves stand-in departure data, so it still runs.
+Without them the app serves stand-in departure and stop data, so it still runs.
 
 > **Host:** requests go to `https://raildata.njtransit.com/api`. NJ Transit's
 > developer portal documents `raildata.njt.gov`, but that name currently has no
@@ -62,4 +62,7 @@ rather than treating it as an error.
 
 - `npm run dev` — start the local dev server
 - `npm run build` — production build
-- `npm run fetch-stations` — regenerate `lib/stations.json` from NJ Transit's station data (only needs to be re-run if the station list changes)
+- `npm run start` — serve a production build
+- `npm run lint` — ESLint
+- `npm run build-stations` — regenerate `lib/stations.json` from NJ Transit's station data (only needs to be re-run if the station list changes)
+- `npm run build-icons` — regenerate the app icons from one SVG source (needs `sharp`, which is not a dependency: `npm i -D sharp` first)
