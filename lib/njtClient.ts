@@ -1,7 +1,8 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import type { RawDeparture } from "./departures";
-import { fixtureDepartures } from "./fixtures";
+import { fixtureDepartures, fixtureStopList } from "./fixtures";
+import type { RawStopList } from "./stops";
 
 /**
  * Client for NJ Transit's RailData API.
@@ -179,4 +180,38 @@ export async function fetchDepartures(
   if (error) throw new Error(`NJT getTrainSchedule19Rec failed: ${error}`);
 
   return itemsOf(payload);
+}
+
+/**
+ * The stops a train makes, by train number.
+ *
+ * A second call rather than a field on the board: the API manual is explicit
+ * that getTrainSchedule19Rec returns DepartureVision's data "but without train
+ * stop list information". This rides the same generous 40,000/day data limit
+ * as the board, so asking for it per view is fine.
+ */
+export async function fetchStopList(trainId: string): Promise<RawStopList> {
+  if (usingFixtures()) return fixtureStopList(trainId);
+
+  const train = trainId.trim();
+  const token = await getToken();
+  const payload = await post("/TrainData/getTrainStopList", { token, train });
+
+  if (isInvalidToken(payload)) throw new InvalidTokenError();
+
+  const error = errorMessageOf(payload);
+  if (error) throw new Error(`NJT getTrainStopList failed: ${error}`);
+
+  // An unknown train number answers with an empty body rather than an error.
+  if (!payload || typeof payload !== "object") {
+    return {
+      TRAIN_ID: train,
+      LINECODE: "",
+      DESTINATION: "",
+      TRANSFERAT: "",
+      STOPS: [],
+    };
+  }
+
+  return payload as RawStopList;
 }

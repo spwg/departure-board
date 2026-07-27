@@ -2,6 +2,8 @@
 
 A pure NJ Transit rail departure board — just your trains, destinations, tracks, and status. No Amtrak, no bus/light rail, no station alerts, no announcements.
 
+Tap a departure for its **stops**: every station that train calls at, with the estimated time at each.
+
 Built with Next.js (App Router), TypeScript, and Tailwind CSS. Installable as a home-screen app on iPhone/Android/iPad.
 
 ## Development
@@ -20,7 +22,7 @@ NJT_API_USERNAME=
 NJT_API_PASSWORD=
 ```
 
-Without them the app serves stand-in departure data, so it still runs.
+Without them the app serves stand-in departure and stop data, so it still runs.
 
 > **Host:** requests go to `https://raildata.njtransit.com/api`. NJ Transit's
 > developer portal documents `raildata.njt.gov`, but that name currently has no
@@ -48,8 +50,19 @@ throwing across a `use cache` boundary loses the error type the token-refresh
 path depends on. Its limit (40,000/day) is loose enough that per-instance
 caching is fine.
 
+Stops are a second data call, `getTrainStopList`, cached the same way and
+against the same 40,000/day limit. It has to be its own request: NJ Transit's
+API manual notes that `getTrainSchedule19Rec` — the board's endpoint — returns
+DepartureVision's data "but without train stop list information". Its `TIME`
+field is an *estimated* arrival, not a timetable time, and comes back empty for
+stops far enough down the line, which is why the stops view shows a dash there
+rather than treating it as an error.
+
 ## Scripts
 
 - `npm run dev` — start the local dev server
 - `npm run build` — production build
-- `npm run fetch-stations` — regenerate `lib/stations.json` from NJ Transit's station data (only needs to be re-run if the station list changes)
+- `npm run start` — serve a production build
+- `npm run lint` — ESLint
+- `npm run build-stations` — regenerate `lib/stations.json` from NJ Transit's station data (only needs to be re-run if the station list changes)
+- `npm run build-icons` — regenerate the app icons from one SVG source (needs `sharp`, which is not a dependency: `npm i -D sharp` first)
