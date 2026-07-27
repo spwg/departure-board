@@ -1,4 +1,4 @@
-import type { RawDeparture } from "./departures";
+import { NJT_TIME_ZONE, type RawDeparture } from "./departures";
 
 /**
  * Stand-in departure data used when no API credentials are configured, so the
@@ -11,21 +11,32 @@ import type { RawDeparture } from "./departures";
  * track of "0" so the translation to "A" is visible.
  */
 
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-/** Formats a Date the way the API does: "30-May-2024 11:56:00 AM". */
+/**
+ * Formats a Date the way the API does: "30-May-2024 11:56:00 AM".
+ *
+ * Rendered in Eastern time like the real feed, not the server's zone, so
+ * fixtures exercise the same timezone handling as live data instead of
+ * round-tripping through whatever zone the host runs in.
+ */
 function njtDate(date: Date): string {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = MONTHS[date.getMonth()];
-  const hours24 = date.getHours();
-  const meridiem = hours24 < 12 ? "AM" : "PM";
-  const hours = String(hours24 % 12 === 0 ? 12 : hours24 % 12).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `${day}-${month}-${date.getFullYear()} ${hours}:${minutes}:${seconds} ${meridiem}`;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: NJT_TIME_ZONE,
+    hour12: true,
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(date);
+
+  const field: Record<string, string> = {};
+  for (const part of parts) field[part.type] = part.value;
+
+  return (
+    `${field.day}-${field.month}-${field.year} ` +
+    `${field.hour}:${field.minute}:${field.second} ${field.dayPeriod}`
+  );
 }
 
 type Template = {

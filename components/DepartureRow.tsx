@@ -1,4 +1,4 @@
-import type { Departure } from "@/lib/departures";
+import { NJT_TIME_ZONE, type Departure } from "@/lib/departures";
 import { lineColor, lineName } from "@/lib/stations";
 
 /**
@@ -13,8 +13,14 @@ function formatCountdown(minutes: number): string {
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 }
 
+/**
+ * Always Eastern, not the viewer's zone, so the board matches the clock at the
+ * station. Checking New York departures from another timezone should not shift
+ * every time on the page.
+ */
 function formatClock(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    timeZone: NJT_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
   });
