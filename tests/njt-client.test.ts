@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/cache", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn() }));
+vi.mock("next/cache", () => ({ unstable_cache: (fn: () => unknown) => fn }));
+vi.mock("@/lib/njtTokenStore", () => ({
+  getOrCreateStoredToken: (mint: () => Promise<string>) => mint(),
+  invalidateStoredToken: vi.fn(),
+}));
 vi.mock("server-only", () => ({}));
 
 afterEach(() => { delete process.env.NJT_API_USERNAME; delete process.env.NJT_API_PASSWORD; delete process.env.NJT_API_BASE_URL; vi.unstubAllGlobals(); vi.resetModules(); });
