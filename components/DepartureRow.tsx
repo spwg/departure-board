@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatClock, type Departure } from "@/lib/departures";
+import { useClockFormat } from "@/lib/clockFormat";
 import { lineColor, lineName } from "@/lib/stations";
 
 /**
@@ -24,9 +25,7 @@ export function DepartureRow({
   now: number;
   stationCode: string;
 }) {
-  // Rows render only after the client-side departure fetch, so the browser's
-  // own hour-cycle preference is available here.
-  const hourCycle = Intl.DateTimeFormat().resolvedOptions().hourCycle;
+  const { use24Hour } = useClockFormat();
   // Late trains leave late, so count down to when it will actually go.
   const expected = new Date(departure.expectedTime).getTime();
   const minutesAway = Math.round((expected - now) / 60_000);
@@ -86,14 +85,14 @@ export function DepartureRow({
             {delayed && !cancelled ? (
               <>
                 <span className="line-through">
-                  {formatClock(departure.scheduledTime, { hourCycle })}
+                  {formatClock(departure.scheduledTime, { hour12: !use24Hour })}
                 </span>{" "}
                 <span className="font-medium text-warn">
-                  {formatClock(departure.expectedTime, { hourCycle })}
+                  {formatClock(departure.expectedTime, { hour12: !use24Hour })}
                 </span>
               </>
             ) : (
-              formatClock(departure.scheduledTime, { hourCycle })
+              formatClock(departure.scheduledTime, { hour12: !use24Hour })
             )}
           </div>
         </div>
