@@ -15,6 +15,7 @@ export const stations: Station[] = stationsData;
 
 const byCode = new Map(stations.map((s) => [s.code, s]));
 
+/** Accepts a station code in any case and returns its directory entry, if one exists. */
 export function getStation(code: string): Station | undefined {
   return byCode.get(code.toUpperCase());
 }
@@ -37,6 +38,7 @@ export const LINE_NAMES: Record<string, string> = {
   SP: "SEPTA",
 };
 
+/** Returns a human-readable line name; unknown codes are preserved for display. */
 export function lineName(code: string): string {
   return LINE_NAMES[code] ?? code;
 }
@@ -61,6 +63,7 @@ export const LINE_COLORS: Record<string, string> = {
   SL: "#6B7280",
 };
 
+/** Returns a line's map colour, with a neutral fallback for unknown codes. */
 export function lineColor(code: string): string {
   return LINE_COLORS[code] ?? "#6B7280";
 }
@@ -83,7 +86,11 @@ export function distanceKm(
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
 }
 
-/** The station closest to a coordinate, with its distance. */
+/**
+ * Finds the directory station nearest to a latitude/longitude coordinate.
+ * Preconditions: coordinates use decimal degrees. Postcondition: the returned
+ * distance is in kilometres and is no greater than that of any listed station.
+ */
 export function nearestStation(
   lat: number,
   lng: number,
@@ -112,7 +119,8 @@ const normalize = (value: string) =>
 /**
  * Stations matching a search query, ranked so that name-prefix matches come
  * first, then word-prefix matches, then anything else containing the query.
- * An exact station code (e.g. "NY") always ranks first.
+ * An exact station code (e.g. "NY") always ranks first. Empty queries return
+ * no rows; returned rows never exceed `limit` and preserve deterministic ties.
  */
 export function searchStations(query: string, limit = 12): Station[] {
   const q = normalize(query);

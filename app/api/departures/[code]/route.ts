@@ -4,9 +4,11 @@ import {
   InvalidTokenError,
   TOKEN_TAG,
   fetchDepartures,
+  invalidateToken,
   usingFixtures,
 } from "@/lib/njtClient";
 import { getStation } from "@/lib/stations";
+
 
 export type DeparturesResponse = {
   station: { code: string; name: string };
@@ -42,6 +44,7 @@ async function getDepartures(stationCode: string): Promise<Departure[]> {
     // The token went bad before its cache lifetime ran out. Expire it now —
     // stale-while-revalidate would just hand the same dead token back — and
     // retry once with a fresh one.
+    await invalidateToken(error.token);
     revalidateTag(TOKEN_TAG, { expire: 0 });
     items = await fetchDepartures(stationCode);
   }
@@ -51,6 +54,10 @@ async function getDepartures(stationCode: string): Promise<Departure[]> {
   return departures;
 }
 
+/**
+ * Returns an uncached normalized board for a known station code. Unknown codes
+ * return 404; an upstream failure after at most one token refresh returns 502.
+ */
 export async function GET(
   _request: Request,
   context: RouteContext<"/api/departures/[code]">,
