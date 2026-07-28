@@ -54,14 +54,18 @@ operational train information.
 ## A note on the API token
 
 NJ Transit allows only **10 `getToken` calls per day**, so the token has to be
-reused across requests rather than fetched per request. It is held with Next's
-`unstable_cache` (see `lib/njtClient.ts`) and refreshed on demand when the API
-reports it has gone bad.
+reused across requests rather than fetched per request. The token is stored in
+Upstash Redis, with an atomic lock ensuring that simultaneous cache misses
+cannot mint several tokens. Next's Data Cache sits in front to avoid a Redis
+read on every board refresh. The token is replaced only when NJ Transit reports
+that it has gone bad.
 
-On Vercel, `unstable_cache` uses the Data Cache, which persists across
-serverless invocations and deployments. **Self-hosting is different:** use a
-durable shared cache if multiple processes or restarts must reuse the same
-token.
+Create a **Free** Upstash Redis database and set
+`UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` in Vercel. The free tier
+requires no payment card and includes 500,000 commands per month. Normal token
+usage costs only a handful of commands per day because Redis is contacted only
+on a Data Cache miss or token invalidation. Do not enable auto-upgrade or switch
+the database to a paid plan.
 
 Departure data is cached separately, in a plain in-process map, because
 throwing across a `use cache` boundary loses the error type the token-refresh
@@ -79,6 +83,7 @@ rather than treating it as an error.
 ## Scripts
 
 - `npm run dev` — start the local dev server
+- `npm test` — verify concurrent token cache misses mint exactly one NJT token
 - `npm run build` — production build
 - `npm run start` — serve a production build
 - `npm run lint` — ESLint
