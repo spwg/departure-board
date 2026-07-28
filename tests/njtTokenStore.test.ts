@@ -97,16 +97,17 @@ test("the Redis lock has a finite eviction time", async () => {
   ]);
 });
 
-test("a contender times out without minting if the lock never produces a token", async () => {
+test("a timed-out contender leaves minting to a later request after lock expiry", async () => {
   let currentTime = 0;
   let tokensMinted = 0;
+  let lockEvicted = false;
   const redis: TokenStoreRedis = {
     async getToken() {
       return null;
     },
     async setToken() {},
     async tryAcquireTokenLock() {
-      return false;
+      return lockEvicted;
     },
     async deleteTokenIfEqual() {},
   };
@@ -126,4 +127,16 @@ test("a contender times out without minting if the lock never produces a token",
     /Timed out waiting/,
   );
   assert.equal(tokensMinted, 0);
+
+  // Redis evicts the abandoned lock after its EX duration. A later request can
+  // then acquire it and mint the replacement token.
+  lockEvicted = true;
+  assert.equal(
+    await store.getOrCreateStoredToken(async () => {
+      tokensMinted += 1;
+      return "replacement";
+    }),
+    "replacement",
+  );
+  assert.equal(tokensMinted, 1);
 });
