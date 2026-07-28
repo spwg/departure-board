@@ -4,6 +4,7 @@ import {
   InvalidTokenError,
   TOKEN_TAG,
   fetchStopList,
+  invalidateToken,
   usingFixtures,
 } from "@/lib/njtClient";
 import { normalizeStopList, type StopList } from "@/lib/stops";
@@ -39,6 +40,7 @@ async function getStopList(trainId: string): Promise<StopList> {
     if (!(error instanceof InvalidTokenError)) throw error;
     // Same dance as the departures route: expire the dead token now rather
     // than serving it back, and retry once with a fresh one.
+    await invalidateToken(error.token);
     revalidateTag(TOKEN_TAG, { expire: 0 });
     raw = await fetchStopList(trainId);
   }
