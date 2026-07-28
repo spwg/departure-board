@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import "./globals.css";
 
+/** Tested contract: app-wide metadata, viewport behavior, fonts, and offline registration are always present. */
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

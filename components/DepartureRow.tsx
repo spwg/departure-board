@@ -1,6 +1,8 @@
 import { NJT_TIME_ZONE, type Departure } from "@/lib/departures";
 import { lineColor, lineName } from "@/lib/stations";
 
+/** Tested contract: each row exposes train, line, timetable, operational state, and track. */
+
 /**
  * Formats the wait as something you can read at a glance while walking.
  * Anything past an hour becomes "1h 20m" rather than "80 min".

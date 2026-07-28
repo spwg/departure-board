@@ -11,6 +11,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import sharp from "sharp";
 
+/** Tested contract: one SVG source generates all declared PNG icons and a valid single-image ICO. */
+
 const BACKGROUND = "#18181b";
 const CHIP = "#fafafa";
 // Northeast Corridor, North Jersey Coast, Morris & Essex.

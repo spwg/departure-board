@@ -3,6 +3,8 @@ import { cacheLife, cacheTag } from "next/cache";
 import type { RawDeparture } from "./departures";
 import { fixtureDepartures } from "./fixtures";
 
+/** Tested contract: credentials select live multipart API calls; otherwise fixtures. */
+
 /**
  * Client for NJ Transit's RailData API.
  *

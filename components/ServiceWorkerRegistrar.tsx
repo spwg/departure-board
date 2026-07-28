@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+/** Tested contract: registration is a production-only progressive enhancement. */
+
 /**
  * Registers the offline service worker.
  *

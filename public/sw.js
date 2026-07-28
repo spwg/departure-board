@@ -11,6 +11,7 @@
  */
 
 const VERSION = "v1";
+// Tested contract: navigation/data use network-first, hashed assets cache-first, and stale data is labeled.
 const SHELL_CACHE = `shell-${VERSION}`;
 const DATA_CACHE = `data-${VERSION}`;
 const CURRENT = new Set([SHELL_CACHE, DATA_CACHE]);
