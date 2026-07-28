@@ -9,6 +9,7 @@ import {
 } from "@/lib/njtClient";
 import { getStation } from "@/lib/stations";
 
+
 export type DeparturesResponse = {
   station: { code: string; name: string };
   departures: Departure[];
@@ -53,6 +54,10 @@ async function getDepartures(stationCode: string): Promise<Departure[]> {
   return departures;
 }
 
+/**
+ * Returns an uncached normalized board for a known station code. Unknown codes
+ * return 404; an upstream failure after at most one token refresh returns 502.
+ */
 export async function GET(
   _request: Request,
   context: RouteContext<"/api/departures/[code]">,

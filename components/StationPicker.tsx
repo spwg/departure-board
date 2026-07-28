@@ -13,6 +13,7 @@ import {
   stations,
 } from "@/lib/stations";
 
+
 type LocationState =
   | { status: "locating" | "unavailable" }
   | { status: "found"; station: Station; distanceKm: number };

@@ -2,6 +2,8 @@
 
 import { useFavorites } from "@/lib/favorites";
 
+
+/** Toggles `code`; the pressed state and accessible label reflect the resulting favourite state. */
 export function FavoriteButton({
   code,
   name,

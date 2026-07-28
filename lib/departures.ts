@@ -89,7 +89,8 @@ const NAMED_ENTITIES: Record<string, string> = {
  * &#9992 is the plane marking a train that serves Newark Airport. React escapes
  * strings, so without this the board would print the entity source instead of
  * the glyph. Note the trailing semicolon is optional in this feed, which is why
- * the pattern does not require one.
+ * the pattern does not require one. Nullish input produces an empty string;
+ * output has collapsed whitespace and no leading or trailing space.
  */
 export function decodeEntities(value: string): string {
   return (value ?? "")
@@ -244,6 +245,11 @@ export function toStatus(statusText: string, delayMinutes: number): DepartureSta
   return "on-time";
 }
 
+/**
+ * Converts one non-excluded API item to a display departure. Invalid scheduled
+ * timestamps return null; valid results use ISO instants and never have a
+ * negative delay.
+ */
 export function normalizeDeparture(item: RawDeparture): Departure | null {
   const scheduled = parseNjtDate(item.SCHED_DEP_DATE);
   if (!scheduled) return null;
