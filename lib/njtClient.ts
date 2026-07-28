@@ -2,6 +2,10 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { RawDeparture } from "./departures";
 import { fixtureDepartures, fixtureStopList } from "./fixtures";
+import {
+  getOrCreateStoredToken,
+  invalidateStoredToken,
+} from "./njtTokenStore";
 import type { RawStopList } from "./stops";
 
 /**
@@ -19,6 +23,8 @@ import type { RawStopList } from "./stops";
 
 export const TOKEN_TAG = "njt-token";
 
+const UPSTREAM_TIMEOUT_MS = 10_000;
+
 /**
  * NJ Transit's developer portal documents raildata.njt.gov, but that name has
  * no A record yet — it is presumably staged for a move to the .gov domain.
@@ -30,7 +36,7 @@ const DEFAULT_BASE_URL = "https://raildata.njtransit.com/api";
 
 /** Thrown when NJT rejects the cached token, so the caller can refresh and retry. */
 export class InvalidTokenError extends Error {
-  constructor() {
+  constructor(readonly token: string) {
     super("NJT rejected the cached token");
     this.name = "InvalidTokenError";
   }
@@ -59,6 +65,7 @@ async function post(
     headers: { accept: "application/json" },
     // This data is cached deliberately by the callers below; never by fetch.
     cache: "no-store",
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -138,15 +145,28 @@ async function fetchToken(): Promise<string> {
 /**
  * RailData token shared by all Vercel function instances and deployments.
  *
- * `use cache` is an in-memory cache in serverless runtimes, so a cold start
- * could otherwise mint another token. `unstable_cache` uses Next's Data Cache,
- * which is durable on Vercel. The route handler expires this tag immediately
- * and retries when NJT reports the token is invalid.
+ * Next's Data Cache avoids routine Redis reads. Redis remains the source of
+ * truth and protects Data Cache misses with an atomic writer lock. The token
+ * stays cached until NJT rejects it; there is no periodic token minting.
  */
-const getToken = unstable_cache(fetchToken, ["njt-token"], {
-  revalidate: 60 * 60 * 12,
-  tags: [TOKEN_TAG],
-});
+const getToken = unstable_cache(
+  () => getOrCreateStoredToken(fetchToken),
+  ["njt-token"],
+  {
+    revalidate: false,
+    tags: [TOKEN_TAG],
+  },
+);
+
+/**
+ * Deletes a rejected token only if Redis still contains that exact value.
+ *
+ * The compare-and-delete is atomic, so a slow request carrying an old token
+ * cannot erase a newer token minted by another request.
+ */
+export async function invalidateToken(rejectedToken: string): Promise<void> {
+  await invalidateStoredToken(rejectedToken);
+}
 
 function itemsOf(payload: unknown): RawDeparture[] {
   if (payload && typeof payload === "object" && "ITEMS" in payload) {
@@ -181,7 +201,7 @@ export async function fetchDepartures(
     // Signal to the caller that the cached token should be dropped and the
     // request retried. Only route handlers may call revalidateTag, so the
     // invalidation itself happens there.
-    throw new InvalidTokenError();
+    throw new InvalidTokenError(token);
   }
 
   const error = errorMessageOf(payload);
@@ -205,7 +225,7 @@ export async function fetchStopList(trainId: string): Promise<RawStopList> {
   const token = await getToken();
   const payload = await post("/TrainData/getTrainStopList", { token, train });
 
-  if (isInvalidToken(payload)) throw new InvalidTokenError();
+  if (isInvalidToken(payload)) throw new InvalidTokenError(token);
 
   const error = errorMessageOf(payload);
   if (error) throw new Error(`NJT getTrainStopList failed: ${error}`);
