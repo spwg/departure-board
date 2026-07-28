@@ -2,8 +2,8 @@
 
 import { useFavorites } from "@/lib/favorites";
 
-/** Tested contract: the accessible button state always mirrors the favourite store. */
 
+/** Toggles `code`; the pressed state and accessible label reflect the resulting favourite state. */
 export function FavoriteButton({
   code,
   name,

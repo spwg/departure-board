@@ -1,7 +1,6 @@
 import { NJT_TIME_ZONE, type Departure } from "@/lib/departures";
 import { lineColor, lineName } from "@/lib/stations";
 
-/** Tested contract: each row exposes train, line, timetable, operational state, and track. */
 
 /**
  * Formats the wait as something you can read at a glance while walking.
@@ -28,6 +27,7 @@ function formatClock(iso: string): string {
   });
 }
 
+/** Renders one normalized departure, counting down to its expected (not scheduled) departure time. */
 export function DepartureRow({
   departure,
   now,

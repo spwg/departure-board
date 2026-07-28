@@ -13,7 +13,6 @@ import {
   stations,
 } from "@/lib/stations";
 
-/** Tested contract: search, favourites, and optional geolocation produce navigable station choices. */
 
 type LocationState =
   | { status: "locating" | "unavailable" }

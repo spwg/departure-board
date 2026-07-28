@@ -5,16 +5,18 @@ import { DepartureBoard } from "@/components/DepartureBoard";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { getStation, stations } from "@/lib/stations";
 
-/** Tested contract: every known station is prerendered and unknown station routes resolve to not-found. */
-
 /**
  * There are only 167 stations, so prerendering every shell is cheap and makes
  * opening a board feel instant. The departures themselves load on the client.
+ *
+ * Preconditions: `stations` is the canonical directory and its codes are
+ * route-safe. Postcondition: every directory code is returned exactly once.
  */
 export function generateStaticParams() {
   return stations.map((station) => ({ code: station.code }));
 }
 
+/** Returns a station-specific title, or a safe not-found title for an unknown code. */
 export async function generateMetadata({
   params,
 }: PageProps<"/station/[code]">): Promise<Metadata> {
@@ -25,6 +27,7 @@ export async function generateMetadata({
   };
 }
 
+/** Renders a board only for a directory station; all other codes invoke Next's not-found boundary. */
 export default async function StationPage({
   params,
 }: PageProps<"/station/[code]">) {

@@ -1,6 +1,5 @@
 import { NJT_TIME_ZONE, type RawDeparture } from "./departures";
 
-/** Tested contract: fixtures remain API-shaped, time-relative, and station-specific. */
 
 /**
  * Stand-in departure data used when no API credentials are configured, so the
@@ -93,6 +92,11 @@ const BY_STATION: Record<string, Template[]> = {
   NA: NEWARK_AIRPORT,
 };
 
+/**
+ * Returns fresh raw API records relative to the current time. Station code is
+ * case-insensitive; NY and NA receive their curated scenarios, while every
+ * other code receives the generic scenario.
+ */
 export function fixtureDepartures(stationCode: string): RawDeparture[] {
   const templates = BY_STATION[stationCode.toUpperCase()] ?? GENERIC;
   const now = Date.now();
