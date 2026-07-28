@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StopsResponse } from "@/app/api/stops/[train]/route";
 import { formatClock } from "@/lib/departures";
+import { useClockFormat } from "@/lib/clockFormat";
 import { getStation, lineColor, lineName } from "@/lib/stations";
 import type { Stop, StopList as StopListData } from "@/lib/stops";
 
@@ -21,6 +22,7 @@ export function StopList({ train, from }: { train: string; from: string }) {
   const [status, setStatus] = useState<Status>("loading");
   const [fixtures, setFixtures] = useState(false);
   const [stale, setStale] = useState(false);
+  const { use24Hour } = useClockFormat();
 
   // Held in a ref so the polling effect does not restart on every render.
   const loadedOnce = useRef(false);
@@ -139,6 +141,7 @@ export function StopList({ train, from }: { train: string; from: string }) {
             here={Boolean(from) && stop.code === from.toUpperCase()}
             first={index === 0}
             last={index === stopList.stops.length - 1}
+            use24Hour={use24Hour}
           />
         ))}
       </ol>
@@ -152,12 +155,14 @@ function StopRow({
   here,
   first,
   last,
+  use24Hour,
 }: {
   stop: Stop;
   color: string;
   here: boolean;
   first: boolean;
   last: boolean;
+  use24Hour: boolean;
 }) {
   // Through-running trains call at stations outside NJ Transit's own list, so
   // only link the ones that have a board of their own.
@@ -226,7 +231,7 @@ function StopRow({
         }`}
       >
         {stop.time ? (
-          formatClock(stop.time)
+          formatClock(stop.time, { hour12: !use24Hour })
         ) : (
           // No estimate this far down the line yet.
           <span className="text-faint" aria-label="No estimate yet">
