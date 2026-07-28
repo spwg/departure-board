@@ -55,16 +55,13 @@ operational train information.
 
 NJ Transit allows only **10 `getToken` calls per day**, so the token has to be
 reused across requests rather than fetched per request. It is held with Next's
-`use cache` (see `lib/njtClient.ts`) and refreshed on demand when the API
+`unstable_cache` (see `lib/njtClient.ts`) and refreshed on demand when the API
 reports it has gone bad.
 
-On Vercel that cache is backed by the Data Cache, which persists across
-serverless invocations. **Self-hosting is different:** with plain `next start`
-the default cache is per-process, so every restart costs another token — enough
-restarts in a day and the app will start failing with a daily-limit error. If
-you self-host, configure a [custom cache
-handler](https://nextjs.org/docs/app/api-reference/config/next-config-js/cacheHandler)
-backed by shared storage.
+On Vercel, `unstable_cache` uses the Data Cache, which persists across
+serverless invocations and deployments. **Self-hosting is different:** use a
+durable shared cache if multiple processes or restarts must reuse the same
+token.
 
 Departure data is cached separately, in a plain in-process map, because
 throwing across a `use cache` boundary loses the error type the token-refresh
