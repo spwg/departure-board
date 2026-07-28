@@ -1,5 +1,7 @@
 import stationsData from "./stations.json";
 
+/** Tested contract: station lookup/search is case-insensitive and deterministic. */
+
 export type Station = {
   /** STATION_2CHAR, the code the departures API expects (e.g. "NY"). */
   code: string;

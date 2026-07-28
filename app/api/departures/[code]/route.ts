@@ -8,6 +8,8 @@ import {
 } from "@/lib/njtClient";
 import { getStation } from "@/lib/stations";
 
+/** Tested contract: valid boards are uncached HTTP responses; unknown/upstream failures become 404/502. */
+
 export type DeparturesResponse = {
   station: { code: string; name: string };
   departures: Departure[];

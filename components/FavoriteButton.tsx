@@ -2,6 +2,8 @@
 
 import { useFavorites } from "@/lib/favorites";
 
+/** Tested contract: the accessible button state always mirrors the favourite store. */
+
 export function FavoriteButton({
   code,
   name,

@@ -5,6 +5,8 @@ import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import type { Departure } from "@/lib/departures";
 import { DepartureRow } from "./DepartureRow";
 
+/** Tested contract: loading, retryable failure, empty, stale/fixture, and live-board states are distinct. */
+
 const REFRESH_MS = 30_000;
 /** Countdowns tick locally between fetches so the board never looks frozen. */
 const TICK_MS = 15_000;

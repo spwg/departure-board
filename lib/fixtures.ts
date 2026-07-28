@@ -1,5 +1,7 @@
 import { NJT_TIME_ZONE, type RawDeparture } from "./departures";
 
+/** Tested contract: fixtures remain API-shaped, time-relative, and station-specific. */
+
 /**
  * Stand-in departure data used when no API credentials are configured, so the
  * app is runnable without them.

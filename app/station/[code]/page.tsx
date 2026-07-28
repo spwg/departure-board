@@ -5,6 +5,8 @@ import { DepartureBoard } from "@/components/DepartureBoard";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { getStation, stations } from "@/lib/stations";
 
+/** Tested contract: every known station is prerendered and unknown station routes resolve to not-found. */
+
 /**
  * There are only 167 stations, so prerendering every shell is cheap and makes
  * opening a board feel instant. The departures themselves load on the client.

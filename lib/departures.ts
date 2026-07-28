@@ -5,6 +5,7 @@
  * stay simple.
  */
 
+/** Tested contract: API-shaped records become ordered, UI-safe NJT departures. */
 /** A record from the API's `ITEMS` array. Only fields we actually use. */
 export type RawDeparture = {
   SCHED_DEP_DATE: string;

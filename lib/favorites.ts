@@ -2,6 +2,8 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+/** Tested contract: favourites toggle atomically and persist when browser storage permits. */
+
 const STORAGE_KEY = "departure-board:favorites";
 /** Lets every mounted hook react to a change made anywhere in the app. */
 const CHANGE_EVENT = "departure-board:favorites-changed";
