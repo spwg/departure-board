@@ -14,8 +14,8 @@ describe("departure normalization contract", () => {
   });
   it("uses the browser's 12- or 24-hour clock preference", () => {
     const iso = "2024-05-30T23:04:00.000Z";
-    expect(formatClock(iso, { locales: "en-US", hourCycle: "h12" })).toBe("7:04 PM");
-    expect(formatClock(iso, { locales: "en-US", hourCycle: "h23" })).toBe("19:04");
+    expect(formatClock(iso, { locales: "en-US", hour12: true })).toBe("7:04 PM");
+    expect(formatClock(iso, { locales: "en-US", hour12: false })).toBe("19:04");
   });
   it("filters excluded service and orders remaining departures by expected time", () => {
     const result = normalizeDepartures([item({ TRAIN_ID: "X9" }), item({ TRAIN_ID: "A9" }), item({ LINECODE: "SP" }), item({ TRAIN_ID: "late", SEC_LATE: "600", SCHED_DEP_DATE: "30-May-2024 11:50:00 AM" }), item({ TRAIN_ID: "board", SCHED_DEP_DATE: "30-May-2024 11:55:00 AM", STATUS: "ALL ABOARD" })]);
