@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { ClockFormatButton } from "@/components/ClockFormatButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
@@ -17,6 +18,14 @@ describe("interactive component contract", () => {
     fireEvent.click(button);
     await waitFor(() => expect(button.getAttribute("aria-pressed")).toBe("true"));
     expect(JSON.parse(window.localStorage.getItem("departure-board:favorites")!)).toEqual(["NY"]);
+  });
+
+  it("lets riders explicitly select 24-hour time", () => {
+    render(<ClockFormatButton />);
+    const button = screen.getByRole("button", { name: "Use 24-hour time" });
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+    expect(window.localStorage.getItem("departure-board:use-24-hour-time")).toBe("true");
   });
 
   it("renders a delayed departure with its timetable, train, line, and track", () => {

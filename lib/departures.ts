@@ -227,17 +227,17 @@ export function formatClock(
   iso: string,
   {
     locales,
-    hourCycle,
+    hour12,
   }: {
     locales?: Intl.LocalesArgument;
-    hourCycle?: Intl.DateTimeFormatOptions["hourCycle"];
+    hour12?: boolean;
   } = {},
 ): string {
   return new Date(iso).toLocaleTimeString(locales, {
     timeZone: NJT_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
-    hourCycle,
+    hour12,
   });
 }
 
