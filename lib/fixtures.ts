@@ -1,4 +1,6 @@
 import { NJT_TIME_ZONE, type RawDeparture } from "./departures";
+import { getStation } from "./stations";
+import type { RawStop, RawStopList } from "./stops";
 
 
 /**
@@ -113,4 +115,121 @@ export function fixtureDepartures(stationCode: string): RawDeparture[] {
     SEC_LATE: String(t.secondsLate ?? 0),
     INLINEMSG: "",
   }));
+}
+
+/**
+ * Station codes along each line, ordered outbound from New York. Only as much
+ * of the real sequence as it takes to look like a railway — fixtures stand in
+ * for the feed, they are not a timetable.
+ */
+const LINE_STOPS: Record<string, string[]> = {
+  NE: ["NY", "SE", "NP", "NA", "EZ", "LI", "RH", "MP", "MU", "ED", "NB", "JA", "PJ", "HL", "TR"],
+  NC: ["NY", "SE", "NP", "NA", "EZ", "LI", "RH", "WB", "PE", "CH", "AM", "HZ", "MI", "RB", "LS", "LB", "EL", "AH", "AP", "BB", "BS", "LA", "SQ", "PP", "BH"],
+  ME: ["NY", "SE", "ND", "BU", "EO", "OG", "MT", "SO", "MW", "MB", "RT", "ST", "CM", "MA", "CN", "MR", "MX", "DV", "DO"],
+  GS: ["NY", "SE", "ND", "BU", "EO", "OG", "MW", "MB", "RT", "ST", "NV", "MH", "BY", "GI", "SG", "GO", "LY", "BI", "BV", "FH", "PC", "GL"],
+  MC: ["NY", "SE", "ND", "WT", "BM", "GG", "MC", "WG", "UM", "MS", "HS", "UV", "FA", "23", "MV", "LP", "TO", "BN", "ML", "DV", "DO", "OL", "NT", "HP", "HQ"],
+};
+
+/** Roughly how long the fixture train takes between stations. */
+const MINUTES_BETWEEN_STOPS = 6;
+
+/** How many trailing stops are left without an ETA. */
+const STOPS_WITHOUT_ESTIMATE = 2;
+
+function findTemplate(
+  trainId: string,
+): { template: Template; stationCode: string } | null {
+  const wanted = trainId.trim().toUpperCase();
+  const boards: Array<[string, Template[]]> = [
+    ...Object.entries(BY_STATION),
+    // The generic board stands in for every other station, so it has no code
+    // of its own to anchor the stop list to.
+    ["", GENERIC],
+  ];
+
+  for (const [stationCode, templates] of boards) {
+    const template = templates.find(
+      (t) => t.trainId.toUpperCase() === wanted,
+    );
+    if (template) return { template, stationCode };
+  }
+  return null;
+}
+
+/** The stations a fixture train calls at, in the order it calls at them. */
+function routeFor(template: Template): string[] {
+  const line = LINE_STOPS[template.lineCode] ?? LINE_STOPS.NE;
+
+  const inbound =
+    template.destination === "New York Penn Station" ||
+    template.destination === "Hoboken";
+  let route = inbound ? [...line].reverse() : [...line];
+
+  // Hoboken trains terminate at the old ferry terminal rather than running
+  // through Secaucus to New York.
+  if (template.destination === "Hoboken") {
+    route = [...route.filter((code) => code !== "SE" && code !== "NY"), "HB"];
+  }
+
+  // Everything past the destination belongs to a train that runs further down
+  // the same line.
+  const last = route.findIndex(
+    (code) => getStation(code)?.name === template.destination,
+  );
+  return last === -1 ? route : route.slice(0, last + 1);
+}
+
+/**
+ * A stand-in stop list, matched to the board that linked to it so the two
+ * agree. The trailing stops are deliberately left without a time: NJT stops
+ * estimating that far ahead, and the view has to render the gap.
+ */
+export function fixtureStopList(trainId: string): RawStopList {
+  const found = findTemplate(trainId);
+  if (!found) {
+    return {
+      TRAIN_ID: trainId,
+      LINECODE: "",
+      DESTINATION: "",
+      TRANSFERAT: "",
+      STOPS: [],
+    };
+  }
+
+  const { template, stationCode } = found;
+  const route = routeFor(template);
+  const now = Date.now();
+
+  // Where the board that linked here sits on the route. Stops before it have
+  // already been served.
+  const origin = Math.max(0, route.indexOf(stationCode));
+  const lastEstimated = route.length - 1 - STOPS_WITHOUT_ESTIMATE;
+
+  const stops: RawStop[] = route.map((code, index) => {
+    const minutes =
+      template.minutesFromNow + (index - origin) * MINUTES_BETWEEN_STOPS;
+
+    return {
+      STATION_2CHAR: code,
+      STATIONNAME: getStation(code)?.name ?? code,
+      TIME:
+        index > lastEstimated && index > origin
+          ? ""
+          : njtDate(new Date(now + minutes * 60_000)),
+      // Peak trains only pick up on the way out and only discharge at the end.
+      PICKUP: index === origin + 1 ? "Pick Up Only" : "",
+      DROPOFF: index === route.length - 1 ? "Discharge Only" : "",
+      DEPARTED: index < origin ? "YES" : "NO",
+      STOP_STATUS: "OnTime",
+    };
+  });
+
+  return {
+    TRAIN_ID: template.trainId,
+    LINECODE: template.lineCode,
+    DESTINATION: template.destination,
+    // North Jersey Coast Line trains split at Long Branch.
+    TRANSFERAT: template.destination === "Bay Head" ? "Long Branch" : "",
+    STOPS: stops,
+  };
 }

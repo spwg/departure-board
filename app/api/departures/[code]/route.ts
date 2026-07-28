@@ -4,6 +4,7 @@ import {
   InvalidTokenError,
   TOKEN_TAG,
   fetchDepartures,
+  invalidateToken,
   usingFixtures,
 } from "@/lib/njtClient";
 import { getStation } from "@/lib/stations";
@@ -43,6 +44,7 @@ async function getDepartures(stationCode: string): Promise<Departure[]> {
     // The token went bad before its cache lifetime ran out. Expire it now —
     // stale-while-revalidate would just hand the same dead token back — and
     // retry once with a fresh one.
+    await invalidateToken(error.token);
     revalidateTag(TOKEN_TAG, { expire: 0 });
     items = await fetchDepartures(stationCode);
   }

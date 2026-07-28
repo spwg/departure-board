@@ -20,7 +20,7 @@ describe("interactive component contract", () => {
   });
 
   it("renders a delayed departure with its timetable, train, line, and track", () => {
-    render(<DepartureRow departure={departure} now={Date.parse("2024-05-30T15:00:00.000Z")} />);
+    render(<DepartureRow departure={departure} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
     expect(screen.getByText("Trenton")).toBeTruthy(); expect(screen.getByText("#1234")).toBeTruthy(); expect(screen.getByLabelText("Track 5")).toBeTruthy(); expect(screen.getByText("11:00 AM")).toBeTruthy(); expect(screen.getByText("11:05 AM")).toBeTruthy();
   });
 

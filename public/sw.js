@@ -5,12 +5,12 @@
  *   - Build assets are content-hashed, so they are served cache-first.
  *   - Pages are network-first and cached as you visit them, so a reload while
  *     offline still opens the board instead of a browser error page.
- *   - Departure data is network-first with a cached fallback, tagged with
- *     X-From-Cache so the UI can label the times it shows as stale rather than
- *     passing old departures off as current.
+ *   - Departure and stop data is network-first with a cached fallback, tagged
+ *     with X-From-Cache so the UI can label the times it shows as stale rather
+ *     than passing old times off as current.
  */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `shell-${VERSION}`;
 const DATA_CACHE = `data-${VERSION}`;
 const CURRENT = new Set([SHELL_CACHE, DATA_CACHE]);
@@ -72,7 +72,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.startsWith("/api/departures/")) {
+  if (
+    url.pathname.startsWith("/api/departures/") ||
+    url.pathname.startsWith("/api/stops/")
+  ) {
     event.respondWith(networkFirst(request, DATA_CACHE, { tagStale: true }));
     return;
   }
