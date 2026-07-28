@@ -1,65 +1,129 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getOrCreateStoredToken } from "../lib/njtTokenStore";
+import {
+  createTokenStore,
+  createUpstashTokenStore,
+  TOKEN_LOCK_SECONDS,
+  type TokenStoreRedis,
+} from "../lib/njtTokenStore";
 
-test("concurrent cache misses mint exactly one NJT token", async () => {
-  const originalFetch = globalThis.fetch;
-  const originalUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const originalToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
 
-  process.env.UPSTASH_REDIS_REST_URL = "https://redis.test";
-  process.env.UPSTASH_REDIS_REST_TOKEN = "test-secret";
-
-  let storedToken: string | null = null;
+test("a contender waits for the writer to store its token", { timeout: 1_000 }, async () => {
+  let token: string | null = null;
   let lockHeld = false;
-  let lockAttempts = 0;
-  let locksAcquired = 0;
+  let firstMinted = 0;
+  let secondMinted = 0;
+  let secondResolved = false;
+  const firstMintStarted = deferred();
+  const releaseFirstMint = deferred();
+  const secondWaiting = deferred();
+  const releaseSecondPoll = deferred();
+
+  const redis: TokenStoreRedis = {
+    async getToken() {
+      return token;
+    },
+    async setToken(value) {
+      token = value;
+    },
+    async tryAcquireTokenLock() {
+      if (!lockHeld) {
+        lockHeld = true;
+        return true;
+      }
+      return false;
+    },
+    async deleteTokenIfEqual() {},
+  };
+  const store = createTokenStore(redis, {
+    wait: async () => {
+      secondWaiting.resolve();
+      await releaseSecondPoll.promise;
+    },
+  });
+
+  const first = store.getOrCreateStoredToken(async () => {
+    firstMinted += 1;
+    firstMintStarted.resolve();
+    await releaseFirstMint.promise;
+    return "first-token";
+  });
+
+  await firstMintStarted.promise;
+  const second = store.getOrCreateStoredToken(async () => {
+    secondMinted += 1;
+    return "second-token";
+  });
+  void second.then(() => {
+    secondResolved = true;
+  });
+
+  await secondWaiting.promise;
+  assert.equal(firstMinted, 1);
+  assert.equal(secondMinted, 0, "the contender must not mint a token");
+  assert.equal(secondResolved, false, "the contender must still be waiting");
+
+  releaseFirstMint.resolve();
+  assert.equal(await first, "first-token");
+  releaseSecondPoll.resolve();
+  assert.equal(await second, "first-token");
+  assert.equal(secondMinted, 0);
+});
+
+test("the Redis lock has a finite eviction time", async () => {
+  const commands: Array<Array<string | number>> = [];
+  const redis = createUpstashTokenStore(async <T>(...command: Array<string | number>) => {
+    commands.push(command);
+    return "OK" as T;
+  });
+
+  assert.equal(await redis.tryAcquireTokenLock(), true);
+  assert.deepEqual(commands, [
+    [
+      "SET",
+      "departure-board:njt-token-lock:v1",
+      commands[0][2],
+      "NX",
+      "EX",
+      TOKEN_LOCK_SECONDS,
+    ],
+  ]);
+});
+
+test("a contender times out without minting if the lock never produces a token", async () => {
+  let currentTime = 0;
   let tokensMinted = 0;
+  const redis: TokenStoreRedis = {
+    async getToken() {
+      return null;
+    },
+    async setToken() {},
+    async tryAcquireTokenLock() {
+      return false;
+    },
+    async deleteTokenIfEqual() {},
+  };
+  const store = createTokenStore(redis, {
+    now: () => currentTime,
+    wait: async () => {
+      currentTime += 100;
+    },
+    waitTimeoutMilliseconds: 300,
+  });
 
-  globalThis.fetch = (async (_input, init) => {
-    const command = JSON.parse(String(init?.body)) as Array<string | number>;
-    const [name, key, value, modifier] = command;
-
-    if (name === "GET") {
-      return Response.json({ result: storedToken });
-    }
-
-    if (name === "SET" && modifier === "NX") {
-      lockAttempts += 1;
-      if (lockHeld) return Response.json({ result: null });
-      lockHeld = true;
-      locksAcquired += 1;
-      return Response.json({ result: "OK" });
-    }
-
-    if (name === "SET" && key === "departure-board:njt-token:v1") {
-      storedToken = String(value);
-      return Response.json({ result: "OK" });
-    }
-
-    throw new Error(`Unexpected Redis command: ${JSON.stringify(command)}`);
-  }) as typeof fetch;
-
-  try {
-    const mintToken = async () => {
+  await assert.rejects(
+    store.getOrCreateStoredToken(async () => {
       tokensMinted += 1;
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      return "shared-token";
-    };
-
-    const tokens = await Promise.all(
-      Array.from({ length: 20 }, () => getOrCreateStoredToken(mintToken)),
-    );
-
-    assert.deepEqual(tokens, Array(20).fill("shared-token"));
-    assert.equal(tokensMinted, 1);
-    assert.equal(locksAcquired, 1);
-    assert.ok(lockAttempts > 1, "the test must exercise lock contention");
-  } finally {
-    globalThis.fetch = originalFetch;
-    if (originalUrl === undefined) delete process.env.UPSTASH_REDIS_REST_URL;
-    else process.env.UPSTASH_REDIS_REST_URL = originalUrl;
-    if (originalToken === undefined) delete process.env.UPSTASH_REDIS_REST_TOKEN;
-    else process.env.UPSTASH_REDIS_REST_TOKEN = originalToken;
-  }
+      return "unexpected";
+    }),
+    /Timed out waiting/,
+  );
+  assert.equal(tokensMinted, 0);
 });
