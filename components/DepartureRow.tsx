@@ -1,5 +1,6 @@
 import { NJT_TIME_ZONE, type Departure } from "@/lib/departures";
 import { lineColor, lineName } from "@/lib/stations";
+import { formatTime } from "@/lib/time";
 
 /**
  * Formats the wait as something you can read at a glance while walking.
@@ -13,19 +14,6 @@ function formatCountdown(minutes: number): string {
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 }
 
-/**
- * Always Eastern, not the viewer's zone, so the board matches the clock at the
- * station. Checking New York departures from another timezone should not shift
- * every time on the page.
- */
-function formatClock(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    timeZone: NJT_TIME_ZONE,
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 export function DepartureRow({
   departure,
   now,
@@ -33,6 +21,9 @@ export function DepartureRow({
   departure: Departure;
   now: number;
 }) {
+  // This component only renders rows after its client-side departure fetch, so
+  // the browser's own hour-cycle preference is available here.
+  const hourCycle = Intl.DateTimeFormat().resolvedOptions().hourCycle;
   // Late trains leave late, so count down to when it will actually go.
   const expected = new Date(departure.expectedTime).getTime();
   const minutesAway = Math.round((expected - now) / 60_000);
@@ -89,14 +80,14 @@ export function DepartureRow({
           {delayed && !cancelled ? (
             <>
               <span className="line-through">
-                {formatClock(departure.scheduledTime)}
+                {formatTime(departure.scheduledTime, NJT_TIME_ZONE, { hourCycle })}
               </span>{" "}
               <span className="font-medium text-warn">
-                {formatClock(departure.expectedTime)}
+                {formatTime(departure.expectedTime, NJT_TIME_ZONE, { hourCycle })}
               </span>
             </>
           ) : (
-            formatClock(departure.scheduledTime)
+            formatTime(departure.scheduledTime, NJT_TIME_ZONE, { hourCycle })
           )}
         </div>
       </div>
