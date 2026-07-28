@@ -2,6 +2,10 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { RawDeparture } from "./departures";
 import { fixtureDepartures, fixtureStopList } from "./fixtures";
+import {
+  getOrCreateStoredToken,
+  invalidateStoredToken,
+} from "./njtTokenStore";
 import type { RawStopList } from "./stops";
 
 /**
@@ -19,13 +23,7 @@ import type { RawStopList } from "./stops";
 
 export const TOKEN_TAG = "njt-token";
 
-const REDIS_TOKEN_KEY = "departure-board:njt-token:v1";
-const REDIS_LOCK_KEY = "departure-board:njt-token-lock:v1";
-const TOKEN_LOCK_SECONDS = 30;
-const TOKEN_WAIT_MS = 250;
-const TOKEN_WAIT_TIMEOUT_MS = 12_000;
 const UPSTREAM_TIMEOUT_MS = 10_000;
-const REDIS_TIMEOUT_MS = 5_000;
 
 /**
  * NJ Transit's developer portal documents raildata.njt.gov, but that name has
@@ -51,48 +49,6 @@ export function usingFixtures(): boolean {
 
 function baseUrl(): string {
   return process.env.NJT_API_BASE_URL?.replace(/\/$/, "") ?? DEFAULT_BASE_URL;
-}
-
-function redisCredentials(): { url: string; token: string } {
-  const url = process.env.UPSTASH_REDIS_REST_URL?.replace(/\/$/, "");
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
-    throw new Error(
-      "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set " +
-        "when NJ Transit credentials are configured",
-    );
-  }
-  return { url, token };
-}
-
-type RedisResult<T> = { result?: T; error?: string };
-
-/** Executes one Redis command through Upstash's HTTPS API. */
-async function redisCommand<T>(...command: Array<string | number>): Promise<T> {
-  const { url, token } = redisCredentials();
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(command),
-    cache: "no-store",
-    signal: AbortSignal.timeout(REDIS_TIMEOUT_MS),
-  });
-
-  const payload = (await response.json().catch(() => null)) as RedisResult<T> | null;
-  if (!response.ok || !payload || payload.error || !("result" in payload)) {
-    throw new Error(
-      `Upstash Redis command failed: ${response.status}` +
-        (payload?.error ? ` ${payload.error}` : ""),
-    );
-  }
-  return payload.result as T;
-}
-
-function wait(milliseconds: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 /** The API takes all parameters as multipart form fields, even the token. */
@@ -187,51 +143,20 @@ async function fetchToken(): Promise<string> {
 }
 
 /**
- * Returns the shared token, minting it only while holding Redis's atomic lock.
- *
- * SET NX lets exactly one Vercel instance become the writer. Contenders poll
- * for that writer's result rather than calling NJ Transit themselves. The lock
- * expires if the writer crashes; the NJT request times out well before then.
- */
-async function getOrCreateStoredToken(): Promise<string> {
-  const deadline = Date.now() + TOKEN_WAIT_TIMEOUT_MS;
-
-  while (Date.now() < deadline) {
-    const stored = await redisCommand<string | null>("GET", REDIS_TOKEN_KEY);
-    if (stored) return stored;
-
-    const lock = await redisCommand<"OK" | null>(
-      "SET",
-      REDIS_LOCK_KEY,
-      crypto.randomUUID(),
-      "NX",
-      "EX",
-      TOKEN_LOCK_SECONDS,
-    );
-
-    if (lock === "OK") {
-      const token = await fetchToken();
-      await redisCommand<"OK">("SET", REDIS_TOKEN_KEY, token);
-      return token;
-    }
-
-    await wait(TOKEN_WAIT_MS);
-  }
-
-  throw new Error("Timed out waiting for another request to cache the NJT token");
-}
-
-/**
  * RailData token shared by all Vercel function instances and deployments.
  *
  * Next's Data Cache avoids routine Redis reads. Redis remains the source of
  * truth and protects Data Cache misses with an atomic writer lock. The token
  * stays cached until NJT rejects it; there is no periodic token minting.
  */
-const getToken = unstable_cache(getOrCreateStoredToken, ["njt-token"], {
-  revalidate: false,
-  tags: [TOKEN_TAG],
-});
+const getToken = unstable_cache(
+  () => getOrCreateStoredToken(fetchToken),
+  ["njt-token"],
+  {
+    revalidate: false,
+    tags: [TOKEN_TAG],
+  },
+);
 
 /**
  * Deletes a rejected token only if Redis still contains that exact value.
@@ -240,16 +165,7 @@ const getToken = unstable_cache(getOrCreateStoredToken, ["njt-token"], {
  * cannot erase a newer token minted by another request.
  */
 export async function invalidateToken(rejectedToken: string): Promise<void> {
-  const compareAndDelete =
-    'if redis.call("get", KEYS[1]) == ARGV[1] then ' +
-    'return redis.call("del", KEYS[1]) else return 0 end';
-  await redisCommand<number>(
-    "EVAL",
-    compareAndDelete,
-    1,
-    REDIS_TOKEN_KEY,
-    rejectedToken,
-  );
+  await invalidateStoredToken(rejectedToken);
 }
 
 function itemsOf(payload: unknown): RawDeparture[] {

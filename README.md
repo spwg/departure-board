@@ -83,6 +83,7 @@ rather than treating it as an error.
 ## Scripts
 
 - `npm run dev` — start the local dev server
+- `npm test` — verify concurrent token cache misses mint exactly one NJT token
 - `npm run build` — production build
 - `npm run start` — serve a production build
 - `npm run lint` — ESLint
