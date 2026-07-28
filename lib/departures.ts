@@ -223,11 +223,21 @@ export function parseNjtDate(value: string): Date | null {
  * York departures from another timezone should not shift every time on the
  * page.
  */
-export function formatClock(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
+export function formatClock(
+  iso: string,
+  {
+    locales,
+    hourCycle,
+  }: {
+    locales?: Intl.LocalesArgument;
+    hourCycle?: Intl.DateTimeFormatOptions["hourCycle"];
+  } = {},
+): string {
+  return new Date(iso).toLocaleTimeString(locales, {
     timeZone: NJT_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
+    hourCycle,
   });
 }
 
