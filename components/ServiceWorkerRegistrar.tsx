@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+
 /**
  * Registers the offline service worker.
  *

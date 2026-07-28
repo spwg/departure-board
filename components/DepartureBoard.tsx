@@ -5,14 +5,20 @@ import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import type { Departure } from "@/lib/departures";
 import { DepartureRow } from "./DepartureRow";
 
+
 const REFRESH_MS = 30_000;
 /** Countdowns tick locally between fetches so the board never looks frozen. */
 const TICK_MS = 15_000;
 
+/**
+ * Polls the station endpoint for `code`. Until a first result it shows loading
+ * or a retryable error; later failures retain the last board and mark it stale.
+ */
 export function DepartureBoard({ code }: { code: string }) {
   const [departures, setDepartures] = useState<Departure[] | null>(null);
   const [fixtures, setFixtures] = useState(false);
   const [stale, setStale] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   // Left at 0 until after mount: reading the clock during render is
   // non-deterministic and would break prerendering. Every path that supplies
   // departures also sets this, so no row is ever rendered against 0.
@@ -36,15 +42,17 @@ export function DepartureBoard({ code }: { code: string }) {
         // The service worker serves its cached copy when the network is gone.
         // Those times are old, so say so rather than showing them as current.
         setStale(response.headers.get("X-From-Cache") === "1");
+        setLoadFailed(false);
         setNow(Date.now());
         loadedOnce.current = true;
-      } catch {
+      } catch (error) {
         if (signal?.aborted) return;
+        console.error(`Could not load departures for ${code}:`, error);
         // Keep the last good board on screen and just mark it stale — a blank
         // page is worse than slightly old times when you are on a platform
         // with bad signal.
         if (loadedOnce.current) setStale(true);
-        else setDepartures([]);
+        else setLoadFailed(true);
       }
     },
     [code],
@@ -81,6 +89,26 @@ export function DepartureBoard({ code }: { code: string }) {
   }, [load]);
 
   if (departures === null) {
+    if (loadFailed) {
+      return (
+        <div className="px-5 py-16 text-center">
+          <p className="font-medium text-text">Couldn&apos;t load departures.</p>
+          <p className="mt-1 text-sm text-muted">
+            NJ Transit may be unavailable. Check your connection and try again.
+          </p>
+          <button
+            type="button"
+            className="mt-5 rounded-full border border-edge px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            onClick={() => {
+              setLoadFailed(false);
+              void load();
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
     return <BoardSkeleton />;
   }
 
@@ -106,7 +134,12 @@ export function DepartureBoard({ code }: { code: string }) {
       )}
       <ul className="divide-y divide-edge">
         {departures.map((departure) => (
-          <DepartureRow key={departure.id} departure={departure} now={now} />
+          <DepartureRow
+            key={departure.id}
+            departure={departure}
+            now={now}
+            stationCode={code}
+          />
         ))}
       </ul>
     </>

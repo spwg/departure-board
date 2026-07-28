@@ -89,7 +89,8 @@ const NAMED_ENTITIES: Record<string, string> = {
  * &#9992 is the plane marking a train that serves Newark Airport. React escapes
  * strings, so without this the board would print the entity source instead of
  * the glyph. Note the trailing semicolon is optional in this feed, which is why
- * the pattern does not require one.
+ * the pattern does not require one. Nullish input produces an empty string;
+ * output has collapsed whitespace and no leading or trailing space.
  */
 export function decodeEntities(value: string): string {
   return (value ?? "")
@@ -104,6 +105,17 @@ export function decodeEntities(value: string): string {
     .trim();
 }
 
+/**
+ * True for train numbers this board should never show, by prefix alone.
+ *
+ * Split out from `isExcluded` so routes reached by URL rather than by tapping a
+ * row — where there is no full record to inspect — can turn away the same
+ * trains the board filters out.
+ */
+export function isExcludedTrainId(trainId: string): boolean {
+  return EXCLUDED_TRAIN_PREFIXES.test((trainId ?? "").trim());
+}
+
 /** True for trains this board should never show. */
 export function isExcluded(item: RawDeparture): boolean {
   return (
@@ -111,7 +123,7 @@ export function isExcluded(item: RawDeparture): boolean {
     EXCLUDED_LINE_ABBREVIATIONS.has(
       (item.LINEABBREVIATION ?? "").toUpperCase(),
     ) ||
-    EXCLUDED_TRAIN_PREFIXES.test((item.TRAIN_ID ?? "").trim())
+    isExcludedTrainId(item.TRAIN_ID)
   );
 }
 
@@ -206,6 +218,30 @@ export function parseNjtDate(value: string): Date | null {
 }
 
 /**
+ * Renders an instant as a clock time, always Eastern rather than the viewer's
+ * zone, so what is on screen matches the clock at the station. Checking New
+ * York departures from another timezone should not shift every time on the
+ * page.
+ */
+export function formatClock(
+  iso: string,
+  {
+    locales,
+    hourCycle,
+  }: {
+    locales?: Intl.LocalesArgument;
+    hourCycle?: Intl.DateTimeFormatOptions["hourCycle"];
+  } = {},
+): string {
+  return new Date(iso).toLocaleTimeString(locales, {
+    timeZone: NJT_TIME_ZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hourCycle,
+  });
+}
+
+/**
  * Maps NJT's free-text status to a small enum. The raw text is kept alongside
  * it, so an unrecognised status still displays correctly — it just falls back
  * to being styled by lateness rather than by keyword.
@@ -219,6 +255,11 @@ export function toStatus(statusText: string, delayMinutes: number): DepartureSta
   return "on-time";
 }
 
+/**
+ * Converts one non-excluded API item to a display departure. Invalid scheduled
+ * timestamps return null; valid results use ISO instants and never have a
+ * negative delay.
+ */
 export function normalizeDeparture(item: RawDeparture): Departure | null {
   const scheduled = parseNjtDate(item.SCHED_DEP_DATE);
   if (!scheduled) return null;

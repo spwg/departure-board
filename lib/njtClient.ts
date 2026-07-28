@@ -1,7 +1,13 @@
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
+import { unstable_cache } from "next/cache";
 import type { RawDeparture } from "./departures";
-import { fixtureDepartures } from "./fixtures";
+import { fixtureDepartures, fixtureStopList } from "./fixtures";
+import {
+  getOrCreateStoredToken,
+  invalidateStoredToken,
+} from "./njtTokenStore";
+import type { RawStopList } from "./stops";
+
 
 /**
  * Client for NJ Transit's RailData API.
@@ -9,14 +15,16 @@ import { fixtureDepartures } from "./fixtures";
  * Two constraints from NJT's API manual shape this file:
  *
  *  - getToken is capped at 10 calls per day. A module-level variable would not
- *    survive serverless cold starts, so the token is held in the Next.js cache
- *    (`use cache`), which persists across invocations, and refreshed on demand
- *    via the `njt-token` tag when the API reports it has gone bad.
+ *    survive serverless cold starts, so the token is held in Next's durable
+ *    Data Cache (`unstable_cache`) and refreshed on demand via the `njt-token`
+ *    tag when the API reports it has gone bad.
  *  - Data calls are capped at 40,000 per day, comfortably above what 30-second
  *    polling needs once responses are briefly shared between clients.
  */
 
 export const TOKEN_TAG = "njt-token";
+
+const UPSTREAM_TIMEOUT_MS = 10_000;
 
 /**
  * NJ Transit's developer portal documents raildata.njt.gov, but that name has
@@ -29,13 +37,13 @@ const DEFAULT_BASE_URL = "https://raildata.njtransit.com/api";
 
 /** Thrown when NJT rejects the cached token, so the caller can refresh and retry. */
 export class InvalidTokenError extends Error {
-  constructor() {
+  constructor(readonly token: string) {
     super("NJT rejected the cached token");
     this.name = "InvalidTokenError";
   }
 }
 
-/** True when no credentials are configured, in which case fixtures are served. */
+/** True unless both API credentials are non-empty, in which case live data may be fetched. */
 export function usingFixtures(): boolean {
   return !process.env.NJT_API_USERNAME || !process.env.NJT_API_PASSWORD;
 }
@@ -58,6 +66,7 @@ async function post(
     headers: { accept: "application/json" },
     // This data is cached deliberately by the callers below; never by fetch.
     cache: "no-store",
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -92,17 +101,12 @@ function isInvalidToken(payload: unknown): boolean {
 }
 
 /**
- * A RailData token, reused across requests and deployments.
+ * Fetches a RailData token from NJ Transit.
  *
- * Tagged so the departures call can force a refresh the moment NJT rejects it,
- * rather than waiting out the cache lifetime and failing every request until
- * then.
+ * This function stays uncached so `getToken` below can store only successful
+ * token values in the Data Cache.
  */
-async function getToken(): Promise<string> {
-  "use cache";
-  cacheTag(TOKEN_TAG);
-  cacheLife("njtToken");
-
+async function fetchToken(): Promise<string> {
   const payload = await post("/TrainData/getToken", {
     username: process.env.NJT_API_USERNAME ?? "",
     password: process.env.NJT_API_PASSWORD ?? "",
@@ -139,6 +143,32 @@ async function getToken(): Promise<string> {
   return token;
 }
 
+/**
+ * RailData token shared by all Vercel function instances and deployments.
+ *
+ * Next's Data Cache avoids routine Redis reads. Redis remains the source of
+ * truth and protects Data Cache misses with an atomic writer lock. The token
+ * stays cached until NJT rejects it; there is no periodic token minting.
+ */
+const getToken = unstable_cache(
+  () => getOrCreateStoredToken(fetchToken),
+  ["njt-token"],
+  {
+    revalidate: false,
+    tags: [TOKEN_TAG],
+  },
+);
+
+/**
+ * Deletes a rejected token only if Redis still contains that exact value.
+ *
+ * The compare-and-delete is atomic, so a slow request carrying an old token
+ * cannot erase a newer token minted by another request.
+ */
+export async function invalidateToken(rejectedToken: string): Promise<void> {
+  await invalidateStoredToken(rejectedToken);
+}
+
 function itemsOf(payload: unknown): RawDeparture[] {
   if (payload && typeof payload === "object" && "ITEMS" in payload) {
     const items = (payload as { ITEMS: unknown }).ITEMS;
@@ -152,8 +182,9 @@ function itemsOf(payload: unknown): RawDeparture[] {
 /**
  * Raw departures for a station, newest token first.
  *
- * Returns fixture data when credentials are absent so the app runs without
- * them. Callers normalize the result via lib/departures.
+ * Returns fixture data when either credential is absent; otherwise posts the
+ * uppercased station code to RailData. Successful responses yield `ITEMS` or
+ * an empty list; authentication, HTTP, and invalid-token responses throw.
  */
 export async function fetchDepartures(
   stationCode: string,
@@ -172,11 +203,45 @@ export async function fetchDepartures(
     // Signal to the caller that the cached token should be dropped and the
     // request retried. Only route handlers may call revalidateTag, so the
     // invalidation itself happens there.
-    throw new InvalidTokenError();
+    throw new InvalidTokenError(token);
   }
 
   const error = errorMessageOf(payload);
   if (error) throw new Error(`NJT getTrainSchedule19Rec failed: ${error}`);
 
   return itemsOf(payload);
+}
+
+/**
+ * The stops a train makes, by train number.
+ *
+ * A second call rather than a field on the board: the API manual is explicit
+ * that getTrainSchedule19Rec returns DepartureVision's data "but without train
+ * stop list information". This rides the same generous 40,000/day data limit
+ * as the board, so asking for it per view is fine.
+ */
+export async function fetchStopList(trainId: string): Promise<RawStopList> {
+  if (usingFixtures()) return fixtureStopList(trainId);
+
+  const train = trainId.trim();
+  const token = await getToken();
+  const payload = await post("/TrainData/getTrainStopList", { token, train });
+
+  if (isInvalidToken(payload)) throw new InvalidTokenError(token);
+
+  const error = errorMessageOf(payload);
+  if (error) throw new Error(`NJT getTrainStopList failed: ${error}`);
+
+  // An unknown train number answers with an empty body rather than an error.
+  if (!payload || typeof payload !== "object") {
+    return {
+      TRAIN_ID: train,
+      LINECODE: "",
+      DESTINATION: "",
+      TRANSFERAT: "",
+      STOPS: [],
+    };
+  }
+
+  return payload as RawStopList;
 }

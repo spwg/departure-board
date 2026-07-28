@@ -2,6 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 
+
 const STORAGE_KEY = "departure-board:favorites";
 /** Lets every mounted hook react to a change made anywhere in the app. */
 const CHANGE_EVENT = "departure-board:favorites-changed";
@@ -61,7 +62,8 @@ const noopSubscribe = () => () => {};
  * Favourite station codes, persisted locally.
  *
  * `loaded` is false during server rendering and the hydrating pass, so the UI
- * can avoid flashing an empty state before storage has been read.
+ * can avoid flashing an empty state before storage has been read. `toggle`
+ * adds an absent code or removes a present one, then notifies all mounted hooks.
  */
 export function useFavorites() {
   const favorites = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY);
