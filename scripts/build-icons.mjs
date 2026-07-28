@@ -11,6 +11,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import sharp from "sharp";
 
+
 const BACKGROUND = "#18181b";
 const CHIP = "#fafafa";
 // Northeast Corridor, North Jersey Coast, Morris & Essex.

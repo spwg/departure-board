@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatClock, type Departure } from "@/lib/departures";
 import { lineColor, lineName } from "@/lib/stations";
 
+
 /**
  * Formats the wait as something you can read at a glance while walking.
  * Anything past an hour becomes "1h 20m" rather than "80 min".
@@ -14,6 +15,7 @@ function formatCountdown(minutes: number): string {
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
 }
 
+/** Renders one normalized departure, counting down to its expected (not scheduled) departure time. */
 export function DepartureRow({
   departure,
   now,
