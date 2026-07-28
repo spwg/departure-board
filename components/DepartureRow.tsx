@@ -33,6 +33,9 @@ export function DepartureRow({
   const cancelled = departure.status === "cancelled";
   const boarding = departure.status === "boarding";
   const delayed = departure.delayMinutes >= 1;
+  // Most labels are a number or a single letter. "Single" is a real NJT
+  // platform label, so it needs a wider chip instead of being clipped.
+  const namedTrack = departure.track.length > 2;
 
   return (
     <li className={`relative ${cancelled ? "opacity-55" : ""}`}>
@@ -99,14 +102,20 @@ export function DepartureRow({
 
         {/* Track is what you actually run for, so it gets its own anchor. */}
         <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-lg font-bold sm:h-12 sm:w-12 sm:text-xl ${
+          className={`flex h-11 shrink-0 items-center justify-center rounded-xl font-bold ${
+            namedTrack
+              ? "min-w-16 px-2 text-sm sm:h-12 sm:min-w-20 sm:text-base"
+              : "w-11 text-lg sm:h-12 sm:w-12 sm:text-xl"
+          } ${
             departure.track
               ? "bg-track text-track-fg"
               : "border border-dashed border-edge-strong text-faint"
           }`}
           aria-label={
             departure.track
-              ? `Track ${departure.track}`
+              ? namedTrack
+                ? `${departure.track} track`
+                : `Track ${departure.track}`
               : "Track not yet assigned"
           }
         >

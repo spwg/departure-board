@@ -9,7 +9,9 @@
 export type RawDeparture = {
   SCHED_DEP_DATE: string;
   DESTINATION: string;
-  TRACK: string;
+  // Usually a number-like string, but some single-platform stations return a
+  // named value such as "Single".
+  TRACK: string | number | null;
   LINE: string;
   LINECODE: string;
   LINEABBREVIATION: string;
@@ -60,7 +62,7 @@ const EXCLUDED_LINE_ABBREVIATIONS = new Set(["AMTK", "SEPTA"]);
 const EXCLUDED_TRAIN_PREFIXES = /^[ASX]/i;
 
 /**
- * Tracks are passed through as sent.
+ * Tracks are passed through as sent, including named values.
  *
  * Appendix II of the API manual lists railroad-to-public track translations
  * (Newark Airport "0" -> "A" and so on), but this endpoint already applies
@@ -69,8 +71,10 @@ const EXCLUDED_TRAIN_PREFIXES = /^[ASX]/i;
  * Metropark, where the API returns real public tracks 1-4, the appendix's
  * "2" -> "1" rule would send riders to the wrong platform.
  */
-export function displayTrack(track: string): string {
-  return (track ?? "").trim();
+export function displayTrack(track: unknown): string {
+  return typeof track === "string" || typeof track === "number"
+    ? String(track).trim()
+    : "";
 }
 
 const NAMED_ENTITIES: Record<string, string> = {
