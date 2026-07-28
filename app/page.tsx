@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { StationPicker } from "@/components/StationPicker";
 
-/** Tested contract: the picker remains within Suspense because it reads request search parameters. */
 
 export default function Home() {
   // StationPicker reads search params, which are only known at request time.

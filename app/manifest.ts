@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
 
-/** Tested contract: install metadata identifies the app and includes both standard and maskable icons. */
 
 export default function manifest(): MetadataRoute.Manifest {
   return {

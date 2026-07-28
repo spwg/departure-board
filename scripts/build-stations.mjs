@@ -20,7 +20,6 @@
  */
 import { writeFile, readFile } from "node:fs/promises";
 
-/** Tested contract: only source stations with a matching API code reach the generated directory. */
 
 const LABELS_URL = "https://dv.njtransit.com/RailStationLabels.js";
 

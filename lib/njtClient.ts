@@ -3,7 +3,6 @@ import { cacheLife, cacheTag } from "next/cache";
 import type { RawDeparture } from "./departures";
 import { fixtureDepartures } from "./fixtures";
 
-/** Tested contract: credentials select live multipart API calls; otherwise fixtures. */
 
 /**
  * Client for NJ Transit's RailData API.
@@ -37,7 +36,7 @@ export class InvalidTokenError extends Error {
   }
 }
 
-/** True when no credentials are configured, in which case fixtures are served. */
+/** True unless both API credentials are non-empty, in which case live data may be fetched. */
 export function usingFixtures(): boolean {
   return !process.env.NJT_API_USERNAME || !process.env.NJT_API_PASSWORD;
 }
@@ -154,8 +153,9 @@ function itemsOf(payload: unknown): RawDeparture[] {
 /**
  * Raw departures for a station, newest token first.
  *
- * Returns fixture data when credentials are absent so the app runs without
- * them. Callers normalize the result via lib/departures.
+ * Returns fixture data when either credential is absent; otherwise posts the
+ * uppercased station code to RailData. Successful responses yield `ITEMS` or
+ * an empty list; authentication, HTTP, and invalid-token responses throw.
  */
 export async function fetchDepartures(
   stationCode: string,
