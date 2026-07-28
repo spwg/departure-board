@@ -1,5 +1,5 @@
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
+import { unstable_cache } from "next/cache";
 import type { RawDeparture } from "./departures";
 import { fixtureDepartures } from "./fixtures";
 
@@ -9,9 +9,9 @@ import { fixtureDepartures } from "./fixtures";
  * Two constraints from NJT's API manual shape this file:
  *
  *  - getToken is capped at 10 calls per day. A module-level variable would not
- *    survive serverless cold starts, so the token is held in the Next.js cache
- *    (`use cache`), which persists across invocations, and refreshed on demand
- *    via the `njt-token` tag when the API reports it has gone bad.
+ *    survive serverless cold starts, so the token is held in Next's durable
+ *    Data Cache (`unstable_cache`) and refreshed on demand via the `njt-token`
+ *    tag when the API reports it has gone bad.
  *  - Data calls are capped at 40,000 per day, comfortably above what 30-second
  *    polling needs once responses are briefly shared between clients.
  */
@@ -92,17 +92,12 @@ function isInvalidToken(payload: unknown): boolean {
 }
 
 /**
- * A RailData token, reused across requests and deployments.
+ * Fetches a RailData token from NJ Transit.
  *
- * Tagged so the departures call can force a refresh the moment NJT rejects it,
- * rather than waiting out the cache lifetime and failing every request until
- * then.
+ * This function stays uncached so `getToken` below can store only successful
+ * token values in the Data Cache.
  */
-async function getToken(): Promise<string> {
-  "use cache";
-  cacheTag(TOKEN_TAG);
-  cacheLife("njtToken");
-
+async function fetchToken(): Promise<string> {
   const payload = await post("/TrainData/getToken", {
     username: process.env.NJT_API_USERNAME ?? "",
     password: process.env.NJT_API_PASSWORD ?? "",
@@ -138,6 +133,19 @@ async function getToken(): Promise<string> {
   }
   return token;
 }
+
+/**
+ * RailData token shared by all Vercel function instances and deployments.
+ *
+ * `use cache` is an in-memory cache in serverless runtimes, so a cold start
+ * could otherwise mint another token. `unstable_cache` uses Next's Data Cache,
+ * which is durable on Vercel. The route handler expires this tag immediately
+ * and retries when NJT reports the token is invalid.
+ */
+const getToken = unstable_cache(fetchToken, ["njt-token"], {
+  revalidate: 60 * 60 * 12,
+  tags: [TOKEN_TAG],
+});
 
 function itemsOf(payload: unknown): RawDeparture[] {
   if (payload && typeof payload === "object" && "ITEMS" in payload) {
