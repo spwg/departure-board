@@ -43,9 +43,9 @@ export class InvalidTokenError extends Error {
   }
 }
 
-/** True unless both API credentials are non-empty, in which case live data may be fetched. */
+/** True when fixtures are forced or API credentials are incomplete. */
 export function usingFixtures(): boolean {
-  return !process.env.NJT_API_USERNAME || !process.env.NJT_API_PASSWORD;
+  return process.env.NJT_USE_FIXTURES === "true" || !process.env.NJT_API_USERNAME || !process.env.NJT_API_PASSWORD;
 }
 
 function baseUrl(): string {
