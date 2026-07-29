@@ -15,3 +15,13 @@ environment variables, then verify one station with
 `curl http://127.0.0.1:3000/api/departures/NY`; a live test response reports
 `"fixtures":false`. Use `npm run dev` only when production RailData behavior
 is specifically required.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+This is a single-context repository. See `docs/agents/domain.md`.
