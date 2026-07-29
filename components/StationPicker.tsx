@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { SettingsButton } from "@/components/SettingsButton";
 import { useFavorites } from "@/lib/favorites";
 import {
   type Station,
@@ -103,10 +104,15 @@ export function StationPicker() {
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
-      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-        Departures
-      </h1>
-      <p className="mt-1 text-sm text-muted">NJ Transit rail</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            Departures
+          </h1>
+          <p className="mt-1 text-sm text-muted">NJ Transit rail</p>
+        </div>
+        <SettingsButton />
+      </div>
 
       <input
         type="search"
