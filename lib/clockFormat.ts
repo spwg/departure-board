@@ -48,8 +48,7 @@ export function useClockFormat() {
   const use24Hour = useSyncExternalStore(subscribe, getSnapshot, () => false);
   const loaded = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
-  const toggle = useCallback(() => {
-    const next = !getSnapshot();
+  const setClockFormat = useCallback((next: boolean) => {
     try {
       window.localStorage.setItem(STORAGE_KEY, String(next));
     } catch {
@@ -60,5 +59,9 @@ export function useClockFormat() {
     window.dispatchEvent(new Event(CHANGE_EVENT));
   }, []);
 
-  return { use24Hour, toggle, loaded };
+  const toggle = useCallback(() => {
+    setClockFormat(!getSnapshot());
+  }, [setClockFormat]);
+
+  return { use24Hour, setClockFormat, toggle, loaded };
 }

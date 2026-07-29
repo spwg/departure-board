@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FavoriteButton } from "@/components/FavoriteButton";
-import { ClockFormatButton } from "@/components/ClockFormatButton";
+import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
@@ -21,11 +21,17 @@ describe("interactive component contract", () => {
   });
 
   it("lets riders explicitly select 24-hour time", () => {
-    render(<ClockFormatButton />);
-    const button = screen.getByRole("button", { name: "Use 24-hour time" });
+    render(<SettingsButton />);
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    const button = screen.getByRole("radio", { name: /24-hour/i });
+    expect(button.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(button);
-    expect(button.getAttribute("aria-pressed")).toBe("true");
+    expect(button.getAttribute("aria-checked")).toBe("true");
+    expect(button.textContent).toContain("19:05");
     expect(window.localStorage.getItem("departure-board:use-24-hour-time")).toBe("true");
+
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
   });
 
   it("renders a delayed departure with its timetable, train, line, and track", () => {
