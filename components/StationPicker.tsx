@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { SettingsButton } from "@/components/SettingsButton";
 import { useFavorites } from "@/lib/favorites";
+import { useRecentStations } from "@/lib/recentStations";
 import {
+  LINE_NAMES,
   type Station,
   getStation,
   lineColor,
+  lineName,
   nearestStation,
   searchStations,
   stations,
@@ -29,13 +31,9 @@ function formatDistance(km: number): string {
 }
 
 export function StationPicker() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const { favorites, loaded: favoritesLoaded } = useFavorites();
-
-  // Arriving via the back arrow sets ?pick, which keeps this page put instead
-  // of bouncing straight back to the nearest station.
-  const browsing = searchParams.has("pick");
+  const { recentStations, loaded: recentStationsLoaded, clear, restore } =
+    useRecentStations();
 
   // Derived rather than set from an effect, so there is no render-then-correct
   // flicker and no synchronous state update on mount. Assumed available while
@@ -48,6 +46,8 @@ export function StationPicker() {
 
   const [located, setLocated] = useState<LocationState | null>(null);
   const [query, setQuery] = useState("");
+  const [selectedLines, setSelectedLines] = useState<string[]>([]);
+  const [clearedRecentStations, setClearedRecentStations] = useState<string[] | null>(null);
 
   const location: LocationState =
     located ??
@@ -66,8 +66,6 @@ export function StationPicker() {
           position.coords.longitude,
         );
         setLocated({ status: "found", station, distanceKm });
-        // Opening the app should land on the board you almost certainly want.
-        if (!browsing) router.replace(`/station/${station.code}`);
       },
       () => {
         // Denied or timed out — fall back to favourites and search rather
@@ -80,9 +78,33 @@ export function StationPicker() {
     return () => {
       cancelled = true;
     };
-  }, [browsing, router]);
+  }, []);
 
-  const results = useMemo(() => searchStations(query, 40), [query]);
+  useEffect(() => {
+    if (!clearedRecentStations) return;
+    const timeout = window.setTimeout(() => setClearedRecentStations(null), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [clearedRecentStations]);
+
+  const matchesSelectedLines = useCallback(
+    (station: Station) =>
+      selectedLines.length === 0 ||
+      station.lines.some((line) => selectedLines.includes(line)),
+    [selectedLines],
+  );
+
+  const results = useMemo(
+    () => searchStations(query, 40).filter(matchesSelectedLines),
+    [query, matchesSelectedLines],
+  );
+  const recent = useMemo(
+    () =>
+      recentStations
+        .map((code) => getStation(code))
+        .filter((station): station is Station => Boolean(station))
+        .filter(matchesSelectedLines),
+    [recentStations, matchesSelectedLines],
+  );
   const favoriteStations = useMemo(
     () =>
       favorites
@@ -90,17 +112,34 @@ export function StationPicker() {
         .filter((s): s is Station => Boolean(s)),
     [favorites],
   );
+  const filteredFavoriteStations = useMemo(
+    () => favoriteStations.filter(matchesSelectedLines),
+    [favoriteStations, matchesSelectedLines],
+  );
 
   const grouped = useMemo(() => {
     const groups = new Map<string, Station[]>();
-    for (const station of stations) {
+    for (const station of stations.filter(matchesSelectedLines)) {
       const letter = station.name[0].toUpperCase();
       const group = groups.get(letter);
       if (group) group.push(station);
       else groups.set(letter, [station]);
     }
     return [...groups.entries()];
-  }, []);
+  }, [matchesSelectedLines]);
+
+  const toggleLine = (line: string) => {
+    setSelectedLines((current) =>
+      current.includes(line)
+        ? current.filter((selected) => selected !== line)
+        : [...current, line],
+    );
+  };
+
+  const clearRecentStations = () => {
+    setClearedRecentStations(recentStations);
+    clear();
+  };
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
@@ -114,6 +153,64 @@ export function StationPicker() {
         <SettingsButton />
       </div>
 
+      {recentStationsLoaded && recentStations.length > 0 && (
+        <Section
+          title="Recent stations"
+          action={
+            <button
+              type="button"
+              onClick={clearRecentStations}
+              aria-label="Clear recent stations"
+              className="rounded px-2 py-1 text-xs font-medium text-muted hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            >
+              Clear
+            </button>
+          }
+        >
+          {recent.length > 0 ? (
+            <StationList items={recent} />
+          ) : (
+            <p className="px-4 py-4 text-sm text-muted">
+              No recent stations match the selected lines.
+            </p>
+          )}
+        </Section>
+      )}
+
+      {clearedRecentStations && (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-bg px-3 py-2 text-sm" role="status">
+          <span>Recent stations cleared.</span>
+          <button
+            type="button"
+            onClick={() => {
+              restore(clearedRecentStations);
+              setClearedRecentStations(null);
+            }}
+            aria-label="Undo clearing recent stations"
+            className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      {location.status === "locating" && (
+        <Section title="Nearest station">
+          <p className="px-4 py-4 text-sm text-muted">
+            Finding the nearest station…
+          </p>
+        </Section>
+      )}
+
+      {location.status === "found" && (
+        <Section title="Nearest station">
+          <StationList
+            items={[location.station]}
+            subtitle={`Nearest station · ${formatDistance(location.distanceKm)}`}
+          />
+        </Section>
+      )}
+
       <input
         type="search"
         value={query}
@@ -121,8 +218,25 @@ export function StationPicker() {
         placeholder="Search stations"
         aria-label="Search stations"
         autoComplete="off"
-        className="mt-5 w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
+        className="mt-7 w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
       />
+
+      <fieldset className="mt-3">
+        <legend className="text-sm font-medium">Line filter</legend>
+        <p className="mt-1 text-xs text-muted">Show stations served by any selected rail line.</p>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+          {Object.keys(LINE_NAMES).map((line) => (
+            <label key={line} className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={selectedLines.includes(line)}
+                onChange={() => toggleLine(line)}
+              />
+              {lineName(line)}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       {query ? (
         <Section title={`${results.length} result${results.length === 1 ? "" : "s"}`}>
@@ -136,26 +250,9 @@ export function StationPicker() {
         </Section>
       ) : (
         <>
-          {location.status === "locating" && (
-            <Section title="Nearest">
-              <p className="px-4 py-4 text-sm text-muted">
-                Finding the closest station…
-              </p>
-            </Section>
-          )}
-
-          {location.status === "found" && (
-            <Section title="Nearest">
-              <StationList
-                items={[location.station]}
-                subtitle={formatDistance(location.distanceKm)}
-              />
-            </Section>
-          )}
-
-          {favoritesLoaded && favoriteStations.length > 0 && (
+          {favoritesLoaded && filteredFavoriteStations.length > 0 && (
             <Section title="Favorites">
-              <StationList items={favoriteStations} />
+              <StationList items={filteredFavoriteStations} />
             </Section>
           )}
 
@@ -188,15 +285,20 @@ export function StationPicker() {
 function Section({
   title,
   children,
+  action,
 }: {
   title: string;
   children: React.ReactNode;
+  action?: React.ReactNode;
 }) {
   return (
     <section className="mt-7">
-      <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
-        {title}
-      </h2>
+      <div className="mb-2 flex items-center justify-between px-1">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
+          {title}
+        </h2>
+        {action}
+      </div>
       <div className="overflow-hidden rounded-xl border border-edge bg-surface">
         {children}
       </div>

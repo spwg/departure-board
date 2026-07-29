@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { getStation, stations } from "@/lib/stations";
 
 /**
@@ -42,8 +43,7 @@ export default async function StationPage({
       <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
           <Link
-            // ?pick keeps the picker from sending you straight back here.
-            href="/?pick=1"
+            href="/"
             aria-label="All stations"
             className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
           >
@@ -69,6 +69,7 @@ export default async function StationPage({
         </header>
 
         <DepartureBoard code={station.code} />
+        <RecentStationRecorder code={station.code} />
       </div>
     </main>
   );
