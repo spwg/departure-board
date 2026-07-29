@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import type { Departure } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
-import { reconcileStationWatches } from "@/lib/watches";
 import { DepartureRow } from "./DepartureRow";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { ServiceStatus } from "./ServiceStatus";
 
 
 const REFRESH_MS = 30_000;
@@ -42,9 +42,6 @@ export function DepartureBoard({ code }: { code: string }) {
 
         const data: DeparturesResponse = await response.json();
         const fromCache = response.headers.get("X-From-Cache") === "1";
-        reconcileStationWatches(code, data.departures, {
-          live: !data.fixtures && !fromCache,
-        });
         setDepartures(data.departures);
         setFixtures(data.fixtures);
         setStale(fromCache);
@@ -101,9 +98,10 @@ export function DepartureBoard({ code }: { code: string }) {
     };
   }, [load]);
 
+  let content: ReactNode;
   if (departures === null) {
     if (loadFailed) {
-      return (
+      content = (
         <div className="px-5 py-16 text-center">
           <p className="font-medium text-text">Couldn&apos;t load departures.</p>
           <p className="mt-1 text-sm text-muted">
@@ -121,12 +119,11 @@ export function DepartureBoard({ code }: { code: string }) {
           </button>
         </div>
       );
+    } else {
+      content = <BoardSkeleton />;
     }
-    return <BoardSkeleton />;
-  }
-
-  if (departures.length === 0) {
-    return (
+  } else if (departures.length === 0) {
+    content = (
       <>
         {stale && lastLiveAt !== null && (
           <FreshnessWarning lastLiveAt={lastLiveAt} />
@@ -136,32 +133,39 @@ export function DepartureBoard({ code }: { code: string }) {
         </p>
       </>
     );
+  } else {
+    content = (
+      <>
+        {(stale || fixtures) && (
+          stale && lastLiveAt !== null ? (
+            <FreshnessWarning lastLiveAt={lastLiveAt} />
+          ) : (
+            <p
+              role="status"
+              className="border-b border-edge bg-warn-soft px-5 py-2 text-center text-xs font-medium text-warn"
+            >
+              Sample data — add NJ Transit API credentials for live departures
+            </p>
+          )
+        )}
+        <ul className="divide-y divide-edge">
+          {departures.map((departure) => (
+            <DepartureRow
+              key={departure.id}
+              departure={departure}
+              now={now}
+              stationCode={code}
+            />
+          ))}
+        </ul>
+      </>
+    );
   }
 
   return (
     <>
-      {(stale || fixtures) && (
-        stale && lastLiveAt !== null ? (
-          <FreshnessWarning lastLiveAt={lastLiveAt} />
-        ) : (
-          <p
-            role="status"
-            className="border-b border-edge bg-warn-soft px-5 py-2 text-center text-xs font-medium text-warn"
-          >
-            Sample data — add NJ Transit API credentials for live departures
-          </p>
-        )
-      )}
-      <ul className="divide-y divide-edge">
-        {departures.map((departure) => (
-          <DepartureRow
-            key={departure.id}
-            departure={departure}
-            now={now}
-            stationCode={code}
-          />
-        ))}
-      </ul>
+      <ServiceStatus stationCode={code} />
+      {content}
     </>
   );
 }
