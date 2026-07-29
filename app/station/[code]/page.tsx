@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DepartureBoard } from "@/components/DepartureBoard";
-import { ClockFormatButton } from "@/components/ClockFormatButton";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { SettingsButton } from "@/components/SettingsButton";
 import { getStation, stations } from "@/lib/stations";
 
 /**
@@ -66,7 +66,7 @@ export default async function StationPage({
             {station.name}
           </h1>
 
-          <ClockFormatButton />
+          <SettingsButton />
           <FavoriteButton code={station.code} name={station.name} />
         </header>
 

@@ -7,12 +7,18 @@ vi.mock("@/lib/njtTokenStore", () => ({
 }));
 vi.mock("server-only", () => ({}));
 
-afterEach(() => { delete process.env.NJT_API_USERNAME; delete process.env.NJT_API_PASSWORD; delete process.env.NJT_API_BASE_URL; vi.unstubAllGlobals(); vi.resetModules(); });
+afterEach(() => { delete process.env.NJT_API_USERNAME; delete process.env.NJT_API_PASSWORD; delete process.env.NJT_API_BASE_URL; delete process.env.NJT_USE_FIXTURES; vi.unstubAllGlobals(); vi.resetModules(); });
 
 describe("NJT client contract", () => {
   it("uses fixtures while credentials are absent", async () => {
     const { fetchDepartures, usingFixtures } = await import("@/lib/njtClient");
     expect(usingFixtures()).toBe(true); expect((await fetchDepartures("NY")).length).toBeGreaterThan(4);
+  });
+  it("forces fixtures without contacting RailData when requested", async () => {
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_USE_FIXTURES = "true";
+    const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
+    const { fetchDepartures, usingFixtures } = await import("@/lib/njtClient");
+    expect(usingFixtures()).toBe(true); expect((await fetchDepartures("NY")).length).toBeGreaterThan(4); expect(fetchMock).not.toHaveBeenCalled();
   });
   it("authenticates and sends a multipart schedule request when configured", async () => {
     process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_API_BASE_URL = "https://api.example/";
