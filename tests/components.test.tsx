@@ -221,6 +221,9 @@ describe("interactive component contract", () => {
   it("matches a selected line filter against any station line", () => {
     render(<StationPicker />);
 
+    expect(screen.queryByRole("checkbox", { name: "North Jersey Coast Line" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Filter stations" }));
+
     fireEvent.change(screen.getByRole("searchbox", { name: "Search stations" }), {
       target: { value: "Aberdeen" },
     });
@@ -231,5 +234,27 @@ describe("interactive component contract", () => {
     expect((screen.getByRole("checkbox", { name: "North Jersey Coast Line" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("checkbox", { name: "Atlantic City Line" }) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByText("Aberdeen-Matawan")).toBeTruthy();
+  });
+
+  it("keeps the full directory collapsed and avoids repeating a recent nearest station", async () => {
+    window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["NY"]));
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: (onSuccess: PositionCallback) => onSuccess({
+          coords: { latitude: 40.7505, longitude: -73.9934 },
+        } as GeolocationPosition),
+      },
+    });
+
+    render(<StationPicker />);
+
+    expect(await screen.findByRole("heading", { name: "Recent stations" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Nearest station" })).toBeNull();
+    const directory = screen.getByText("Browse all stations").closest("details")!;
+    expect(directory.open).toBe(false);
+
+    fireEvent.click(screen.getByText("Browse all stations"));
+    expect(directory.open).toBe(true);
   });
 });
