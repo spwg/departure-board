@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import type { Departure } from "@/lib/departures";
+import { responseLiveTime } from "@/lib/freshness";
 import { DepartureRow } from "./DepartureRow";
+import { FreshnessWarning } from "./FreshnessWarning";
 
 
 const REFRESH_MS = 30_000;
@@ -18,6 +20,7 @@ export function DepartureBoard({ code }: { code: string }) {
   const [departures, setDepartures] = useState<Departure[] | null>(null);
   const [fixtures, setFixtures] = useState(false);
   const [stale, setStale] = useState(false);
+  const [lastLiveAt, setLastLiveAt] = useState<number | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   // Left at 0 until after mount: reading the clock during render is
   // non-deterministic and would break prerendering. Every path that supplies
@@ -37,11 +40,17 @@ export function DepartureBoard({ code }: { code: string }) {
         if (!response.ok) throw new Error(String(response.status));
 
         const data: DeparturesResponse = await response.json();
+        const fromCache = response.headers.get("X-From-Cache") === "1";
         setDepartures(data.departures);
         setFixtures(data.fixtures);
-        // The service worker serves its cached copy when the network is gone.
-        // Those times are old, so say so rather than showing them as current.
-        setStale(response.headers.get("X-From-Cache") === "1");
+        setStale(fromCache);
+        setLastLiveAt(
+          data.fixtures
+            ? null
+            : fromCache
+              ? responseLiveTime(response)
+              : Date.now(),
+        );
         setLoadFailed(false);
         setNow(Date.now());
         loadedOnce.current = true;
@@ -114,23 +123,30 @@ export function DepartureBoard({ code }: { code: string }) {
 
   if (departures.length === 0) {
     return (
-      <p className="px-5 py-16 text-center text-muted">
-        No departures scheduled right now.
-      </p>
+      <>
+        {stale && lastLiveAt !== null && (
+          <FreshnessWarning lastLiveAt={lastLiveAt} />
+        )}
+        <p className="px-5 py-16 text-center text-muted">
+          No departures scheduled right now.
+        </p>
+      </>
     );
   }
 
   return (
     <>
       {(stale || fixtures) && (
-        <p
-          role="status"
-          className="border-b border-edge bg-warn-soft px-5 py-2 text-center text-xs font-medium text-warn"
-        >
-          {stale
-            ? "Offline — showing the last times we loaded"
-            : "Sample data — add NJ Transit API credentials for live departures"}
-        </p>
+        stale && lastLiveAt !== null ? (
+          <FreshnessWarning lastLiveAt={lastLiveAt} />
+        ) : (
+          <p
+            role="status"
+            className="border-b border-edge bg-warn-soft px-5 py-2 text-center text-xs font-medium text-warn"
+          >
+            Sample data — add NJ Transit API credentials for live departures
+          </p>
+        )
       )}
       <ul className="divide-y divide-edge">
         {departures.map((departure) => (
