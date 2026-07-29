@@ -9,6 +9,7 @@ import { useClockFormat } from "@/lib/clockFormat";
 import { getStation, lineColor, lineName } from "@/lib/stations";
 import type { Stop, StopList as StopListData } from "@/lib/stops";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { ServiceStatus } from "./ServiceStatus";
 
 /**
  * Matches the board's cadence. There is no local tick alongside it the way the
@@ -128,6 +129,7 @@ export function StopList({ train, from }: { train: string; from: string }) {
 
   return (
     <>
+      <ServiceStatus lineCode={stopList.lineCode} />
       {(stale || fixtures) && (
         stale && lastLiveAt !== null ? (
           <FreshnessWarning lastLiveAt={lastLiveAt} />

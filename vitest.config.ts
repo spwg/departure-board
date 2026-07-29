@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup.tsx"],
-    include: ["tests/{components,departures,njt-client,recent-stations,route,stations-fixtures,watches}.test.{ts,tsx}"],
+    include: ["tests/{components,departures,njt-client,recent-stations,route,service-advisories,service-advisories-route,service-status,stations-fixtures,watch-monitor,watches}.test.{ts,tsx}"],
     clearMocks: true,
   },
 });

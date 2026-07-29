@@ -74,6 +74,18 @@ function sameWatch(a: WatchKey, b: WatchKey): boolean {
     a.scheduledTime === b.scheduledTime;
 }
 
+function sameWatchDetails(a: Watch, b: Watch): boolean {
+  return a.stationCode === b.stationCode &&
+    a.trainNumber === b.trainNumber &&
+    a.scheduledTime === b.scheduledTime &&
+    a.destination === b.destination &&
+    a.expectedTime === b.expectedTime &&
+    a.status === b.status &&
+    a.track === b.track &&
+    a.line === b.line &&
+    a.lineCode === b.lineCode;
+}
+
 function getSnapshot(): Watch[] {
   if (memoryFallback) return memoryFallback;
 
@@ -170,7 +182,7 @@ export function reconcileStationWatches(
     return departure ? [toWatch(normalizedStationCode, departure)] : [];
   });
 
-  if (next.length !== current.length || next.some((watch, index) => watch !== current[index])) {
+  if (next.length !== current.length || next.some((watch, index) => !sameWatchDetails(watch, current[index]!))) {
     save(next);
   }
 }
