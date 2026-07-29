@@ -56,7 +56,10 @@ describe("interactive component contract", () => {
   it("watches an exact departure and lets riders manage it from the home-page list", async () => {
     render(<><DepartureRow departure={departure} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" /><WatchedDepartures /></>);
 
-    fireEvent.click(screen.getByRole("button", { name: "Watch train 1234 to Trenton" }));
+    const watchButton = screen.getByRole("button", { name: "Watch train 1234 to Trenton" });
+    expect(watchButton.textContent).toBe("");
+    expect(watchButton.getAttribute("title")).toBe("Watch departure");
+    fireEvent.click(watchButton);
     expect(await screen.findByRole("heading", { name: "Watched departures" })).toBeTruthy();
     expect(screen.getByText(/New York Penn Station/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" })).toBeTruthy();
