@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 describe("service-status UI", () => {
-  it("keeps a disruption visible, summarizes multiple advisories, and gives every notice its official link and exact dismissal", async () => {
+  it("collapses disruptions and advisories into one summary, while preserving each notice's link and dismissal", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
       new Response(JSON.stringify({
         advisories: [disruption, firstAdvisory, secondAdvisory],
@@ -39,17 +39,21 @@ describe("service-status UI", () => {
     ));
     render(<ServiceStatus stationCode="NY" />);
 
-    expect((await screen.findByRole("alert")).textContent).toContain(disruption.text);
-    expect(screen.getByRole("link", { name: /northeast corridor line service/i }).getAttribute("href")).toBe(disruption.url);
-    expect(screen.getByText("Service status — 2 advisories")).toBeTruthy();
-    expect((screen.getByText(firstAdvisory.text).closest("details") as HTMLDetailsElement).open).toBe(false);
+    const summary = await screen.findByText(
+      "Service status — 1 disruption, 2 advisories",
+    );
+    const details = summary.closest("details") as HTMLDetailsElement;
+    expect(details.open).toBe(false);
 
-    fireEvent.click(screen.getByText("Service status — 2 advisories"));
+    fireEvent.click(summary);
+    expect(details.open).toBe(true);
+    expect(await screen.findByText(disruption.text)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /northeast corridor line service/i }).getAttribute("href")).toBe(disruption.url);
     expect(await screen.findByText(firstAdvisory.text)).toBeTruthy();
     expect(screen.getByRole("link", { name: /new york penn station staircase/i }).getAttribute("href")).toBe(firstAdvisory.url);
 
     fireEvent.click(screen.getByRole("button", { name: `Dismiss service notice: ${disruption.text}` }));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(screen.queryByText(disruption.text)).toBeNull());
     expect(screen.getByText(firstAdvisory.text)).toBeTruthy();
   });
 });

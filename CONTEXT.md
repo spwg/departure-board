@@ -49,11 +49,11 @@ An announced future or ongoing service change that affects a station or rail lin
 _Avoid_: Disruption, delay
 
 **Service-status summary**:
-A compact expandable banner representing multiple relevant service notices. It displays their count first and reveals the individual official notices and links on expansion.
+A compact expandable banner representing all relevant service notices, including active disruptions. It displays an urgency-aware count first and reveals the individual official notices and links on expansion.
 _Avoid_: Alert stack, full alert feed
 
 **Active disruption**:
-A current service interruption relevant to the board. It remains immediately visible even when planned service advisories are collapsed into the service-status summary.
+A current service interruption relevant to the board. It is represented in the collapsed service-status summary and retains high-severity styling when expanded.
 _Avoid_: Service advisory, planned work
 
 **Train-page service status**:
