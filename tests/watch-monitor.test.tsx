@@ -8,6 +8,7 @@ import {
   materialWatchChanges,
   pollWatchedStations,
   shouldSendBrowserNotification,
+  watchChangeMessage,
 } from "@/lib/watchMonitor";
 import { watchDeparture } from "@/lib/watches";
 
@@ -33,10 +34,11 @@ afterEach(() => {
   cleanup();
   window.localStorage.clear();
   vi.unstubAllGlobals();
+  Reflect.deleteProperty(document, "visibilityState");
 });
 
 describe("Client watcher behavior", () => {
-  it("only identifies cancellation, a track assignment/change, or an expected-time shift of at least two minutes", () => {
+  it("identifies every cancellation, track, and expected-time change of at least two minutes", () => {
     expect(materialWatchChanges([watch()], "NY", [{
       ...departure,
       expectedTime: "2024-05-30T15:06:59.000Z",
@@ -50,6 +52,16 @@ describe("Client watcher behavior", () => {
       .toMatchObject([{ kind: "track" }]);
     expect(materialWatchChanges([watch()], "NY", [{ ...departure, status: "cancelled" }]))
       .toMatchObject([{ kind: "cancelled" }]);
+
+    expect(materialWatchChanges([watch()], "NY", [{
+      ...departure,
+      status: "cancelled",
+      track: "6",
+      expectedTime: "2024-05-30T15:07:00.000Z",
+    }]).map((change) => change.kind)).toEqual(["cancelled", "track", "expected-time"]);
+    const [withdrawnTrack] = materialWatchChanges([watch()], "NY", [{ ...departure, track: "" }]);
+    expect(withdrawnTrack).toMatchObject({ kind: "track" });
+    expect(watchChangeMessage(withdrawnTrack!)).toContain("track assignment was removed");
   });
 
   it("polls every watched station even when the tab is backgrounded", async () => {
@@ -87,6 +99,34 @@ describe("Client watcher behavior", () => {
 
     expect((await screen.findByRole("alert")).textContent).toContain("now departs");
     expect(notification).not.toHaveBeenCalled();
+  });
+
+  it("falls back to an in-page Watch alert when a granted page notification throws", async () => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    const notification = vi.fn(() => {
+      throw new Error("Use the service worker notification API");
+    });
+    Object.assign(notification, { permission: "granted" });
+    vi.stubGlobal("Notification", notification);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      departures: [{ ...departure, expectedTime: "2024-05-30T15:07:00.000Z" }],
+      fixtures: false,
+    }))));
+
+    render(<WatchMonitor />);
+    watchDeparture("NY", departure);
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(notification).toHaveBeenCalledOnce();
+  });
+
+  it("uses the selected 24-hour clock format in Watch messages", () => {
+    const [change] = materialWatchChanges([watch()], "NY", [{
+      ...departure,
+      expectedTime: "2024-05-30T19:07:00.000Z",
+    }]);
+
+    expect(watchChangeMessage(change!, { use24Hour: true })).toContain("15:07");
   });
 
   it("explains and requests notification permission with the first Watch action", () => {
