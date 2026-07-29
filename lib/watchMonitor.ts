@@ -39,20 +39,21 @@ export function materialWatchChanges(
     ));
     if (!departure) return [];
 
+    const changes: WatchChange[] = [];
     if (departure.status === "cancelled" && watch.status !== "cancelled") {
-      return [{ watch, departure, kind: "cancelled" }];
+      changes.push({ watch, departure, kind: "cancelled" });
     }
-    if (departure.track && departure.track !== watch.track) {
-      return [{ watch, departure, kind: "track" }];
+    if (departure.track !== watch.track) {
+      changes.push({ watch, departure, kind: "track" });
     }
 
     const expectedDifference = Math.abs(
       Date.parse(departure.expectedTime) - Date.parse(watch.expectedTime),
     );
     if (Number.isFinite(expectedDifference) && expectedDifference >= 2 * 60_000) {
-      return [{ watch, departure, kind: "expected-time" }];
+      changes.push({ watch, departure, kind: "expected-time" });
     }
-    return [];
+    return changes;
   });
 }
 
@@ -77,14 +78,19 @@ export function shouldSendBrowserNotification(
   return visibilityState !== "visible" && permission === "granted";
 }
 
-export function watchChangeMessage(change: WatchChange): string {
+export function watchChangeMessage(
+  change: WatchChange,
+  { use24Hour = false }: { use24Hour?: boolean } = {},
+): string {
   const label = `Train ${change.watch.trainNumber} to ${change.departure.destination}`;
   switch (change.kind) {
     case "cancelled":
       return `${label} was cancelled.`;
     case "track":
-      return `${label} is now on track ${change.departure.track}.`;
+      return change.departure.track
+        ? `${label} is now on track ${change.departure.track}.`
+        : `${label}'s track assignment was removed.`;
     case "expected-time":
-      return `${label} now departs at ${formatClock(change.departure.expectedTime)}.`;
+      return `${label} now departs at ${formatClock(change.departure.expectedTime, { hour12: !use24Hour })}.`;
   }
 }

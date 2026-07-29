@@ -10,6 +10,7 @@ import {
   watchChangeMessage,
   type WatchChange,
 } from "@/lib/watchMonitor";
+import { useClockFormat } from "@/lib/clockFormat";
 import { reconcileStationWatches, useWatches } from "@/lib/watches";
 
 const POLL_MS = 30_000;
@@ -22,14 +23,20 @@ type WatchAlert = WatchChange & { id: string; message: string };
  */
 export function WatchMonitor() {
   const { watches, loaded } = useWatches();
+  const { use24Hour } = useClockFormat();
   const [alerts, setAlerts] = useState<WatchAlert[]>([]);
 
   const surfaceChange = useCallback((change: WatchChange) => {
-    const message = watchChangeMessage(change);
+    const message = watchChangeMessage(change, { use24Hour });
     const BrowserNotification = window.Notification;
     if (shouldSendBrowserNotification(document.visibilityState, BrowserNotification?.permission)) {
-      new BrowserNotification("Watch update", { body: message });
-      return;
+      try {
+        new BrowserNotification("Watch update", { body: message });
+        return;
+      } catch {
+        // Some installed/mobile browsers only permit service-worker notices.
+        // The page is still open, so a visible in-page Watch alert is reliable.
+      }
     }
 
     setAlerts((current) => [...current, {
@@ -37,7 +44,7 @@ export function WatchMonitor() {
       id: watchAlertId(change),
       message,
     }]);
-  }, []);
+  }, [use24Hour]);
 
   const poll = useCallback(async (signal?: AbortSignal) => {
     const snapshot = watches;
