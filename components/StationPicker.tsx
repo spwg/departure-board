@@ -33,7 +33,7 @@ function formatDistance(km: number): string {
 
 export function StationPicker() {
   const { favorites, loaded: favoritesLoaded } = useFavorites();
-  const { recentStations, loaded: recentStationsLoaded, clear, restore } =
+  const { recentStations, loaded: recentStationsLoaded, clear, remove, restore } =
     useRecentStations();
 
   // Derived rather than set from an effect, so there is no render-then-correct
@@ -173,7 +173,7 @@ export function StationPicker() {
           }
         >
           {recent.length > 0 ? (
-            <StationList items={recent} />
+            <StationList items={recent} onRemove={(station) => remove(station.code)} />
           ) : (
             <p className="px-4 py-4 text-sm text-muted">
               No recent stations match the selected lines.
@@ -357,17 +357,21 @@ function Section({
 function StationList({
   items,
   subtitle,
+  onRemove,
 }: {
   items: Station[];
   subtitle?: string;
+  onRemove?: (station: Station) => void;
 }) {
   return (
     <ul className="divide-y divide-edge">
       {items.map((station) => (
-        <li key={station.code}>
+        <li key={station.code} className={onRemove ? "flex items-center" : ""}>
           <Link
             href={`/station/${station.code}`}
-            className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
+            className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none ${
+              onRemove ? "min-w-0 flex-1" : ""
+            }`}
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium">{station.name}</span>
@@ -389,6 +393,18 @@ function StationList({
               ))}
             </span>
           </Link>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={() => onRemove(station)}
+              aria-label={`Remove ${station.name} from recent stations`}
+              className="mr-2 grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
+                <path d="m7 7 10 10M17 7 7 17" />
+              </svg>
+            </button>
+          )}
         </li>
       ))}
     </ul>

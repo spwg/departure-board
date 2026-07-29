@@ -72,13 +72,20 @@ export function recordRecentStation(code: string): void {
   save([normalized, ...getSnapshot().filter((current) => current !== normalized)].slice(0, MAX_RECENT_STATIONS));
 }
 
+/** Removes one station from the local history without changing the others. */
+export function removeRecentStation(code: string): void {
+  const normalized = code.toUpperCase();
+  save(getSnapshot().filter((current) => current !== normalized));
+}
+
 /** Recent station codes persisted locally, with controls for the picker history. */
 export function useRecentStations() {
   const recentStations = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY);
   const loaded = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
   const clear = useCallback(() => save([]), []);
+  const remove = useCallback((code: string) => removeRecentStation(code), []);
   const restore = useCallback((codes: string[]) => save(normalizeRecentStationCodes(codes)), []);
 
-  return { recentStations, loaded, clear, restore };
+  return { recentStations, loaded, clear, remove, restore };
 }
