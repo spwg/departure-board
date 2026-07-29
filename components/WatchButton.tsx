@@ -28,6 +28,7 @@ export function WatchButton({
       type="button"
       aria-pressed={active}
       aria-label={`${active ? "Unwatch" : "Watch"} ${trainDescription}`}
+      title={active ? "Stop watching departure" : "Watch departure"}
       onClick={() => {
         if (active) unwatch(key);
         else {
@@ -42,10 +43,26 @@ export function WatchButton({
           }
         }
       }}
-      className="shrink-0 rounded-full border border-edge px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${
+        active
+          ? "border-text bg-text text-surface hover:opacity-85"
+          : "border-edge text-muted hover:bg-bg hover:text-text"
+      }`}
       style={{ visibility: loaded ? "visible" : "hidden" }}
     >
-      {active ? "Watching" : "Watch"}
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill={active ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" fill="none" />
+      </svg>
     </button>
     {permissionNotice && <p role="status" className="sr-only">{permissionNotice}</p>}
     </>
