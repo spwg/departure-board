@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useClockFormat } from "@/lib/clockFormat";
 
 /** A compact home for preferences that should not compete with board controls. */
@@ -85,6 +86,15 @@ export function SettingsButton() {
                 );
               })}
             </div>
+          </div>
+
+          <div className="mt-4 border-t border-edge pt-3">
+            <Link
+              href="/about"
+              className="text-sm font-medium text-muted transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            >
+              About data
+            </Link>
           </div>
         </section>
       )}
