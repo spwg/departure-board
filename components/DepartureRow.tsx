@@ -39,7 +39,7 @@ export function DepartureRow({
   const namedTrack = departure.track.length > 2;
 
   return (
-    <li className={`relative flex items-center ${cancelled ? "opacity-55" : ""}`}>
+    <li className={`relative ${cancelled ? "opacity-55" : ""}`}>
       <span
         aria-hidden
         className="absolute left-0 top-3 bottom-3 w-1 rounded-full"
@@ -47,12 +47,17 @@ export function DepartureRow({
       />
 
       {/* The whole row is the target: on a platform you are tapping this with
-          a thumb, in a hurry. Deliberately no aria-label — the row's own
-          contents make a better accessible name than a summary would. */}
+          a thumb, in a hurry. The Watch control sits above this target so it
+          can stay an independent button rather than a nested link. */}
       <Link
         href={`/train/${encodeURIComponent(departure.trainNumber)}?from=${stationCode}`}
-        className="flex min-w-0 flex-1 items-center gap-3 py-4 pl-4 pr-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none sm:gap-4 sm:pl-5"
+        aria-label={`See stops for train ${departure.trainNumber} to ${departure.destination}`}
+        className="absolute inset-0 z-0 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
       >
+        <span className="sr-only">See stops</span>
+      </Link>
+
+      <div className="pointer-events-none relative z-10 flex min-w-0 items-center gap-3 py-4 pl-4 pr-3 sm:gap-4 sm:pl-5">
         <div className="min-w-0 flex-1">
           <div
             className={`truncate text-lg font-semibold tracking-tight sm:text-xl ${
@@ -67,6 +72,11 @@ export function DepartureRow({
               ·
             </span>
             <span className="shrink-0 font-mono">#{departure.trainNumber}</span>
+            <WatchButton
+              stationCode={stationCode}
+              departure={departure}
+              className="pointer-events-auto -my-1 -ml-1"
+            />
           </div>
         </div>
 
@@ -123,9 +133,7 @@ export function DepartureRow({
           {departure.track || "–"}
         </div>
 
-        <span className="sr-only">See stops</span>
-      </Link>
-      <WatchButton stationCode={stationCode} departure={departure} />
+      </div>
     </li>
   );
 }

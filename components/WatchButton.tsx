@@ -8,9 +8,11 @@ import { useWatches } from "@/lib/watches";
 export function WatchButton({
   stationCode,
   departure,
+  className = "",
 }: {
   stationCode: string;
   departure: Departure;
+  className?: string;
 }) {
   const { isWatched, watch, unwatch, loaded } = useWatches();
   const [permissionNotice, setPermissionNotice] = useState<string | null>(null);
@@ -43,16 +45,14 @@ export function WatchButton({
           }
         }
       }}
-      className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${
-        active
-          ? "border-text bg-text text-surface hover:opacity-85"
-          : "border-edge text-muted hover:bg-bg hover:text-text"
-      }`}
+      className={`grid h-7 w-7 shrink-0 place-items-center rounded text-muted transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${
+        active ? "text-text" : ""
+      } ${className}`}
       style={{ visibility: loaded ? "visible" : "hidden" }}
     >
       <svg
         viewBox="0 0 24 24"
-        className="h-5 w-5"
+        className="h-4 w-4"
         fill={active ? "currentColor" : "none"}
         stroke="currentColor"
         strokeWidth={2}

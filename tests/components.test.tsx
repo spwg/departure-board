@@ -59,6 +59,11 @@ describe("interactive component contract", () => {
     const watchButton = screen.getByRole("button", { name: "Watch train 1234 to Trenton" });
     expect(watchButton.textContent).toBe("");
     expect(watchButton.getAttribute("title")).toBe("Watch departure");
+    expect(watchButton.className).toContain("text-muted");
+    expect(watchButton.className).not.toContain("rounded-full");
+    expect(watchButton.closest("a")).toBeNull();
+    expect(screen.getByRole("link", { name: "See stops for train 1234 to Trenton" }).getAttribute("href"))
+      .toBe("/train/1234?from=NY");
     fireEvent.click(watchButton);
     expect(await screen.findByRole("heading", { name: "Watched departures" })).toBeTruthy();
     expect(screen.getByText(/New York Penn Station/)).toBeTruthy();
