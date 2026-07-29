@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatClock, type Departure } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
 import { lineColor, lineName } from "@/lib/stations";
+import { WatchButton } from "./WatchButton";
 
 /**
  * Formats the wait as something you can read at a glance while walking.
@@ -38,7 +39,7 @@ export function DepartureRow({
   const namedTrack = departure.track.length > 2;
 
   return (
-    <li className={`relative ${cancelled ? "opacity-55" : ""}`}>
+    <li className={`relative flex items-center ${cancelled ? "opacity-55" : ""}`}>
       <span
         aria-hidden
         className="absolute left-0 top-3 bottom-3 w-1 rounded-full"
@@ -50,7 +51,7 @@ export function DepartureRow({
           contents make a better accessible name than a summary would. */}
       <Link
         href={`/train/${encodeURIComponent(departure.trainNumber)}?from=${stationCode}`}
-        className="flex items-center gap-3 py-4 pl-4 pr-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none sm:gap-4 sm:pl-5"
+        className="flex min-w-0 flex-1 items-center gap-3 py-4 pl-4 pr-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none sm:gap-4 sm:pl-5"
       >
         <div className="min-w-0 flex-1">
           <div
@@ -124,6 +125,7 @@ export function DepartureRow({
 
         <span className="sr-only">See stops</span>
       </Link>
+      <WatchButton stationCode={stationCode} departure={departure} />
     </li>
   );
 }

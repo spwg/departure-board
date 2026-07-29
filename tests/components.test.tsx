@@ -8,6 +8,7 @@ import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
+import { WatchedDepartures } from "@/components/WatchedDepartures";
 import type { Departure } from "@/lib/departures";
 import type { StopList as StopListData } from "@/lib/stops";
 
@@ -49,6 +50,18 @@ describe("interactive component contract", () => {
   it("renders a delayed departure with its timetable, train, line, and track", () => {
     render(<DepartureRow departure={departure} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
     expect(screen.getByText("Trenton")).toBeTruthy(); expect(screen.getByText("#1234")).toBeTruthy(); expect(screen.getByLabelText("Track 5")).toBeTruthy(); expect(screen.getByText("11:00 AM")).toBeTruthy(); expect(screen.getByText("11:05 AM")).toBeTruthy();
+  });
+
+  it("watches an exact departure and lets riders manage it from the home-page list", async () => {
+    render(<><DepartureRow departure={departure} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" /><WatchedDepartures /></>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Watch train 1234 to Trenton" }));
+    expect(await screen.findByRole("heading", { name: "Watched departures" })).toBeTruthy();
+    expect(screen.getByText(/New York Penn Station/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Watched departures" })).toBeNull());
   });
 
   it("shows initial request failures with a retry affordance", async () => {
