@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { formatClock } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
 import { useWatches, type Watch } from "@/lib/watches";
@@ -27,17 +28,23 @@ export function WatchedDepartures() {
           const name = stationName(watch);
           return (
             <li key={`${watch.stationCode}-${watch.trainNumber}-${watch.scheduledTime}`} className="flex items-center gap-3 px-4 py-3">
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{watch.destination}</p>
-                <p className="mt-0.5 truncate text-xs text-muted">
-                  {name} · #{watch.trainNumber}
-                </p>
-              </div>
-              <div className="shrink-0 text-right text-sm font-medium">
-                {watch.status === "cancelled"
-                  ? "Cancelled"
-                  : formatClock(watch.expectedTime, { hour12: !use24Hour })}
-              </div>
+              <Link
+                href={`/train/${encodeURIComponent(watch.trainNumber)}?from=${watch.stationCode}`}
+                aria-label={`See stops for train ${watch.trainNumber} to ${watch.destination} from ${name}`}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{watch.destination}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted">
+                    {name} · #{watch.trainNumber}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right text-sm font-medium">
+                  {watch.status === "cancelled"
+                    ? "Cancelled"
+                    : formatClock(watch.expectedTime, { hour12: !use24Hour })}
+                </div>
+              </Link>
               <button
                 type="button"
                 onClick={() => unwatch(watch)}

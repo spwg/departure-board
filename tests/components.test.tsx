@@ -67,6 +67,9 @@ describe("interactive component contract", () => {
     fireEvent.click(watchButton);
     expect(await screen.findByRole("heading", { name: "Watched departures" })).toBeTruthy();
     expect(screen.getByText(/New York Penn Station/)).toBeTruthy();
+    expect(screen.getByRole("link", {
+      name: "See stops for train 1234 to Trenton from New York Penn Station",
+    }).getAttribute("href")).toBe("/train/1234?from=NY");
     expect(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" }));
