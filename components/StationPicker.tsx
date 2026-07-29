@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { SettingsButton } from "@/components/SettingsButton";
+import { WatchedDepartures } from "@/components/WatchedDepartures";
 import { useFavorites } from "@/lib/favorites";
 import { useRecentStations } from "@/lib/recentStations";
 import {
@@ -47,6 +48,8 @@ export function StationPicker() {
   const [located, setLocated] = useState<LocationState | null>(null);
   const [query, setQuery] = useState("");
   const [selectedLines, setSelectedLines] = useState<string[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [clearedRecentStations, setClearedRecentStations] = useState<string[] | null>(null);
 
   const location: LocationState =
@@ -153,6 +156,8 @@ export function StationPicker() {
         <SettingsButton />
       </div>
 
+      <WatchedDepartures />
+
       {recentStationsLoaded && recentStations.length > 0 && (
         <Section
           title="Recent stations"
@@ -202,7 +207,7 @@ export function StationPicker() {
         </Section>
       )}
 
-      {location.status === "found" && (
+      {location.status === "found" && recentStationsLoaded && !recentStations.includes(location.station.code) && (
         <Section title="Nearest station">
           <StationList
             items={[location.station]}
@@ -211,32 +216,68 @@ export function StationPicker() {
         </Section>
       )}
 
-      <input
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search stations"
-        aria-label="Search stations"
-        autoComplete="off"
-        className="mt-7 w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
-      />
+      <div className="mt-7 flex gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search stations"
+          aria-label="Search stations"
+          autoComplete="off"
+          className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
+        />
+        <button
+          type="button"
+          aria-label="Filter stations"
+          aria-expanded={filtersOpen}
+          aria-controls="line-filter-options"
+          onClick={() => setFiltersOpen((open) => !open)}
+          className="relative grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-edge bg-surface text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M4 6h16M7 12h10M10 18h4" />
+          </svg>
+          {selectedLines.length > 0 && (
+            <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-text px-1 text-[10px] font-bold text-surface">
+              {selectedLines.length}
+            </span>
+          )}
+        </button>
+      </div>
 
-      <fieldset className="mt-3">
-        <legend className="text-sm font-medium">Line filter</legend>
-        <p className="mt-1 text-xs text-muted">Show stations served by any selected rail line.</p>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-          {Object.keys(LINE_NAMES).map((line) => (
-            <label key={line} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={selectedLines.includes(line)}
-                onChange={() => toggleLine(line)}
-              />
-              {lineName(line)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      {filtersOpen && (
+        <fieldset id="line-filter-options" className="mt-2 rounded-xl border border-edge bg-surface px-4 py-3">
+          <legend className="sr-only">Line filter</legend>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-medium">Filter by rail line</p>
+            {selectedLines.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedLines([])}
+                className="text-xs font-medium text-muted underline underline-offset-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-muted">Show stations served by any selected rail line.</p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+            {Object.keys(LINE_NAMES).map((line) => (
+              <label key={line} className="flex items-center gap-1.5 text-sm">
+                <input
+                  type="checkbox"
+                  checked={selectedLines.includes(line)}
+                  onChange={() => {
+                    setDirectoryOpen(true);
+                    toggleLine(line);
+                  }}
+                />
+                {lineName(line)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {query ? (
         <Section title={`${results.length} result${results.length === 1 ? "" : "s"}`}>
@@ -256,18 +297,25 @@ export function StationPicker() {
             </Section>
           )}
 
-          {/* Rendered without a card wrapper: `overflow-hidden` would trap the
-              sticky letter headers in a non-scrolling container, and a flat
-              list suits 167 rows better anyway. */}
-          <section className="mt-7">
-            <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-muted">
-              All stations
-            </h2>
-            <div className="border-t border-edge bg-surface">
+          <details
+            className="group mt-7"
+            open={directoryOpen}
+            onToggle={(event) => setDirectoryOpen(event.currentTarget.open)}
+          >
+            <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-edge bg-surface px-4 py-3 text-sm font-medium transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
+              <span>Browse all stations</span>
+              <span className="flex items-center gap-2 text-xs text-muted">
+                {selectedLines.length > 0 && `${grouped.reduce((count, [, stations]) => count + stations.length, 0)} matching`}
+                <svg viewBox="0 0 24 24" className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </span>
+            </summary>
+            {/* Rendered flat: a card wrapper would trap sticky letter headers
+                in a non-scrolling container. */}
+            <div className="mt-2 border-t border-edge bg-surface">
               {grouped.map(([letter, group]) => (
                 <div key={letter}>
-                  {/* Opaque, not translucent: rows scrolling underneath would
-                      otherwise ghost through the stuck header. */}
                   <h3 className="sticky top-0 z-10 border-b border-edge bg-bg px-4 py-1.5 text-xs font-semibold text-muted">
                     {letter}
                   </h3>
@@ -275,7 +323,7 @@ export function StationPicker() {
                 </div>
               ))}
             </div>
-          </section>
+          </details>
         </>
       )}
     </main>

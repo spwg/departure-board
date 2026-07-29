@@ -8,8 +8,10 @@ import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
+import { WatchedDepartures } from "@/components/WatchedDepartures";
 import type { Departure } from "@/lib/departures";
 import type { StopList as StopListData } from "@/lib/stops";
+import { watchDeparture, watchedDepartures } from "@/lib/watches";
 
 const departure: Departure = { id: "1", destination: "Trenton", scheduledTime: "2024-05-30T15:00:00.000Z", expectedTime: "2024-05-30T15:05:00.000Z", trainNumber: "1234", line: "Northeast Corridor Line", lineCode: "NE", track: "5", status: "delayed", statusText: "5 Min Late", delayMinutes: 5 };
 const stopList: StopListData = { trainNumber: "1234", lineCode: "NE", destination: "Trenton", transferAt: "", stops: [{ code: "NY", name: "New York Penn Station", time: "2024-05-30T15:00:00.000Z", departed: false, pickupOnly: false, dropoffOnly: false }] };
@@ -51,18 +53,55 @@ describe("interactive component contract", () => {
     expect(screen.getByText("Trenton")).toBeTruthy(); expect(screen.getByText("#1234")).toBeTruthy(); expect(screen.getByLabelText("Track 5")).toBeTruthy(); expect(screen.getByText("11:00 AM")).toBeTruthy(); expect(screen.getByText("11:05 AM")).toBeTruthy();
   });
 
+  it("watches an exact departure and lets riders manage it from the home-page list", async () => {
+    render(<><DepartureRow departure={departure} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" /><WatchedDepartures /></>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Watch train 1234 to Trenton" }));
+    expect(await screen.findByRole("heading", { name: "Watched departures" })).toBeTruthy();
+    expect(screen.getByText(/New York Penn Station/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Watched departures" })).toBeNull());
+  });
+
+  it("leaves Watch reconciliation to the client watcher so board refreshes cannot absorb an alert", async () => {
+    watchDeparture("NY", departure);
+    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
+      if (String(input).includes("service-advisories")) {
+        return Promise.resolve(new Response(JSON.stringify({ advisories: [] })));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        departures: [{ ...departure, expectedTime: "2024-05-30T15:07:00.000Z" }],
+        fixtures: false,
+      })));
+    }));
+
+    render(<DepartureBoard code="NY" />);
+    expect(await screen.findByText("Trenton")).toBeTruthy();
+    expect(watchedDepartures()[0]?.expectedTime).toBe(departure.expectedTime);
+  });
+
   it("shows initial request failures with a retry affordance", async () => {
-    const fetchMock = vi.fn().mockRejectedValue(new Error("offline")); vi.stubGlobal("fetch", fetchMock); vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = vi.fn((input: unknown) => String(input).includes("service-advisories")
+      ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
+      : Promise.reject(new Error("offline")));
+    vi.stubGlobal("fetch", fetchMock); vi.spyOn(console, "error").mockImplementation(() => {});
     render(<DepartureBoard code="NY" />);
     expect(await screen.findByText("Couldn't load departures.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchMock.mock.calls.filter(([input]) => !String(input).includes("service-advisories"))).toHaveLength(2));
   });
 
   it("renders rows and keeps fixture data distinct from a live response", async () => {
-    vi.stubGlobal("fetch", vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ departures: [departure], fixtures: true }), { status: 200 }))
-      .mockRejectedValueOnce(new Error("offline")));
+    let departureCalls = 0;
+    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
+      if (String(input).includes("service-advisories")) return Promise.resolve(new Response(JSON.stringify({ advisories: [] })));
+      departureCalls += 1;
+      return departureCalls === 1
+        ? Promise.resolve(new Response(JSON.stringify({ departures: [departure], fixtures: true }), { status: 200 }))
+        : Promise.reject(new Error("offline"));
+    }));
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(<DepartureBoard code="NY" />);
     expect(await screen.findByText("Sample data — add NJ Transit API credentials for live departures")).toBeTruthy();
@@ -76,10 +115,13 @@ describe("interactive component contract", () => {
   it("retains departures after any later failure, reports their age, and clears the warning on recovery", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ departures: [departure], fixtures: false }), { status: 200 }))
-      .mockRejectedValueOnce(new Error("upstream unavailable"))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ departures: [departure], fixtures: false }), { status: 200 }));
+    let departureCalls = 0;
+    const fetchMock = vi.fn((input: unknown) => {
+      if (String(input).includes("service-advisories")) return Promise.resolve(new Response(JSON.stringify({ advisories: [] })));
+      departureCalls += 1;
+      if (departureCalls === 1 || departureCalls === 3) return Promise.resolve(new Response(JSON.stringify({ departures: [departure], fixtures: false }), { status: 200 }));
+      return Promise.reject(new Error("upstream unavailable"));
+    });
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -100,12 +142,13 @@ describe("interactive component contract", () => {
   it("shows a retryable initial stop error, then retains stops with an age-bearing freshness warning", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
-    const fetchMock = vi.fn()
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ stopList, fixtures: false }), { status: 200 }))
-      .mockRejectedValueOnce(new Error("upstream unavailable"))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ stopList, fixtures: false }), { status: 200 }))
-      .mockRejectedValueOnce(new Error("upstream unavailable again"));
+    let stopCalls = 0;
+    const fetchMock = vi.fn((input: unknown) => {
+      if (String(input).includes("service-advisories")) return Promise.resolve(new Response(JSON.stringify({ advisories: [] })));
+      stopCalls += 1;
+      if (stopCalls === 2 || stopCalls === 4) return Promise.resolve(new Response(JSON.stringify({ stopList, fixtures: false }), { status: 200 }));
+      return Promise.reject(new Error("upstream unavailable"));
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     render(<StopList train="1234" from="NY" />);
@@ -178,6 +221,9 @@ describe("interactive component contract", () => {
   it("matches a selected line filter against any station line", () => {
     render(<StationPicker />);
 
+    expect(screen.queryByRole("checkbox", { name: "North Jersey Coast Line" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Filter stations" }));
+
     fireEvent.change(screen.getByRole("searchbox", { name: "Search stations" }), {
       target: { value: "Aberdeen" },
     });
@@ -188,5 +234,27 @@ describe("interactive component contract", () => {
     expect((screen.getByRole("checkbox", { name: "North Jersey Coast Line" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("checkbox", { name: "Atlantic City Line" }) as HTMLInputElement).checked).toBe(true);
     expect(screen.getByText("Aberdeen-Matawan")).toBeTruthy();
+  });
+
+  it("keeps the full directory collapsed and avoids repeating a recent nearest station", async () => {
+    window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["NY"]));
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: (onSuccess: PositionCallback) => onSuccess({
+          coords: { latitude: 40.7505, longitude: -73.9934 },
+        } as GeolocationPosition),
+      },
+    });
+
+    render(<StationPicker />);
+
+    expect(await screen.findByRole("heading", { name: "Recent stations" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Nearest station" })).toBeNull();
+    const directory = screen.getByText("Browse all stations").closest("details")!;
+    expect(directory.open).toBe(false);
+
+    fireEvent.click(screen.getByText("Browse all stations"));
+    expect(directory.open).toBe(true);
   });
 });
