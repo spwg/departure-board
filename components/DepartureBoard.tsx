@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import type { Departure } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
+import { reconcileStationWatches } from "@/lib/watches";
 import { DepartureRow } from "./DepartureRow";
 import { FreshnessWarning } from "./FreshnessWarning";
 
@@ -41,6 +42,9 @@ export function DepartureBoard({ code }: { code: string }) {
 
         const data: DeparturesResponse = await response.json();
         const fromCache = response.headers.get("X-From-Cache") === "1";
+        reconcileStationWatches(code, data.departures, {
+          live: !data.fixtures && !fromCache,
+        });
         setDepartures(data.departures);
         setFixtures(data.fixtures);
         setStale(fromCache);
