@@ -7,9 +7,12 @@ import { DepartureRow } from "@/components/DepartureRow";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
+import { StopList } from "@/components/StopList";
 import type { Departure } from "@/lib/departures";
+import type { StopList as StopListData } from "@/lib/stops";
 
 const departure: Departure = { id: "1", destination: "Trenton", scheduledTime: "2024-05-30T15:00:00.000Z", expectedTime: "2024-05-30T15:05:00.000Z", trainNumber: "1234", line: "Northeast Corridor Line", lineCode: "NE", track: "5", status: "delayed", statusText: "5 Min Late", delayMinutes: 5 };
+const stopList: StopListData = { trainNumber: "1234", lineCode: "NE", destination: "Trenton", transferAt: "", stops: [{ code: "NY", name: "New York Penn Station", time: "2024-05-30T15:00:00.000Z", departed: false, pickupOnly: false, dropoffOnly: false }] };
 
 afterEach(() => {
   cleanup();
@@ -17,6 +20,7 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, "geolocation");
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  vi.useRealTimers();
 });
 
 describe("interactive component contract", () => {
@@ -55,10 +59,75 @@ describe("interactive component contract", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
-  it("renders rows and a fixture notice after a successful fetch", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ departures: [departure], fixtures: true }), { status: 200 })));
+  it("renders rows and keeps fixture data distinct from a live response", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ departures: [departure], fixtures: true }), { status: 200 }))
+      .mockRejectedValueOnce(new Error("offline")));
+    vi.spyOn(console, "error").mockImplementation(() => {});
     render(<DepartureBoard code="NY" />);
-    expect(await screen.findByText("Sample data — add NJ Transit API credentials for live departures")).toBeTruthy(); expect(screen.getByText("Trenton")).toBeTruthy();
+    expect(await screen.findByText("Sample data — add NJ Transit API credentials for live departures")).toBeTruthy();
+    expect(screen.getByText("Trenton")).toBeTruthy();
+
+    fireEvent(document, new Event("visibilitychange"));
+    await waitFor(() => expect(screen.getByText("Sample data — add NJ Transit API credentials for live departures")).toBeTruthy());
+    expect(screen.queryByText(/Data is no longer live/)).toBeNull();
+  });
+
+  it("retains departures after any later failure, reports their age, and clears the warning on recovery", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2024-05-30T15:00:00.000Z");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ departures: [departure], fixtures: false }), { status: 200 }))
+      .mockRejectedValueOnce(new Error("upstream unavailable"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ departures: [departure], fixtures: false }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<DepartureBoard code="NY" />);
+    expect(await screen.findByText("Trenton")).toBeTruthy();
+
+    vi.setSystemTime("2024-05-30T15:02:00.000Z");
+    fireEvent(document, new Event("visibilitychange"));
+    expect((await screen.findByRole("status")).textContent).toContain(
+      "Data is no longer live — last updated 2 minutes ago",
+    );
+    expect(screen.getByText("Trenton")).toBeTruthy();
+
+    fireEvent(document, new Event("visibilitychange"));
+    await waitFor(() => expect(screen.queryByText(/Data is no longer live/)).toBeNull());
+  });
+
+  it("shows a retryable initial stop error, then retains stops with an age-bearing freshness warning", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2024-05-30T15:00:00.000Z");
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ stopList, fixtures: false }), { status: 200 }))
+      .mockRejectedValueOnce(new Error("upstream unavailable"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ stopList, fixtures: false }), { status: 200 }))
+      .mockRejectedValueOnce(new Error("upstream unavailable again"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<StopList train="1234" from="NY" />);
+    expect(await screen.findByText("Couldn't load stops.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("New York Penn Station")).toBeTruthy();
+
+    vi.setSystemTime("2024-05-30T15:03:01.000Z");
+    fireEvent(document, new Event("visibilitychange"));
+    expect((await screen.findByRole("status")).textContent).toContain(
+      "Data is no longer live — last updated 3 minutes ago",
+    );
+    expect(screen.getByText("New York Penn Station")).toBeTruthy();
+
+    fireEvent(document, new Event("visibilitychange"));
+    await waitFor(() => expect(screen.queryByText(/Data is no longer live/)).toBeNull());
+
+    vi.setSystemTime("2024-05-30T15:05:02.000Z");
+    fireEvent(document, new Event("visibilitychange"));
+    expect((await screen.findByRole("status")).textContent).toContain(
+      "Data is no longer live — last updated 2 minutes ago",
+    );
   });
 
   it("registers the service worker only in production browsers that support it", () => {

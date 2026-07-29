@@ -42,11 +42,27 @@ async function tagAsCached(response) {
   });
 }
 
+/** Records when a data response was live so cached fallbacks can report age. */
+function tagWithLiveTime(response) {
+  const headers = new Headers(response.headers);
+  headers.set("X-Last-Live-At", new Date().toISOString());
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 async function networkFirst(request, cacheName, { tagStale = false } = {}) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
+    if (response.ok) {
+      const cachedResponse = tagStale
+        ? tagWithLiveTime(response.clone())
+        : response.clone();
+      cache.put(request, cachedResponse);
+    }
     return response;
   } catch (error) {
     const cached = await cache.match(request);

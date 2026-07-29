@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StopsResponse } from "@/app/api/stops/[train]/route";
 import { formatClock } from "@/lib/departures";
+import { responseLiveTime } from "@/lib/freshness";
 import { useClockFormat } from "@/lib/clockFormat";
 import { getStation, lineColor, lineName } from "@/lib/stations";
 import type { Stop, StopList as StopListData } from "@/lib/stops";
+import { FreshnessWarning } from "./FreshnessWarning";
 
 /**
  * Matches the board's cadence. There is no local tick alongside it the way the
@@ -15,13 +17,14 @@ import type { Stop, StopList as StopListData } from "@/lib/stops";
  */
 const REFRESH_MS = 30_000;
 
-type Status = "loading" | "ready" | "missing";
+type Status = "loading" | "ready" | "missing" | "error";
 
 export function StopList({ train, from }: { train: string; from: string }) {
   const [stopList, setStopList] = useState<StopListData | null>(null);
   const [status, setStatus] = useState<Status>("loading");
   const [fixtures, setFixtures] = useState(false);
   const [stale, setStale] = useState(false);
+  const [lastLiveAt, setLastLiveAt] = useState<number | null>(null);
   const { use24Hour } = useClockFormat();
 
   // Held in a ref so the polling effect does not restart on every render.
@@ -42,18 +45,25 @@ export function StopList({ train, from }: { train: string; from: string }) {
         if (!response.ok) throw new Error(String(response.status));
 
         const data: StopsResponse = await response.json();
+        const fromCache = response.headers.get("X-From-Cache") === "1";
         setStopList(data.stopList);
         setStatus("ready");
         setFixtures(data.fixtures);
-        // The service worker serves its cached copy when the network is gone.
-        setStale(response.headers.get("X-From-Cache") === "1");
+        setStale(fromCache);
+        setLastLiveAt(
+          data.fixtures
+            ? null
+            : fromCache
+              ? responseLiveTime(response)
+              : Date.now(),
+        );
         loadedOnce.current = true;
       } catch {
         if (signal?.aborted) return;
         // Keep the last good list on screen and mark it stale rather than
         // blanking the page on a platform with bad signal.
         if (loadedOnce.current) setStale(true);
-        else setStatus("missing");
+        else setStatus("error");
       }
     },
     [train],
@@ -85,6 +95,27 @@ export function StopList({ train, from }: { train: string; from: string }) {
 
   if (status === "loading") return <StopsSkeleton />;
 
+  if (status === "error") {
+    return (
+      <div className="px-5 py-16 text-center">
+        <p className="font-medium text-text">Couldn&apos;t load stops.</p>
+        <p className="mt-1 text-sm text-muted">
+          NJ Transit may be unavailable. Check your connection and try again.
+        </p>
+        <button
+          type="button"
+          className="mt-5 rounded-full border border-edge px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          onClick={() => {
+            setStatus("loading");
+            void load();
+          }}
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   if (status === "missing" || !stopList || stopList.stops.length === 0) {
     return (
       <p className="px-5 py-16 text-center text-muted">
@@ -98,14 +129,16 @@ export function StopList({ train, from }: { train: string; from: string }) {
   return (
     <>
       {(stale || fixtures) && (
-        <p
-          role="status"
-          className="border-b border-edge bg-warn-soft px-5 py-2 text-center text-xs font-medium text-warn"
-        >
-          {stale
-            ? "Offline — showing the last times we loaded"
-            : "Sample data — add NJ Transit API credentials for live stops"}
-        </p>
+        stale && lastLiveAt !== null ? (
+          <FreshnessWarning lastLiveAt={lastLiveAt} />
+        ) : (
+          <p
+            role="status"
+            className="border-b border-edge bg-warn-soft px-5 py-2 text-center text-xs font-medium text-warn"
+          >
+            Sample data — add NJ Transit API credentials for live stops
+          </p>
+        )
       )}
 
       <div className="flex items-center gap-2 border-b border-edge px-4 py-3 text-sm sm:px-5">
