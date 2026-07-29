@@ -257,4 +257,15 @@ describe("interactive component contract", () => {
     fireEvent.click(screen.getByText("Browse all stations"));
     expect(directory.open).toBe(true);
   });
+
+  it("lets riders remove one station from Recent stations without clearing the others", async () => {
+    window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["AM", "AB"]));
+    render(<StationPicker />);
+
+    expect(await screen.findByRole("button", { name: "Remove Absecon from recent stations" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Remove Absecon from recent stations" }));
+
+    await waitFor(() => expect(JSON.parse(window.localStorage.getItem("departure-board:recent-stations")!)).toEqual(["AM"]));
+    expect(screen.getByRole("button", { name: "Remove Aberdeen-Matawan from recent stations" })).toBeTruthy();
+  });
 });
