@@ -71,6 +71,8 @@ export function ServiceStatus({
   const disruptions = visible.filter((notice) => notice.severity === "disruption");
   const plannedAdvisories = visible.filter((notice) => notice.severity === "advisory");
   if (visible.length === 0) return null;
+  const hasDisruptions = disruptions.length > 0;
+  const notices = [...disruptions, ...plannedAdvisories];
 
   const dismiss = (notice: ServiceAdvisory) => {
     dismissServiceAdvisory(notice);
@@ -82,50 +84,50 @@ export function ServiceStatus({
 
   return (
     <section aria-label="Service status" className="border-b border-edge">
-      {disruptions.map((notice) => (
-        <Notice
-          key={notice.id}
-          notice={notice}
-          active
-          onDismiss={() => dismiss(notice)}
-        />
-      ))}
-      {plannedAdvisories.length > 0 && (
-        <details className="bg-warn-soft text-warn">
-          <summary className="cursor-pointer px-4 py-2 text-sm font-semibold sm:px-5">
-            {plannedAdvisories.length === 1
-              ? "Service advisory"
-              : `Service status — ${plannedAdvisories.length} advisories`}
-          </summary>
-          <div className="divide-y divide-warn/20 border-t border-warn/20">
-            {plannedAdvisories.map((notice) => (
-              <Notice
-                key={notice.id}
-                notice={notice}
-                onDismiss={() => dismiss(notice)}
-              />
-            ))}
-          </div>
-        </details>
-      )}
+      <details className={hasDisruptions ? "bg-danger-soft text-danger" : "bg-warn-soft text-warn"}>
+        <summary className="cursor-pointer px-4 py-2 text-sm font-semibold sm:px-5">
+          {serviceStatusSummary(disruptions.length, plannedAdvisories.length)}
+        </summary>
+        <div className={hasDisruptions
+          ? "divide-y divide-danger/20 border-t border-danger/20"
+          : "divide-y divide-warn/20 border-t border-warn/20"}
+        >
+          {notices.map((notice) => (
+            <Notice
+              key={notice.id}
+              notice={notice}
+              disruption={notice.severity === "disruption"}
+              onDismiss={() => dismiss(notice)}
+            />
+          ))}
+        </div>
+      </details>
     </section>
   );
 }
 
+function serviceStatusSummary(disruptionCount: number, advisoryCount: number) {
+  const counts = [
+    disruptionCount > 0 && `${disruptionCount} disruption${disruptionCount === 1 ? "" : "s"}`,
+    advisoryCount > 0 && `${advisoryCount} advisor${advisoryCount === 1 ? "y" : "ies"}`,
+  ].filter(Boolean);
+
+  return `Service status — ${counts.join(", ")}`;
+}
+
 function Notice({
   notice,
-  active = false,
+  disruption = false,
   onDismiss,
 }: {
   notice: ServiceAdvisory;
-  active?: boolean;
+  disruption?: boolean;
   onDismiss: () => void;
 }) {
   return (
     <article
-      role={active ? "alert" : undefined}
       className={`flex gap-3 px-4 py-3 text-sm sm:px-5 ${
-        active ? "bg-danger-soft text-danger" : ""
+        disruption ? "bg-danger-soft text-danger" : ""
       }`}
     >
       <p className="min-w-0 flex-1 leading-5">
