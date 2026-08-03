@@ -1,15 +1,21 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import {
+  boardChoiceKey,
+  normalizeBoardChoice,
+  parseBoardChoice,
+  type BoardChoice,
+} from "@/lib/boardChoices";
 
 const STORAGE_KEY = "departure-board:recent-stations";
 const CHANGE_EVENT = "departure-board:recent-stations-changed";
 const MAX_RECENT_STATIONS = 5;
-const EMPTY: string[] = [];
+const EMPTY: BoardChoice[] = [];
 
 let cachedRaw: string | null = null;
-let cachedValue: string[] = EMPTY;
-let memoryFallback: string[] | null = null;
+let cachedValue: BoardChoice[] = EMPTY;
+let memoryFallback: BoardChoice[] | null = null;
 
 function readRaw(): string | null {
   try {
@@ -19,15 +25,17 @@ function readRaw(): string | null {
   }
 }
 
-function normalizeRecentStationCodes(codes: unknown[]): string[] {
+function normalizeRecentStationChoices(codes: unknown[]): BoardChoice[] {
   return codes
-    .filter((value): value is string => typeof value === "string")
-    .map((code) => code.toUpperCase())
-    .filter((code, index, all) => all.indexOf(code) === index)
+    .map(parseBoardChoice)
+    .filter((choice): choice is BoardChoice => choice !== null)
+    .filter((choice, index, all) =>
+      all.findIndex((other) => boardChoiceKey(other) === boardChoiceKey(choice)) === index,
+    )
     .slice(0, MAX_RECENT_STATIONS);
 }
 
-function getSnapshot(): string[] {
+function getSnapshot(): BoardChoice[] {
   if (memoryFallback) return memoryFallback;
 
   const raw = readRaw();
@@ -37,7 +45,7 @@ function getSnapshot(): string[] {
   try {
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     cachedValue = Array.isArray(parsed)
-      ? normalizeRecentStationCodes(parsed)
+      ? normalizeRecentStationChoices(parsed)
       : EMPTY;
   } catch {
     cachedValue = EMPTY;
@@ -56,9 +64,9 @@ function subscribe(onChange: () => void): () => void {
 
 const noopSubscribe = () => () => {};
 
-function save(next: string[]): void {
+function save(next: BoardChoice[]): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next.map(boardChoiceKey)));
     memoryFallback = null;
   } catch {
     memoryFallback = next;
@@ -66,19 +74,30 @@ function save(next: string[]): void {
   window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
-/** Records an opened station, keeping at most five distinct newest-first codes. */
-export function recordRecentStation(code: string): void {
-  const normalized = code.toUpperCase();
-  save([normalized, ...getSnapshot().filter((current) => current !== normalized)].slice(0, MAX_RECENT_STATIONS));
+/** Records an opened station board, keeping at most five distinct newest-first choices. */
+export function recordRecentStation(choice: BoardChoice | string): void {
+  const boardChoice = normalizeBoardChoice(choice);
+  save([
+    boardChoice,
+    ...getSnapshot().filter((current) => boardChoiceKey(current) !== boardChoiceKey(boardChoice)),
+  ].slice(0, MAX_RECENT_STATIONS));
 }
 
-/** Recent station codes persisted locally, with controls for the picker history. */
+/** Returns current persisted choices without subscribing React to storage changes. */
+export function recentStationChoices(): BoardChoice[] {
+  return getSnapshot();
+}
+
+/** Recent provider-qualified choices, with controls for the picker history. */
 export function useRecentStations() {
   const recentStations = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY);
   const loaded = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
   const clear = useCallback(() => save([]), []);
-  const restore = useCallback((codes: string[]) => save(normalizeRecentStationCodes(codes)), []);
+  const restore = useCallback(
+    (choices: BoardChoice[]) => save(normalizeRecentStationChoices(choices.map(boardChoiceKey))),
+    [],
+  );
 
   return { recentStations, loaded, clear, restore };
 }

@@ -1,22 +1,28 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
+import {
+  boardChoiceKey,
+  normalizeBoardChoice,
+  parseBoardChoice,
+  type BoardChoice,
+} from "@/lib/boardChoices";
 
 
 const STORAGE_KEY = "departure-board:favorites";
 /** Lets every mounted hook react to a change made anywhere in the app. */
 const CHANGE_EVENT = "departure-board:favorites-changed";
 
-const EMPTY: string[] = [];
+const EMPTY: BoardChoice[] = [];
 
 // useSyncExternalStore compares snapshots by identity, so parsing on every read
 // would loop forever. The parsed value is reused until the raw string changes.
 let cachedRaw: string | null = null;
-let cachedValue: string[] = EMPTY;
+let cachedValue: BoardChoice[] = EMPTY;
 
 // Used when localStorage is unavailable (private mode, storage disabled), so
 // starring still works for the current session even though it cannot persist.
-let memoryFallback: string[] | null = null;
+let memoryFallback: BoardChoice[] | null = null;
 
 function readRaw(): string | null {
   try {
@@ -28,7 +34,7 @@ function readRaw(): string | null {
   }
 }
 
-function getSnapshot(): string[] {
+function getSnapshot(): BoardChoice[] {
   if (memoryFallback) return memoryFallback;
 
   const raw = readRaw();
@@ -38,7 +44,7 @@ function getSnapshot(): string[] {
   try {
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     cachedValue = Array.isArray(parsed)
-      ? parsed.filter((v): v is string => typeof v === "string")
+      ? parsed.map(parseBoardChoice).filter((choice): choice is BoardChoice => choice !== null)
       : EMPTY;
   } catch {
     cachedValue = EMPTY;
@@ -59,11 +65,11 @@ function subscribe(onChange: () => void): () => void {
 const noopSubscribe = () => () => {};
 
 /**
- * Favourite station codes, persisted locally.
+ * Favourite provider-qualified station choices, persisted locally.
  *
  * `loaded` is false during server rendering and the hydrating pass, so the UI
  * can avoid flashing an empty state before storage has been read. `toggle`
- * adds an absent code or removes a present one, then notifies all mounted hooks.
+ * adds an absent choice or removes a present one, then notifies all mounted hooks.
  */
 export function useFavorites() {
   const favorites = useSyncExternalStore(subscribe, getSnapshot, () => EMPTY);
@@ -73,13 +79,15 @@ export function useFavorites() {
     () => false,
   );
 
-  const toggle = useCallback((code: string) => {
+  const toggle = useCallback((choice: BoardChoice | string) => {
+    const boardChoice = normalizeBoardChoice(choice);
     const current = getSnapshot();
-    const next = current.includes(code)
-      ? current.filter((c) => c !== code)
-      : [...current, code];
+    const key = boardChoiceKey(boardChoice);
+    const next = current.some((favorite) => boardChoiceKey(favorite) === key)
+      ? current.filter((favorite) => boardChoiceKey(favorite) !== key)
+      : [...current, boardChoice];
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next.map(boardChoiceKey)));
       memoryFallback = null;
     } catch {
       memoryFallback = next;
@@ -88,7 +96,10 @@ export function useFavorites() {
   }, []);
 
   const isFavorite = useCallback(
-    (code: string) => favorites.includes(code),
+    (choice: BoardChoice | string) => {
+      const boardChoice = normalizeBoardChoice(choice);
+      return favorites.some((favorite) => boardChoiceKey(favorite) === boardChoiceKey(boardChoice));
+    },
     [favorites],
   );
 

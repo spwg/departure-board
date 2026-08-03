@@ -9,6 +9,7 @@ import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
 import { WatchedDepartures } from "@/components/WatchedDepartures";
+import { njtBoardChoice } from "@/lib/boardChoices";
 import type { Departure } from "@/lib/departures";
 import type { StopList as StopListData } from "@/lib/stops";
 import { watchDeparture, watchedDepartures } from "@/lib/watches";
@@ -27,11 +28,11 @@ afterEach(() => {
 
 describe("interactive component contract", () => {
   it("persists favourite choices and exposes the action through accessible state", async () => {
-    render(<FavoriteButton code="NY" name="New York Penn Station" />);
+    render(<FavoriteButton choice={njtBoardChoice("NY")} name="New York Penn Station" />);
     const button = screen.getByRole("button", { name: /add new york/i });
     fireEvent.click(button);
     await waitFor(() => expect(button.getAttribute("aria-pressed")).toBe("true"));
-    expect(JSON.parse(window.localStorage.getItem("departure-board:favorites")!)).toEqual(["NY"]);
+    expect(JSON.parse(window.localStorage.getItem("departure-board:favorites")!)).toEqual(["njt:NY"]);
   });
 
   it("lets riders explicitly select 24-hour time", () => {
@@ -180,9 +181,9 @@ describe("interactive component contract", () => {
   });
 
   it("keeps the picker open, explains nearby and recent stations, and lets riders undo a history clear", async () => {
-    const recorder = render(<RecentStationRecorder code="AM" />);
+    const recorder = render(<RecentStationRecorder choice={njtBoardChoice("AM")} />);
     for (const code of ["AB", "AZ", "AH", "AS", "AN", "AM"]) {
-      recorder.rerender(<RecentStationRecorder code={code} />);
+      recorder.rerender(<RecentStationRecorder choice={njtBoardChoice(code)} />);
     }
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
@@ -213,27 +214,26 @@ describe("interactive component contract", () => {
     expect(screen.getByRole("heading", { name: "Recent stations" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear recent stations" }));
-    recorder.rerender(<RecentStationRecorder code="NY" />);
+    recorder.rerender(<RecentStationRecorder choice={njtBoardChoice("NY")} />);
     const repopulatedRecent = screen.getByRole("heading", { name: "Recent stations" }).closest("section")!;
     expect(within(repopulatedRecent).getByText("New York Penn Station")).toBeTruthy();
   });
 
-  it("matches a selected line filter against any station line", () => {
+  it("qualifies Home choices with a textual system chip and removes the line filter", () => {
     render(<StationPicker />);
-
-    expect(screen.queryByRole("checkbox", { name: "North Jersey Coast Line" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Filter stations" }));
 
     fireEvent.change(screen.getByRole("searchbox", { name: "Search stations" }), {
       target: { value: "Aberdeen" },
     });
     expect(screen.getByText("Aberdeen-Matawan")).toBeTruthy();
+    expect(screen.getByText("NJT")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Filter stations" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "North Jersey Coast Line" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Atlantic City Line" }));
-    expect((screen.getByRole("checkbox", { name: "North Jersey Coast Line" }) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByRole("checkbox", { name: "Atlantic City Line" }) as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByText("Aberdeen-Matawan")).toBeTruthy();
+    window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NY"]));
+    render(<StationPicker />);
+    const favorites = screen.getAllByRole("heading", { name: "Favorites" })[0]!.closest("section")!;
+    expect(within(favorites).getByText("New York Penn Station")).toBeTruthy();
+    expect(within(favorites).getByText("NJT")).toBeTruthy();
   });
 
   it("keeps the full directory collapsed and avoids repeating a recent nearest station", async () => {

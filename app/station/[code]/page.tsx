@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
+import { njtBoardChoice } from "@/lib/boardChoices";
 import { getStation, stations } from "@/lib/stations";
 
 /**
@@ -65,11 +66,16 @@ export default async function StationPage({
             {station.name}
           </h1>
 
-          <FavoriteButton code={station.code} name={station.name} />
+          <FavoriteButton
+            choice={njtBoardChoice(station.code)}
+            name={station.name}
+          />
         </header>
 
         <DepartureBoard code={station.code} />
-        <RecentStationRecorder code={station.code} />
+        <RecentStationRecorder
+            choice={njtBoardChoice(station.code)}
+        />
       </div>
     </main>
   );

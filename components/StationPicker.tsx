@@ -1,26 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { SettingsButton } from "@/components/SettingsButton";
 import { WatchedDepartures } from "@/components/WatchedDepartures";
 import { useFavorites } from "@/lib/favorites";
 import { useRecentStations } from "@/lib/recentStations";
-import {
-  LINE_NAMES,
-  type Station,
-  getStation,
-  lineColor,
-  lineName,
-  nearestStation,
-  searchStations,
-  stations,
-} from "@/lib/stations";
+import { boardChoiceKey, isNjtBoardChoice, njtBoardChoice, type BoardChoice } from "@/lib/boardChoices";
+import { type Station, getStation, lineColor, nearestStation, searchStations, stations } from "@/lib/stations";
 
 
 type LocationState =
   | { status: "locating" | "unavailable" }
   | { status: "found"; station: Station; distanceKm: number };
+
+type NjtStationChoice = { choice: BoardChoice; station: Station };
+
+function toNjtStationChoice(station: Station): NjtStationChoice {
+  return { choice: njtBoardChoice(station.code), station };
+}
+
+function resolveNjtStationChoice(choice: BoardChoice): NjtStationChoice | null {
+  if (!isNjtBoardChoice(choice)) return null;
+  const station = getStation(choice.stationId);
+  return station ? { choice, station } : null;
+}
 
 const noopSubscribe = () => () => {};
 
@@ -47,10 +51,8 @@ export function StationPicker() {
 
   const [located, setLocated] = useState<LocationState | null>(null);
   const [query, setQuery] = useState("");
-  const [selectedLines, setSelectedLines] = useState<string[]>([]);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
-  const [clearedRecentStations, setClearedRecentStations] = useState<string[] | null>(null);
+  const [clearedRecentStations, setClearedRecentStations] = useState<BoardChoice[] | null>(null);
 
   const location: LocationState =
     located ??
@@ -89,55 +91,36 @@ export function StationPicker() {
     return () => window.clearTimeout(timeout);
   }, [clearedRecentStations]);
 
-  const matchesSelectedLines = useCallback(
-    (station: Station) =>
-      selectedLines.length === 0 ||
-      station.lines.some((line) => selectedLines.includes(line)),
-    [selectedLines],
-  );
-
   const results = useMemo(
-    () => searchStations(query, 40).filter(matchesSelectedLines),
-    [query, matchesSelectedLines],
+    () => searchStations(query, 40).map(toNjtStationChoice),
+    [query],
   );
   const recent = useMemo(
     () =>
       recentStations
-        .map((code) => getStation(code))
-        .filter((station): station is Station => Boolean(station))
-        .filter(matchesSelectedLines),
-    [recentStations, matchesSelectedLines],
+        .map(resolveNjtStationChoice)
+        .filter((choice): choice is NjtStationChoice => Boolean(choice)),
+    [recentStations],
   );
   const favoriteStations = useMemo(
     () =>
       favorites
-        .map((code) => getStation(code))
-        .filter((s): s is Station => Boolean(s)),
+        .map(resolveNjtStationChoice)
+        .filter((choice): choice is NjtStationChoice => Boolean(choice)),
     [favorites],
-  );
-  const filteredFavoriteStations = useMemo(
-    () => favoriteStations.filter(matchesSelectedLines),
-    [favoriteStations, matchesSelectedLines],
   );
 
   const grouped = useMemo(() => {
-    const groups = new Map<string, Station[]>();
-    for (const station of stations.filter(matchesSelectedLines)) {
+    const groups = new Map<string, NjtStationChoice[]>();
+    for (const station of stations) {
       const letter = station.name[0].toUpperCase();
       const group = groups.get(letter);
-      if (group) group.push(station);
-      else groups.set(letter, [station]);
+      const choice = toNjtStationChoice(station);
+      if (group) group.push(choice);
+      else groups.set(letter, [choice]);
     }
     return [...groups.entries()];
-  }, [matchesSelectedLines]);
-
-  const toggleLine = (line: string) => {
-    setSelectedLines((current) =>
-      current.includes(line)
-        ? current.filter((selected) => selected !== line)
-        : [...current, line],
-    );
-  };
+  }, []);
 
   const clearRecentStations = () => {
     setClearedRecentStations(recentStations);
@@ -176,7 +159,7 @@ export function StationPicker() {
             <StationList items={recent} />
           ) : (
             <p className="px-4 py-4 text-sm text-muted">
-              No recent stations match the selected lines.
+              No recent station boards are available.
             </p>
           )}
         </Section>
@@ -207,16 +190,18 @@ export function StationPicker() {
         </Section>
       )}
 
-      {location.status === "found" && recentStationsLoaded && !recentStations.includes(location.station.code) && (
+      {location.status === "found" && recentStationsLoaded && !recentStations.some(
+        (choice) => boardChoiceKey(choice) === boardChoiceKey(njtBoardChoice(location.station.code)),
+      ) && (
         <Section title="Nearest station">
           <StationList
-            items={[location.station]}
+            items={[toNjtStationChoice(location.station)]}
             subtitle={`Nearest station · ${formatDistance(location.distanceKm)}`}
           />
         </Section>
       )}
 
-      <div className="mt-7 flex gap-2">
+      <div className="mt-7">
         <input
           type="search"
           value={query}
@@ -226,58 +211,7 @@ export function StationPicker() {
           autoComplete="off"
           className="min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
         />
-        <button
-          type="button"
-          aria-label="Filter stations"
-          aria-expanded={filtersOpen}
-          aria-controls="line-filter-options"
-          onClick={() => setFiltersOpen((open) => !open)}
-          className="relative grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-edge bg-surface text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-        >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M4 6h16M7 12h10M10 18h4" />
-          </svg>
-          {selectedLines.length > 0 && (
-            <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-text px-1 text-[10px] font-bold text-surface">
-              {selectedLines.length}
-            </span>
-          )}
-        </button>
       </div>
-
-      {filtersOpen && (
-        <fieldset id="line-filter-options" className="mt-2 rounded-xl border border-edge bg-surface px-4 py-3">
-          <legend className="sr-only">Line filter</legend>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-medium">Filter by rail line</p>
-            {selectedLines.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setSelectedLines([])}
-                className="text-xs font-medium text-muted underline underline-offset-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-          <p className="mt-1 text-xs text-muted">Show stations served by any selected rail line.</p>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
-            {Object.keys(LINE_NAMES).map((line) => (
-              <label key={line} className="flex items-center gap-1.5 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selectedLines.includes(line)}
-                  onChange={() => {
-                    setDirectoryOpen(true);
-                    toggleLine(line);
-                  }}
-                />
-                {lineName(line)}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
 
       {query ? (
         <Section title={`${results.length} result${results.length === 1 ? "" : "s"}`}>
@@ -291,9 +225,9 @@ export function StationPicker() {
         </Section>
       ) : (
         <>
-          {favoritesLoaded && filteredFavoriteStations.length > 0 && (
+          {favoritesLoaded && favoriteStations.length > 0 && (
             <Section title="Favorites">
-              <StationList items={filteredFavoriteStations} />
+              <StationList items={favoriteStations} />
             </Section>
           )}
 
@@ -305,7 +239,6 @@ export function StationPicker() {
             <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-edge bg-surface px-4 py-3 text-sm font-medium transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
               <span>Browse all stations</span>
               <span className="flex items-center gap-2 text-xs text-muted">
-                {selectedLines.length > 0 && `${grouped.reduce((count, [, stations]) => count + stations.length, 0)} matching`}
                 <svg viewBox="0 0 24 24" className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="m6 9 6 6 6-6" />
                 </svg>
@@ -358,13 +291,13 @@ function StationList({
   items,
   subtitle,
 }: {
-  items: Station[];
+  items: NjtStationChoice[];
   subtitle?: string;
 }) {
   return (
     <ul className="divide-y divide-edge">
-      {items.map((station) => (
-        <li key={station.code}>
+      {items.map(({ choice, station }) => (
+        <li key={boardChoiceKey(choice)}>
           <Link
             href={`/station/${station.code}`}
             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
@@ -376,6 +309,10 @@ function StationList({
                   {subtitle}
                 </span>
               )}
+            </span>
+
+            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+              NJT
             </span>
 
             {/* Line colours double as a hint of where the station can take you. */}

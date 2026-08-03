@@ -1,25 +1,26 @@
 "use client";
 
 import { useFavorites } from "@/lib/favorites";
+import type { BoardChoice } from "@/lib/boardChoices";
 
 
-/** Toggles `code`; the pressed state and accessible label reflect the resulting favourite state. */
+/** Toggles one board choice; the accessible state and label reflect its favourite state. */
 export function FavoriteButton({
-  code,
+  choice,
   name,
   className = "",
 }: {
-  code: string;
+  choice: BoardChoice;
   name: string;
   className?: string;
 }) {
   const { isFavorite, toggle, loaded } = useFavorites();
-  const active = isFavorite(code);
+  const active = isFavorite(choice);
 
   return (
     <button
       type="button"
-      onClick={() => toggle(code)}
+      onClick={() => toggle(choice)}
       aria-pressed={active}
       aria-label={
         active ? `Remove ${name} from favorites` : `Add ${name} to favorites`
