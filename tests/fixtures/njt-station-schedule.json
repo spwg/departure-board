@@ -1,7 +1,8 @@
-{
-  "STATION_2CHAR": "NY",
-  "STATIONNAME": "New York Penn Station",
-  "ITEMS": [
+[
+  {
+    "STATION_2CHAR": "NY",
+    "STATIONNAME": "New York Penn Station",
+    "ITEMS": [
     {
       "SCHED_DEP_DATE": "30-May-2024 11:56:00 AM",
       "TRAIN_ID": "3861",
@@ -14,5 +15,6 @@
       "DIRECTION": "Westbound",
       "PERM_CONNECTING_TRAIN_ID": "3501"
     }
-  ]
-}
+    ]
+  }
+]

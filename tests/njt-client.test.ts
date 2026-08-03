@@ -51,8 +51,8 @@ describe("NJT client contract", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ UserToken: "token" }))).mockResolvedValueOnce(new Response(JSON.stringify(stationSchedule)));
     vi.stubGlobal("fetch", fetchMock);
     const { fetchStationSchedule } = await import("@/lib/njtClient");
-    expect(await fetchStationSchedule("ny")).toEqual(stationSchedule.ITEMS);
-    expect(await fetchStationSchedule("NY")).toEqual(stationSchedule.ITEMS);
+    expect(await fetchStationSchedule("ny")).toEqual(stationSchedule[0]!.ITEMS);
+    expect(await fetchStationSchedule("NY")).toEqual(stationSchedule[0]!.ITEMS);
     expect(fetchMock.mock.calls[1][0]).toBe("https://api.example/TrainData/getStationSchedule");
     expect([...((fetchMock.mock.calls[1][1] as RequestInit).body as FormData).entries()]).toEqual(expect.arrayContaining([["station", "NY"], ["NJTOnly", "true"]]));
     expect(fetchMock).toHaveBeenCalledTimes(2);

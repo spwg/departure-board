@@ -37,7 +37,7 @@ describe("NJT direction enrichment", () => {
   it("enriches captured live station calls only when the daily payload identifies them", () => {
     const departures = normalizeDepartures(
       livePayload.ITEMS,
-      schedulePayload.ITEMS,
+      schedulePayload[0]!.ITEMS,
     );
 
     expect(departures.map(({ trainNumber, direction }) => ({ trainNumber, direction }))).toEqual([
@@ -50,7 +50,7 @@ describe("NJT direction enrichment", () => {
   it("matches the NJCL permanent connection identity from captured live and daily records", () => {
     const departures = normalizeDepartures(
       [livePayload.ITEMS[1]!],
-      [schedulePayload.ITEMS[1]!],
+      [schedulePayload[0]!.ITEMS[1]!],
     );
 
     expect(departures[0]?.direction).toBe("Westbound");
@@ -66,7 +66,7 @@ describe("NJT direction enrichment", () => {
   });
 
   it("keeps both official groups while leaving unmatched live departures ungrouped", () => {
-    const departures = normalizeDepartures(livePayload.ITEMS, schedulePayload.ITEMS);
+    const departures = normalizeDepartures(livePayload.ITEMS, schedulePayload[0]!.ITEMS);
 
     expect(directionGroups(departures)).toEqual([
       { label: "Eastbound", departures: [expect.objectContaining({ trainNumber: "3861" })] },

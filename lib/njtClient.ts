@@ -181,9 +181,15 @@ function itemsOf(payload: unknown): RawDeparture[] {
 }
 
 function stationScheduleItemsOf(payload: unknown): RawStationScheduleDeparture[] {
-  if (payload && typeof payload === "object" && "ITEMS" in payload) {
-    const items = (payload as { ITEMS: unknown }).ITEMS;
-    if (Array.isArray(items)) return items as RawStationScheduleDeparture[];
+  // Unlike the live board endpoint, the daily schedule wraps its one station
+  // object in an array. Be deliberately tolerant of either shape: this keeps
+  // direction enrichment isolated from a provider envelope change.
+  const stations = Array.isArray(payload) ? payload : [payload];
+  for (const station of stations) {
+    if (station && typeof station === "object" && "ITEMS" in station) {
+      const items = (station as { ITEMS: unknown }).ITEMS;
+      if (Array.isArray(items)) return items as RawStationScheduleDeparture[];
+    }
   }
   return [];
 }
