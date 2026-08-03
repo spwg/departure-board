@@ -56,6 +56,15 @@ describe("NJT direction enrichment", () => {
     expect(departures[0]?.direction).toBe("Westbound");
   });
 
+  it("matches the current daily endpoint's connecting-train field", () => {
+    const departures = normalizeDepartures(
+      [live({ TRAIN_ID: "3501", CONNECTING_TRAIN_ID: "3247" })],
+      [scheduled({ TRAIN_ID: "3247", CONNECTING_TRAIN_ID: "3501" })],
+    );
+
+    expect(departures[0]?.direction).toBe("Eastbound");
+  });
+
   it("does not infer a direction from unrecognised schedule wording", () => {
     const departures = normalizeDepartures(
       [live()],

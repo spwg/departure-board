@@ -283,7 +283,10 @@ const getDailyStationSchedule = unstable_cache(
     void generation;
     return fetchStationScheduleUncached(stationCode);
   },
-  ["njt-daily-station-schedule"],
+  // v2 deliberately leaves behind entries written before the provider's
+  // top-level array envelope was understood. Those entries are valid cached
+  // values (an empty list), but cannot enrich any live departure.
+  ["njt-daily-station-schedule-v2"],
   { revalidate: 36 * 60 * 60 },
 );
 

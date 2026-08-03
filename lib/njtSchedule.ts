@@ -5,8 +5,12 @@ export type RawStationScheduleDeparture = {
   SCHED_DEP_DATE: string;
   TRAIN_ID: string;
   DIRECTION: string;
-  /** NJT's permanent through-service/connection identity, when it has one. */
-  PERM_CONNECTING_TRAIN_ID: string;
+  /**
+   * NJT has returned both names for the through-service identity. The daily
+   * station endpoint currently uses CONNECTING_TRAIN_ID.
+   */
+  CONNECTING_TRAIN_ID?: string;
+  PERM_CONNECTING_TRAIN_ID?: string;
 };
 
 export type NjtDirection = "Eastbound" | "Westbound";
@@ -52,6 +56,7 @@ export function directionForDeparture(
     if (scheduled.SCHED_DEP_DATE?.trim() !== callTime) continue;
     const scheduleIdentities = identities([
       scheduled.TRAIN_ID,
+      scheduled.CONNECTING_TRAIN_ID,
       scheduled.PERM_CONNECTING_TRAIN_ID,
     ]);
     if (![...liveIdentities].some((value) => scheduleIdentities.has(value))) {

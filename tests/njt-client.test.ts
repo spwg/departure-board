@@ -58,7 +58,7 @@ describe("NJT client contract", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(unstableCache).toHaveBeenCalledWith(
       expect.any(Function),
-      ["njt-daily-station-schedule"],
+      ["njt-daily-station-schedule-v2"],
       { revalidate: 36 * 60 * 60 },
     );
   });
