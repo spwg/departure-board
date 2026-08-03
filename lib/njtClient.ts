@@ -259,7 +259,9 @@ async function fetchStationScheduleUncached(
   const payload = await post("/TrainData/getStationSchedule", {
     token,
     station: stationCode,
-    NJTOnly: "1",
+    // This endpoint binds the multipart field as a Boolean. Unlike the older
+    // XML API, it rejects the legacy 1/0 representation.
+    NJTOnly: "true",
   });
 
   if (isInvalidToken(payload)) throw new InvalidTokenError(token);
