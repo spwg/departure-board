@@ -1,0 +1,45 @@
+{
+  "STATION_2CHAR": "NY",
+  "STATIONNAME": "New York Penn Station",
+  "ITEMS": [
+    {
+      "SCHED_DEP_DATE": "30-May-2024 11:56:00 AM",
+      "DESTINATION": "Trenton",
+      "TRACK": "5",
+      "LINE": "Northeast Corridor Line",
+      "LINECODE": "NE",
+      "LINEABBREVIATION": "NEC",
+      "TRAIN_ID": "3861",
+      "CONNECTING_TRAIN_ID": "",
+      "STATUS": "in 5 Min",
+      "SEC_LATE": "0",
+      "INLINEMSG": ""
+    },
+    {
+      "SCHED_DEP_DATE": "30-May-2024 12:07:00 PM",
+      "DESTINATION": "Long Branch",
+      "TRACK": "7",
+      "LINE": "North Jersey Coast Line",
+      "LINECODE": "NC",
+      "LINEABBREVIATION": "NJCL",
+      "TRAIN_ID": "3501",
+      "CONNECTING_TRAIN_ID": "3247",
+      "STATUS": "in 16 Min",
+      "SEC_LATE": "0",
+      "INLINEMSG": ""
+    },
+    {
+      "SCHED_DEP_DATE": "30-May-2024 12:09:00 PM",
+      "DESTINATION": "Dover",
+      "TRACK": "",
+      "LINE": "Morris & Essex Line",
+      "LINECODE": "ME",
+      "LINEABBREVIATION": "M&E",
+      "TRAIN_ID": "9999",
+      "CONNECTING_TRAIN_ID": "",
+      "STATUS": "in 18 Min",
+      "SEC_LATE": "0",
+      "INLINEMSG": ""
+    }
+  ]
+}

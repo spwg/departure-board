@@ -1,3 +1,9 @@
+import {
+  directionForDeparture,
+  type NjtDirection,
+  type RawStationScheduleDeparture,
+} from "./njtSchedule";
+
 /**
  * Turns NJ Transit's raw departure records into the small, stable shape the UI
  * renders. Everything NJT-specific — Amtrak rows, non-revenue moves, Eastern
@@ -16,6 +22,7 @@ export type RawDeparture = {
   LINECODE: string;
   LINEABBREVIATION: string;
   TRAIN_ID: string;
+  CONNECTING_TRAIN_ID?: string;
   STATUS: string;
   SEC_LATE: string;
   INLINEMSG: string;
@@ -45,6 +52,8 @@ export type Departure = {
   /** NJT's own wording, e.g. "in 13 Min" — shown verbatim when useful. */
   statusText: string;
   delayMinutes: number;
+  /** NJT daily-schedule enrichment; absent rather than inferred when unmatched. */
+  direction?: NjtDirection;
 };
 
 /**
@@ -264,7 +273,10 @@ export function toStatus(statusText: string, delayMinutes: number): DepartureSta
  * timestamps return null; valid results use ISO instants and never have a
  * negative delay.
  */
-export function normalizeDeparture(item: RawDeparture): Departure | null {
+export function normalizeDeparture(
+  item: RawDeparture,
+  schedule: RawStationScheduleDeparture[] = [],
+): Departure | null {
   const scheduled = parseNjtDate(item.SCHED_DEP_DATE);
   if (!scheduled) return null;
 
@@ -287,6 +299,7 @@ export function normalizeDeparture(item: RawDeparture): Departure | null {
     status: toStatus(statusText, delayMinutes),
     statusText,
     delayMinutes,
+    direction: directionForDeparture(item, schedule),
   };
 }
 
@@ -297,10 +310,32 @@ export function normalizeDeparture(item: RawDeparture): Departure | null {
  * slot, so the countdown column reads straight down and a badly delayed train
  * does not sit above one that will depart sooner.
  */
-export function normalizeDepartures(items: RawDeparture[]): Departure[] {
+export function normalizeDepartures(
+  items: RawDeparture[],
+  schedule: RawStationScheduleDeparture[] = [],
+): Departure[] {
   return items
     .filter((item) => !isExcluded(item))
-    .map((item) => normalizeDeparture(item))
+    .map((item) => normalizeDeparture(item, schedule))
     .filter((d): d is Departure => d !== null)
     .sort((a, b) => a.expectedTime.localeCompare(b.expectedTime));
+}
+
+export type DirectionGroup = {
+  label: NjtDirection;
+  departures: Departure[];
+};
+
+/**
+ * Keeps all provider direction groups visible. Rows without a reliable daily
+ * schedule match are intentionally absent: they remain ungrouped rather than
+ * being guessed from their destination or line.
+ */
+export function directionGroups(departures: Departure[]): DirectionGroup[] {
+  const groups: DirectionGroup[] = [];
+  for (const label of ["Eastbound", "Westbound"] as const) {
+    const matching = departures.filter((departure) => departure.direction === label);
+    if (matching.length) groups.push({ label, departures: matching });
+  }
+  return groups;
 }

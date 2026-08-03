@@ -113,6 +113,56 @@ describe("interactive component contract", () => {
     expect(screen.queryByText(/Data is no longer live/)).toBeNull();
   });
 
+  it("keeps official NJT direction groups and unmatched live departures visible", async () => {
+    const grouped = [
+      { ...departure, id: "east", trainNumber: "east", destination: "Trenton", direction: "Eastbound" as const },
+      { ...departure, id: "west", trainNumber: "west", destination: "Dover", direction: "Westbound" as const },
+      { ...departure, id: "other", trainNumber: "other", destination: "Long Branch" },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: unknown) =>
+        String(input).includes("service-advisories")
+          ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
+          : Promise.resolve(
+              new Response(JSON.stringify({ departures: grouped, fixtures: false })),
+            ),
+      ),
+    );
+
+    render(<DepartureBoard code="NY" />);
+
+    expect(await screen.findByRole("heading", { name: "Eastbound" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Westbound" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Other departures" })).toBeNull();
+    expect(screen.getByText("Trenton")).toBeTruthy();
+    expect(screen.getByText("Dover")).toBeTruthy();
+    expect(screen.getByText("Long Branch")).toBeTruthy();
+  });
+
+  it("keeps an all-unmatched live board as one neutral chronological list", async () => {
+    const ungrouped = [
+      { ...departure, id: "first", trainNumber: "first", destination: "Trenton" },
+      { ...departure, id: "second", trainNumber: "second", destination: "Dover" },
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: unknown) =>
+        String(input).includes("service-advisories")
+          ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
+          : Promise.resolve(
+              new Response(JSON.stringify({ departures: ungrouped, fixtures: false })),
+            ),
+      ),
+    );
+
+    render(<DepartureBoard code="NY" />);
+
+    expect(await screen.findByText("Trenton")).toBeTruthy();
+    expect(screen.getByText("Dover")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: /bound|other departures/i })).toBeNull();
+  });
+
   it("retains departures after any later failure, reports their age, and clears the warning on recovery", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");

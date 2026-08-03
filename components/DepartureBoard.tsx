@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
-import type { Departure } from "@/lib/departures";
+import { directionGroups, type Departure } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
 import { DepartureRow } from "./DepartureRow";
 import { FreshnessWarning } from "./FreshnessWarning";
@@ -134,6 +134,9 @@ export function DepartureBoard({ code }: { code: string }) {
       </>
     );
   } else {
+    const groups = directionGroups(departures);
+    const hasOfficialDirection = departures.some((departure) => departure.direction);
+    const ungrouped = departures.filter((departure) => !departure.direction);
     content = (
       <>
         {(stale || fixtures) && (
@@ -148,16 +151,34 @@ export function DepartureBoard({ code }: { code: string }) {
             </p>
           )
         )}
-        <ul className="divide-y divide-edge">
-          {departures.map((departure) => (
-            <DepartureRow
-              key={departure.id}
-              departure={departure}
-              now={now}
-              stationCode={code}
-            />
-          ))}
-        </ul>
+        {hasOfficialDirection ? (
+          <div>
+            {groups.map((group) => (
+              <section key={group.label} aria-labelledby={`direction-${group.label}`}>
+                <h2
+                  id={`direction-${group.label}`}
+                  className="border-y border-edge bg-bg px-5 py-2 text-sm font-semibold text-text"
+                >
+                  {group.label}
+                </h2>
+                <DepartureList
+                  departures={group.departures}
+                  now={now}
+                  stationCode={code}
+                />
+              </section>
+            ))}
+            {ungrouped.length > 0 && (
+              <DepartureList
+                departures={ungrouped}
+                now={now}
+                stationCode={code}
+              />
+            )}
+          </div>
+        ) : (
+          <DepartureList departures={departures} now={now} stationCode={code} />
+        )}
       </>
     );
   }
@@ -167,6 +188,29 @@ export function DepartureBoard({ code }: { code: string }) {
       <ServiceStatus stationCode={code} />
       {content}
     </>
+  );
+}
+
+function DepartureList({
+  departures,
+  now,
+  stationCode,
+}: {
+  departures: Departure[];
+  now: number;
+  stationCode: string;
+}) {
+  return (
+    <ul className="divide-y divide-edge">
+      {departures.map((departure) => (
+        <DepartureRow
+          key={departure.id}
+          departure={departure}
+          now={now}
+          stationCode={stationCode}
+        />
+      ))}
+    </ul>
   );
 }
 

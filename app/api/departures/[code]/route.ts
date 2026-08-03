@@ -4,10 +4,12 @@ import {
   InvalidTokenError,
   TOKEN_TAG,
   fetchDepartures,
+  fetchStationSchedule,
   invalidateToken,
   usingFixtures,
 } from "@/lib/njtClient";
 import { getStation } from "@/lib/stations";
+import type { RawStationScheduleDeparture } from "@/lib/njtSchedule";
 
 
 export type DeparturesResponse = {
@@ -31,25 +33,49 @@ export type DeparturesResponse = {
 const TTL_MS = 20_000;
 const cache = new Map<string, { at: number; departures: Departure[] }>();
 
+// Direction is optional metadata. Do not let an unavailable daily schedule
+// add its 10-second upstream timeout to every subsequent live-board refresh.
+const DIRECTION_FAILURE_BACKOFF_MS = 5 * 60_000;
+const directionFailureBackoff = new Map<string, number>();
+
 async function getDepartures(stationCode: string): Promise<Departure[]> {
   const hit = cache.get(stationCode);
   const now = Date.now();
   if (hit && now - hit.at < TTL_MS) return hit.departures;
 
-  let items;
-  try {
-    items = await fetchDepartures(stationCode);
-  } catch (error) {
-    if (!(error instanceof InvalidTokenError)) throw error;
-    // The token went bad before its cache lifetime ran out. Expire it now —
-    // stale-while-revalidate would just hand the same dead token back — and
-    // retry once with a fresh one.
-    await invalidateToken(error.token);
-    revalidateTag(TOKEN_TAG, { expire: 0 });
-    items = await fetchDepartures(stationCode);
+  const withFreshToken = async <T>(fetcher: () => Promise<T>): Promise<T> => {
+    try {
+      return await fetcher();
+    } catch (error) {
+      if (!(error instanceof InvalidTokenError)) throw error;
+      // The token went bad before its cache lifetime ran out. Expire it now —
+      // stale-while-revalidate would just hand the same dead token back — and
+      // retry once with a fresh one.
+      await invalidateToken(error.token);
+      revalidateTag(TOKEN_TAG, { expire: 0 });
+      return fetcher();
+    }
+  };
+
+  const items = await withFreshToken(() => fetchDepartures(stationCode));
+  let schedule: RawStationScheduleDeparture[] = [];
+  const retryAt = directionFailureBackoff.get(stationCode);
+  if (!retryAt || retryAt <= Date.now()) {
+    try {
+      schedule = await withFreshToken(() => fetchStationSchedule(stationCode));
+      directionFailureBackoff.delete(stationCode);
+    } catch (error) {
+      // Direction is enrichment. A daily-schedule outage must never blank a
+      // current live board or substitute schedule rows for realtime data.
+      directionFailureBackoff.set(
+        stationCode,
+        Date.now() + DIRECTION_FAILURE_BACKOFF_MS,
+      );
+      console.error(`Direction schedule for ${stationCode} failed:`, error);
+    }
   }
 
-  const departures = normalizeDepartures(items);
+  const departures = normalizeDepartures(items, schedule);
   cache.set(stationCode, { at: now, departures });
   return departures;
 }
