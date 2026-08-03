@@ -27,4 +27,17 @@ describe("departures route contract", () => {
     expect((await GET(new Request("http://test"), context("NY"))).status).toBe(200);
     expect(normalizeDepartures).toHaveBeenCalledWith([{ raw: true }], []);
   });
+  it("backs off direction metadata after an enrichment failure", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-03T04:30:00.000Z"));
+    getStation.mockReturnValue({ code: "NY", name: "New York Penn Station" }); fetchDepartures.mockResolvedValue([{ raw: true }]); fetchStationSchedule.mockRejectedValue(new Error("schedule down")); normalizeDepartures.mockReturnValue([{ id: "live" }]); usingFixtures.mockReturnValue(false); vi.spyOn(console, "error").mockImplementation(() => {});
+    const { GET } = await import("@/app/api/departures/[code]/route");
+
+    await GET(new Request("http://test"), context("NY"));
+    vi.advanceTimersByTime(20_001);
+    await GET(new Request("http://test"), context("NY"));
+
+    expect(fetchStationSchedule).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
 });

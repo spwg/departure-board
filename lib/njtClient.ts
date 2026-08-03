@@ -233,7 +233,7 @@ export async function fetchDepartures(
  * avoids requesting a partial new schedule during the first half-hour while
  * letting all boards share the same provider snapshot for the rest of the day.
  */
-function scheduleGeneration(now = new Date()): string {
+export function scheduleGeneration(now = new Date()): string {
   const easternDateParts = (date: Date) => {
     const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone: "America/New_York",
@@ -253,9 +253,15 @@ function scheduleGeneration(now = new Date()): string {
   // Before 00:30 use the preceding generation. The exact date is only a cache
   // namespace; the 36-hour revalidation is a backstop for clock anomalies.
   if (Number(field.hour) > 0 || Number(field.minute ?? "0") >= 30) return date;
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const previousField = easternDateParts(yesterday);
-  return `${previousField.year}-${previousField.month}-${previousField.day}`;
+  // These values represent an Eastern *calendar* date. Subtracting 24 elapsed
+  // hours from `now` is wrong across the spring DST transition, so subtract a
+  // day from a UTC date made from the calendar fields instead.
+  const previousDate = new Date(Date.UTC(
+    Number(field.year),
+    Number(field.month) - 1,
+    Number(field.day) - 1,
+  ));
+  return previousDate.toISOString().slice(0, 10);
 }
 
 async function fetchStationScheduleUncached(

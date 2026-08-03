@@ -68,4 +68,10 @@ describe("NJT client contract", () => {
     const { fetchStationSchedule } = await import("@/lib/njtClient");
     await expect(fetchStationSchedule("NY")).rejects.toThrow("NJT getStationSchedule failed: Daily usage limit reached");
   });
+
+  it("uses the preceding Eastern calendar day before the daily boundary across spring DST", async () => {
+    const { scheduleGeneration } = await import("@/lib/njtClient");
+
+    expect(scheduleGeneration(new Date("2026-03-09T04:15:00.000Z"))).toBe("2026-03-08");
+  });
 });

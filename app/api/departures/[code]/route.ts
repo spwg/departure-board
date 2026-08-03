@@ -33,6 +33,11 @@ export type DeparturesResponse = {
 const TTL_MS = 20_000;
 const cache = new Map<string, { at: number; departures: Departure[] }>();
 
+// Direction is optional metadata. Do not let an unavailable daily schedule
+// add its 10-second upstream timeout to every subsequent live-board refresh.
+const DIRECTION_FAILURE_BACKOFF_MS = 5 * 60_000;
+const directionFailureBackoff = new Map<string, number>();
+
 async function getDepartures(stationCode: string): Promise<Departure[]> {
   const hit = cache.get(stationCode);
   const now = Date.now();
@@ -54,12 +59,20 @@ async function getDepartures(stationCode: string): Promise<Departure[]> {
 
   const items = await withFreshToken(() => fetchDepartures(stationCode));
   let schedule: RawStationScheduleDeparture[] = [];
-  try {
-    schedule = await withFreshToken(() => fetchStationSchedule(stationCode));
-  } catch (error) {
-    // Direction is enrichment. A daily-schedule outage must never blank a
-    // current live board or substitute schedule rows for realtime data.
-    console.error(`Direction schedule for ${stationCode} failed:`, error);
+  const retryAt = directionFailureBackoff.get(stationCode);
+  if (!retryAt || retryAt <= Date.now()) {
+    try {
+      schedule = await withFreshToken(() => fetchStationSchedule(stationCode));
+      directionFailureBackoff.delete(stationCode);
+    } catch (error) {
+      // Direction is enrichment. A daily-schedule outage must never blank a
+      // current live board or substitute schedule rows for realtime data.
+      directionFailureBackoff.set(
+        stationCode,
+        Date.now() + DIRECTION_FAILURE_BACKOFF_MS,
+      );
+      console.error(`Direction schedule for ${stationCode} failed:`, error);
+    }
   }
 
   const departures = normalizeDepartures(items, schedule);
