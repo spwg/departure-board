@@ -25,6 +25,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.useRealTimers();
+  window.history.replaceState(null, "", "/");
 });
 
 describe("interactive component contract", () => {
@@ -60,7 +61,7 @@ describe("interactive component contract", () => {
       departures,
     })))));
 
-    render(<SubwayBoard stationId="127" />);
+    const view = render(<SubwayBoard stationId="127" />);
 
     expect(await screen.findByRole("heading", { name: "Uptown" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
@@ -70,11 +71,15 @@ describe("interactive component contract", () => {
     expect(screen.queryByText("Downtown destination 4")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "View all 4 Uptown trains" }));
+    expect(window.location.search).toBe("?direction=Uptown");
+    view.rerender(<SubwayBoard stationId="127" />);
     expect(screen.getByText("Uptown destination 4")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Downtown" })).toBeNull();
     expect(screen.getByRole("button", { name: "Both directions" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Both directions" }));
+    expect(window.location.search).toBe("");
+    view.rerender(<SubwayBoard stationId="127" />);
     expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
     expect(screen.queryByText("Uptown destination 4")).toBeNull();
   });

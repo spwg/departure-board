@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { SubwayBoard } from "@/components/SubwayBoard";
@@ -25,7 +26,9 @@ export default async function SubwayStationPage({ params }: { params: Promise<{ 
         <div className="min-w-0 flex-1 text-center"><h1 className="truncate text-base font-semibold sm:text-lg">{PENN_123.name}</h1><p className="text-xs text-muted">1 · 2 · 3 Subway</p></div>
         <FavoriteButton choice={choice} name={`${PENN_123.name} Subway`} />
       </header>
-      <SubwayBoard stationId={PENN_123.id} />
+      <Suspense fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
+        <SubwayBoard stationId={PENN_123.id} />
+      </Suspense>
       <RecentStationRecorder choice={choice} />
     </div>
   </main>;

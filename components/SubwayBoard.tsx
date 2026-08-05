@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { formatClock } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
@@ -10,11 +11,18 @@ const REFRESH_MS = 30_000;
 const OVERVIEW_DEPARTURES_PER_DIRECTION = 3;
 
 export function SubwayBoard({ stationId }: { stationId: string }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const directionParam = searchParams.get("direction");
+  const urlDirection = directionParam === "Uptown" || directionParam === "Downtown"
+    ? directionParam
+    : null;
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
   const [stale, setStale] = useState(false);
   const [now, setNow] = useState(0);
-  const [focusedDirection, setFocusedDirection] = useState<string | null>(null);
+  const focusedDirection = urlDirection;
   const loaded = useRef(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -46,6 +54,14 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     return () => { controller.abort(); window.clearInterval(poll); window.clearInterval(tick); };
   }, [load]);
 
+  const directionUrl = (direction: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (direction) params.set("direction", direction);
+    else params.delete("direction");
+    const query = params.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  };
+
   if (!board) return failed ? (
     <div className="px-5 py-16 text-center">
       <p className="font-medium">Couldn&apos;t load departures.</p>
@@ -67,7 +83,9 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     {focusedDirection && (
       <button
         type="button"
-        onClick={() => setFocusedDirection(null)}
+        onClick={() => {
+          router.replace(directionUrl(null), { scroll: false });
+        }}
         className="flex w-full items-center gap-2 border-b border-edge bg-surface px-5 py-3 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
       >
         <span aria-hidden>←</span>
@@ -81,7 +99,9 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
         departures={group.departures}
         now={now}
         focused={focusedDirection === group.direction}
-        onFocus={() => setFocusedDirection(group.direction)}
+        onFocus={() => {
+          router.push(directionUrl(group.direction), { scroll: false });
+        }}
       />
     ))}
   </>;
