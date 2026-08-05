@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
@@ -72,7 +73,9 @@ export default async function StationPage({
           />
         </header>
 
-        <DepartureBoard code={station.code} />
+        <Suspense fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
+          <DepartureBoard code={station.code} />
+        </Suspense>
         <RecentStationRecorder
             choice={njtBoardChoice(station.code)}
         />

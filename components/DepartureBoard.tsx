@@ -5,6 +5,7 @@ import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import { directionGroups, type Departure } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
 import { DepartureRow } from "./DepartureRow";
+import { DestinationFilter, useDestinationFilter } from "./DestinationFilter";
 import { FreshnessWarning } from "./FreshnessWarning";
 import { ServiceStatus } from "./ServiceStatus";
 
@@ -30,6 +31,13 @@ export function DepartureBoard({ code }: { code: string }) {
 
   // Held in a ref so the polling effect does not restart on every render.
   const loadedOnce = useRef(false);
+  const destinationFilter = useDestinationFilter(
+    departures?.map((departure) => ({
+      id: departure.destinationId ?? departure.destination,
+      label: departure.destination,
+    })) ?? [],
+    (id) => id.startsWith("njt:"),
+  );
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -134,9 +142,15 @@ export function DepartureBoard({ code }: { code: string }) {
       </>
     );
   } else {
-    const groups = directionGroups(departures);
-    const hasOfficialDirection = departures.some((departure) => departure.direction);
-    const ungrouped = departures.filter((departure) => !departure.direction);
+    const visibleDepartures = departures.filter((departure) =>
+      destinationFilter.matches({
+        id: departure.destinationId ?? departure.destination,
+        label: departure.destination,
+      }),
+    );
+    const groups = directionGroups(visibleDepartures);
+    const hasOfficialDirection = visibleDepartures.some((departure) => departure.direction);
+    const ungrouped = visibleDepartures.filter((departure) => !departure.direction);
     content = (
       <>
         {(stale || fixtures) && (
@@ -151,7 +165,15 @@ export function DepartureBoard({ code }: { code: string }) {
             </p>
           )
         )}
-        {hasOfficialDirection ? (
+        <DestinationFilter
+          options={destinationFilter.options}
+          selected={destinationFilter.selected}
+          onToggle={destinationFilter.toggle}
+          onClear={destinationFilter.clear}
+        />
+        {visibleDepartures.length === 0 ? (
+          <p className="px-5 py-16 text-center text-muted">No live departures match this destination filter.</p>
+        ) : hasOfficialDirection ? (
           <div>
             {groups.map((group) => (
               <section key={group.label} aria-labelledby={`direction-${group.label}`}>
@@ -177,7 +199,7 @@ export function DepartureBoard({ code }: { code: string }) {
             )}
           </div>
         ) : (
-          <DepartureList departures={departures} now={now} stationCode={code} />
+          <DepartureList departures={visibleDepartures} now={now} stationCode={code} />
         )}
       </>
     );
