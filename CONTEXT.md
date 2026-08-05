@@ -21,11 +21,11 @@ A live, station-centred view of upcoming departures for one transit system and t
 _Avoid_: Combined operations list, journey planner, route planner
 
 **Rail departure board**:
-A departure board for NJ TRANSIT rail service at one rail station.
+A departure board for NJ TRANSIT rail service at one rail station, serving a rider who is targeting one particular train.
 _Avoid_: Subway board, combined board
 
 **Subway departure board**:
-A departure board for NYC Subway service at one subway station or station complex.
+A departure board for NYC Subway service at one subway station or station complex, serving a rider who takes whichever train comes next.
 _Avoid_: Rail board, combined board
 
 **Interchange transfer board**:
@@ -41,40 +41,16 @@ A departure-board filter that narrows trains by their provider-native destinatio
 _Avoid_: Cross-system direction filter, renamed destination
 
 **Direction group**:
-A simultaneously visible departure-board section labeled with the transit system's physical wayfinding language wherever official data supports it, with departures ordered chronologically inside it. Subway uses MTA station-direction labels, merging complex members only when their published labels match and falling back to provider-native destinations rather than cardinal wording; rail uses NJ TRANSIT's Eastbound or Westbound schedule metadata when it can be matched to a live departure, while unmatched departures remain ungrouped.
-_Avoid_: Inferred direction, shared cross-system direction
+A simultaneously visible subway-board section labeled with MTA's own station-direction wayfinding, with departures ordered chronologically inside it. Complex members merge only when their published labels match, falling back to provider-native destinations rather than cardinal wording. It stands in for the platform a rider has not yet chosen, so it exists only on subway boards; rail boards list every departure in one chronological sequence, as the station's own board does.
+_Avoid_: Inferred direction, shared cross-system direction, rail direction group
+
+**Next stop**:
+The first stop a subway departure makes after the board's station, shown as the rider's boarding cue in the same terms as the sign inside the train. A departure with no later stop is not a departure, so every row has one.
+_Avoid_: Following station, upcoming stops, skipped stops
 
 **Remaining route**:
 The upcoming stops for one exact train, beginning at its current or next stop and ending at its live destination. Passed stops and their times are not part of the remaining route.
 _Avoid_: Trip history, full timetable
-
-**Watch**:
-A client-side subscription to one or more exact upcoming trains on either transit system, including trains at different stations. A watch ends when its train leaves the live board; it produces no alerts after the page is closed.
-_Avoid_: Commute alert, station alert
-
-**Watch key**:
-The provider-qualified identity of one exact train at the watched station, composed from its transit system, station, and provider trip or departure identifiers. A route or train number alone is not a watch key.
-_Avoid_: Route, train number, station watch
-
-**Material change**:
-A cancellation, a track assignment or change, or a change of at least two minutes to a watched departure's expected time.
-_Avoid_: Update, minor change
-
-**Client watcher**:
-The open webpage's background process that polls every watched departure. It runs while the page remains open, including in a background tab, and stops when the page closes.
-_Avoid_: Push service, background worker
-
-**Watch alert**:
-The visible notice for a material change to a watch: an in-page alert in an active tab or a browser notification in a background tab when permission is granted.
-_Avoid_: Push notification, commuter alert
-
-**Watch completion**:
-The automatic removal of a watch after a successful live station response no longer contains its watch key. Stale or failed responses do not complete a watch, and completed watches leave no history.
-_Avoid_: Expiry, timeout
-
-**Watched departures**:
-The home-page list of all current watches, regardless of station or transit system. Each item identifies its station, exposes its latest expected time or status and an Unwatch control, and opens the watched train's remaining route.
-_Avoid_: Favorite trains, commute tracker
 
 **Service banner**:
 A contextual board warning linking to an official alert from the board's transit system that affects the current station or one of its routes or lines. It includes active disruptions and planned service advisories.
@@ -89,12 +65,12 @@ A future or ongoing service change announced by a transit system that affects a 
 _Avoid_: Disruption, delay
 
 **Service-status summary**:
-A compact expandable banner representing multiple relevant service notices. It displays their count first and reveals the individual official notices and links on expansion.
-_Avoid_: Alert stack, full alert feed
+The single collapsed line standing for every service notice relevant to a board. It displays their counts first and reveals the individual official notices and links on expansion. It is the only form in which service notices appear above departures.
+_Avoid_: Alert stack, full alert feed, expanded banner
 
 **Active disruption**:
-A current service interruption relevant to the board. It remains immediately visible even when planned service advisories are collapsed into the service-status summary.
-_Avoid_: Service advisory, planned work
+A current service interruption relevant to the board, as distinct from a planned advisory. Providers mark currency, not consequence, so a disruption is counted and styled within the service-status summary rather than granted space above the departures.
+_Avoid_: Service advisory, planned work, severe alert
 
 **Train-page service status**:
 Service banners on a train's remaining route that are relevant to that train's route or line only. Station-specific notices appear only on their station board.
