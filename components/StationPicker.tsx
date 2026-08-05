@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { SettingsButton } from "@/components/SettingsButton";
-import { WatchedDepartures } from "@/components/WatchedDepartures";
 import { useFavorites } from "@/lib/favorites";
 import { useRecentStations } from "@/lib/recentStations";
 import { boardChoiceKey, isNjtBoardChoice, njtBoardChoice, subwayBoardChoice, type BoardChoice } from "@/lib/boardChoices";
@@ -148,8 +147,6 @@ export function StationPicker() {
         </div>
         <SettingsButton />
       </div>
-
-      <WatchedDepartures />
 
       {recentStationsLoaded && recentStations.length > 0 && (
         <Section
