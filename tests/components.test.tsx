@@ -48,7 +48,7 @@ describe("interactive component contract", () => {
     expect(screen.getByText("5 min")).toBeTruthy();
   });
 
-  it("previews both Subway directions before focusing the board on one full list", async () => {
+  it("previews every Subway direction before focusing one full list", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2026-08-04T12:00:00.000Z");
     const departures = [
@@ -75,9 +75,9 @@ describe("interactive component contract", () => {
     view.rerender(<SubwayBoard stationId="127" />);
     expect(screen.getByText("Uptown destination 4")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Downtown" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Both directions" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "All directions" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Both directions" }));
+    fireEvent.click(screen.getByRole("button", { name: "All directions" }));
     expect(window.location.search).toBe("");
     view.rerender(<SubwayBoard stationId="127" />);
     expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
