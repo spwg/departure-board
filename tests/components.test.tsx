@@ -47,6 +47,34 @@ describe("interactive component contract", () => {
     expect(screen.getByText("5 min")).toBeTruthy();
   });
 
+  it("previews both Subway directions before allowing each full list to expand", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    const departures = [
+      ...[1, 2, 3].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown destination ${minute}`, expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+      ...[1, 2, 3].map((minute) => ({ id: `down-${minute}`, route: "2", direction: "Downtown", destination: `Downtown destination ${minute}`, expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+    ];
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      station: { id: "127", name: "34 St-Penn Station" },
+      sourceTimestamp: "2026-08-04T12:00:00.000Z",
+      departures,
+    })))));
+
+    render(<SubwayBoard stationId="127" />);
+
+    expect(await screen.findByRole("heading", { name: "Uptown" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
+    expect(screen.queryByText("Uptown destination 3")).toBeNull();
+    expect(screen.queryByText("Downtown destination 3")).toBeNull();
+
+    const showUptown = screen.getByRole("button", { name: "Show 1 more Uptown train" });
+    expect(showUptown.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(showUptown);
+    expect(screen.getByText("Uptown destination 3")).toBeTruthy();
+    expect(screen.queryByText("Downtown destination 3")).toBeNull();
+    expect(screen.getByRole("button", { name: "Show fewer Uptown trains" }).getAttribute("aria-expanded")).toBe("true");
+  });
+
   it("retries an initial Subway failure and retains the last source-dated board after a later failure", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2026-08-04T12:00:00.000Z");

@@ -7,6 +7,7 @@ import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
 
 const REFRESH_MS = 30_000;
+const COLLAPSED_DEPARTURES_PER_DIRECTION = 2;
 
 export function SubwayBoard({ stationId }: { stationId: string }) {
   const [board, setBoard] = useState<Board | null>(null);
@@ -60,14 +61,53 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
   return <>
     {stale && <FreshnessWarning lastLiveAt={Date.parse(board.sourceTimestamp)} />}
     {groups.length === 0 ? <p className="px-5 py-16 text-center text-muted">No live departures available.</p> : groups.map((group) => (
-      <section key={group.direction} aria-labelledby={`subway-${group.direction}`}>
-        <h2 id={`subway-${group.direction}`} className="border-y border-edge bg-bg px-5 py-2 text-sm font-semibold">{group.direction}</h2>
-        <ul className="divide-y divide-edge">{group.departures.map((departure) => (
-          <SubwayRow key={departure.id} departure={departure} now={now} />
-        ))}</ul>
-      </section>
+      <DirectionSection
+        key={group.direction}
+        direction={group.direction}
+        departures={group.departures}
+        now={now}
+      />
     ))}
   </>;
+}
+
+function DirectionSection({
+  direction,
+  departures,
+  now,
+}: {
+  direction: string;
+  departures: Board["departures"];
+  now: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const listId = `subway-${direction}-departures`;
+  const hiddenCount = Math.max(0, departures.length - COLLAPSED_DEPARTURES_PER_DIRECTION);
+  const visible = expanded
+    ? departures
+    : departures.slice(0, COLLAPSED_DEPARTURES_PER_DIRECTION);
+
+  return (
+    <section aria-labelledby={`subway-${direction}`}>
+      <h2 id={`subway-${direction}`} className="border-y border-edge bg-bg px-5 py-2 text-sm font-semibold">{direction}</h2>
+      <ul id={listId} className="divide-y divide-edge">{visible.map((departure) => (
+        <SubwayRow key={departure.id} departure={departure} now={now} />
+      ))}</ul>
+      {hiddenCount > 0 && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={listId}
+          onClick={() => setExpanded((current) => !current)}
+          className="w-full border-t border-edge bg-surface px-5 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
+        >
+          {expanded
+            ? `Show fewer ${direction} trains`
+            : `Show ${hiddenCount} more ${direction} train${hiddenCount === 1 ? "" : "s"}`}
+        </button>
+      )}
+    </section>
+  );
 }
 
 function SubwayRow({ departure, now }: { departure: Board["departures"][number]; now: number }) {
