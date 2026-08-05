@@ -24,6 +24,11 @@ export function njtBoardChoice(stationId: string): BoardChoice {
   return { system: "njt", stationId: normalizedStationId("njt", stationId) };
 }
 
+/** Creates an NYC Subway board choice from its MTA parent-station identifier. */
+export function subwayBoardChoice(stationId: string): BoardChoice {
+  return { system: "subway", stationId: normalizedStationId("subway", stationId) };
+}
+
 /** Accepts the temporary NJT-only caller format at the application boundary. */
 export function normalizeBoardChoice(choice: BoardChoice | string): BoardChoice {
   return typeof choice === "string" ? njtBoardChoice(choice) : choice;

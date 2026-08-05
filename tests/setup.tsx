@@ -16,3 +16,13 @@ vi.mock("next/link", () => ({
     <a href={typeof href === "string" ? href : ""} {...props}>{children}</a>
   ),
 }));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => window.location.pathname,
+  useSearchParams: () => new URLSearchParams(window.location.search),
+  useRouter: () => ({
+    push: (href: string) => window.history.pushState(null, "", href),
+    replace: (href: string) => window.history.replaceState(null, "", href),
+  }),
+  notFound: () => { throw new Error("not found"); },
+}));
