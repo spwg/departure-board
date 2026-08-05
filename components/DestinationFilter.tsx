@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const DESTINATION_PARAM = "destination";
@@ -57,40 +58,60 @@ export function DestinationFilter({
   onToggle: (destination: string) => void;
   onClear: () => void;
 }) {
+  const [openOverride, setOpenOverride] = useState<boolean | null>(null);
+  const open = openOverride ?? selected.size > 0;
   if (options.length < 2) return null;
 
   return (
-    <fieldset className="border-b border-edge bg-surface px-5 py-3">
-      <legend className="text-sm font-semibold">Filter by destination</legend>
-      {selected.size > 0 && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="mt-1 text-sm font-medium text-muted underline-offset-4 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-        >
-          Clear destination filter
-        </button>
-      )}
-      <div className="mt-2 flex flex-wrap gap-2">
-        {options.map((destination) => {
-          const checked = selected.has(destination.id);
-          return (
-            <label
-              key={destination.id}
-              className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors ${checked ? "border-text bg-text text-surface" : "border-edge text-text hover:bg-bg"}`}
+    <div className="border-b border-edge bg-surface px-5 py-2">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpenOverride(!open)}
+        className="flex w-full items-center justify-between gap-3 rounded-lg py-1 text-left text-sm font-semibold text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+      >
+        <span className="flex items-center gap-2">
+          <span aria-hidden>{open ? "⌃" : "⌄"}</span>
+          Filter destinations
+        </span>
+        <span className="text-xs font-medium text-muted">
+          {selected.size === 0 ? "All destinations" : `${selected.size} selected`}
+        </span>
+      </button>
+      {open && (
+        <fieldset className="mt-2 rounded-lg border border-edge p-2">
+          <legend className="sr-only">Destinations</legend>
+          <div className="grid gap-1 sm:grid-cols-2">
+            {options.map((destination) => {
+              const checked = selected.has(destination.id);
+              return (
+                <label
+                  key={destination.id}
+                  className="flex min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm text-text hover:bg-bg"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    aria-checked={checked}
+                    onChange={() => onToggle(destination.id)}
+                    className="h-4 w-4 shrink-0 accent-text"
+                  />
+                  <span className="truncate">{destination.label}</span>
+                </label>
+              );
+            })}
+          </div>
+          {selected.size > 0 && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="mt-1 px-2 py-1 text-sm font-medium text-muted underline-offset-4 hover:text-text hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
             >
-              <input
-                type="checkbox"
-                className="sr-only"
-                checked={checked}
-                aria-checked={checked}
-                onChange={() => onToggle(destination.id)}
-              />
-              {destination.label}
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
+              Clear filter
+            </button>
+          )}
+        </fieldset>
+      )}
+    </div>
   );
 }
