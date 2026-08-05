@@ -47,12 +47,12 @@ describe("interactive component contract", () => {
     expect(screen.getByText("5 min")).toBeTruthy();
   });
 
-  it("previews both Subway directions before allowing each full list to expand", async () => {
+  it("previews both Subway directions before focusing the board on one full list", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2026-08-04T12:00:00.000Z");
     const departures = [
-      ...[1, 2, 3].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown destination ${minute}`, expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
-      ...[1, 2, 3].map((minute) => ({ id: `down-${minute}`, route: "2", direction: "Downtown", destination: `Downtown destination ${minute}`, expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+      ...[1, 2, 3, 4].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown destination ${minute}`, expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+      ...[1, 2, 3, 4].map((minute) => ({ id: `down-${minute}`, route: "2", direction: "Downtown", destination: `Downtown destination ${minute}`, expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
     ];
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       station: { id: "127", name: "34 St-Penn Station" },
@@ -64,15 +64,19 @@ describe("interactive component contract", () => {
 
     expect(await screen.findByRole("heading", { name: "Uptown" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
-    expect(screen.queryByText("Uptown destination 3")).toBeNull();
-    expect(screen.queryByText("Downtown destination 3")).toBeNull();
-
-    const showUptown = screen.getByRole("button", { name: "Show 1 more Uptown train" });
-    expect(showUptown.getAttribute("aria-expanded")).toBe("false");
-    fireEvent.click(showUptown);
     expect(screen.getByText("Uptown destination 3")).toBeTruthy();
-    expect(screen.queryByText("Downtown destination 3")).toBeNull();
-    expect(screen.getByRole("button", { name: "Show fewer Uptown trains" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("Downtown destination 3")).toBeTruthy();
+    expect(screen.queryByText("Uptown destination 4")).toBeNull();
+    expect(screen.queryByText("Downtown destination 4")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "View all 4 Uptown trains" }));
+    expect(screen.getByText("Uptown destination 4")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Downtown" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Both directions" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Both directions" }));
+    expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
+    expect(screen.queryByText("Uptown destination 4")).toBeNull();
   });
 
   it("retries an initial Subway failure and retains the last source-dated board after a later failure", async () => {

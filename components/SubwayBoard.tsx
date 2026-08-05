@@ -7,13 +7,14 @@ import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
 
 const REFRESH_MS = 30_000;
-const COLLAPSED_DEPARTURES_PER_DIRECTION = 2;
+const OVERVIEW_DEPARTURES_PER_DIRECTION = 3;
 
 export function SubwayBoard({ stationId }: { stationId: string }) {
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
   const [stale, setStale] = useState(false);
   const [now, setNow] = useState(0);
+  const [focusedDirection, setFocusedDirection] = useState<string | null>(null);
   const loaded = useRef(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -57,15 +58,30 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     direction,
     departures: board.departures.filter((departure) => departure.direction === direction),
   })).filter((group) => group.departures.length > 0);
+  const visibleGroups = focusedDirection
+    ? groups.filter((group) => group.direction === focusedDirection)
+    : groups;
 
   return <>
     {stale && <FreshnessWarning lastLiveAt={Date.parse(board.sourceTimestamp)} />}
-    {groups.length === 0 ? <p className="px-5 py-16 text-center text-muted">No live departures available.</p> : groups.map((group) => (
+    {focusedDirection && (
+      <button
+        type="button"
+        onClick={() => setFocusedDirection(null)}
+        className="flex w-full items-center gap-2 border-b border-edge bg-surface px-5 py-3 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
+      >
+        <span aria-hidden>←</span>
+        Both directions
+      </button>
+    )}
+    {groups.length === 0 ? <p className="px-5 py-16 text-center text-muted">No live departures available.</p> : visibleGroups.map((group) => (
       <DirectionSection
         key={group.direction}
         direction={group.direction}
         departures={group.departures}
         now={now}
+        focused={focusedDirection === group.direction}
+        onFocus={() => setFocusedDirection(group.direction)}
       />
     ))}
   </>;
@@ -75,17 +91,20 @@ function DirectionSection({
   direction,
   departures,
   now,
+  focused,
+  onFocus,
 }: {
   direction: string;
   departures: Board["departures"];
   now: number;
+  focused: boolean;
+  onFocus: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const listId = `subway-${direction}-departures`;
-  const hiddenCount = Math.max(0, departures.length - COLLAPSED_DEPARTURES_PER_DIRECTION);
-  const visible = expanded
+  const hasMore = departures.length > OVERVIEW_DEPARTURES_PER_DIRECTION;
+  const visible = focused
     ? departures
-    : departures.slice(0, COLLAPSED_DEPARTURES_PER_DIRECTION);
+    : departures.slice(0, OVERVIEW_DEPARTURES_PER_DIRECTION);
 
   return (
     <section aria-labelledby={`subway-${direction}`}>
@@ -93,17 +112,14 @@ function DirectionSection({
       <ul id={listId} className="divide-y divide-edge">{visible.map((departure) => (
         <SubwayRow key={departure.id} departure={departure} now={now} />
       ))}</ul>
-      {hiddenCount > 0 && (
+      {!focused && hasMore && (
         <button
           type="button"
-          aria-expanded={expanded}
           aria-controls={listId}
-          onClick={() => setExpanded((current) => !current)}
+          onClick={onFocus}
           className="w-full border-t border-edge bg-surface px-5 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
         >
-          {expanded
-            ? `Show fewer ${direction} trains`
-            : `Show ${hiddenCount} more ${direction} train${hiddenCount === 1 ? "" : "s"}`}
+          View all {departures.length} {direction} trains
         </button>
       )}
     </section>
