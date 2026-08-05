@@ -114,7 +114,8 @@ export function decodeSubwayBoard(
     if (!departureTime || !hasLaterStop) continue;
 
     const finalStopId = calls.at(-1)?.stopId && parentStopId(calls.at(-1)!.stopId!);
-    const destination = metadata.headsigns?.[tripId] ?? (finalStopId ? metadata.stopNames[finalStopId] : undefined);
+    const headsign = metadata.headsigns?.[tripId];
+    const destination = headsign ?? (finalStopId ? metadata.stopNames[finalStopId] : undefined);
     if (!destination) continue;
     const directionCode = call.stopId!.slice(-1) as "N" | "S";
     const direction = member.directions[directionCode] || destination;
@@ -124,7 +125,9 @@ export function decodeSubwayBoard(
       route,
       direction,
       destination,
-      destinationId: finalStopId ? `mta:stop:${finalStopId}` : `mta:headsign:${destination.toLowerCase()}`,
+      destinationId: headsign
+        ? `mta:headsign:${headsign.toLowerCase()}`
+        : `mta:stop:${finalStopId}`,
       expectedTime: new Date(departureTime * 1000).toISOString(),
       stationId: member.id,
     });

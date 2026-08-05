@@ -60,7 +60,7 @@ export function DestinationFilter({
 }) {
   const [openOverride, setOpenOverride] = useState<boolean | null>(null);
   const open = openOverride ?? selected.size > 0;
-  if (options.length < 2) return null;
+  if (options.length < 2 && selected.size === 0) return null;
 
   return (
     <div className="border-b border-edge bg-surface px-5 py-2">

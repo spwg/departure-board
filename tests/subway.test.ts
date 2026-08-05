@@ -75,7 +75,7 @@ describe("MTA realtime board contract", () => {
 
     expect(board.sourceTimestamp).toBe("2026-08-06T07:06:40.000Z");
     expect(board.departures).toEqual([
-      expect.objectContaining({ route: "2", direction: "Downtown", destination: "Brooklyn College-Flatbush Av" }),
+      expect.objectContaining({ route: "2", direction: "Downtown", destination: "Brooklyn College-Flatbush Av", destinationId: "mta:headsign:brooklyn college-flatbush av" }),
       expect.objectContaining({ route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St" }),
       expect.objectContaining({ route: "3", direction: "Uptown", destination: "Harlem-148 St" }),
     ]);
