@@ -44,7 +44,7 @@ describe("interactive component contract", () => {
     expect(await screen.findByRole("heading", { name: "Uptown" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
     expect(screen.getByLabelText("1 train")).toBeTruthy();
-    expect(screen.getByText("Van Cortlandt Park-242 St")).toBeTruthy();
+    expect(screen.getAllByText("Van Cortlandt Park-242 St")).toHaveLength(2);
     expect(screen.getByText("5 min")).toBeTruthy();
   });
 
@@ -65,15 +65,15 @@ describe("interactive component contract", () => {
 
     expect(await screen.findByRole("heading", { name: "Uptown" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
-    expect(screen.getByText("Uptown destination 3")).toBeTruthy();
-    expect(screen.getByText("Downtown destination 3")).toBeTruthy();
-    expect(screen.queryByText("Uptown destination 4")).toBeNull();
-    expect(screen.queryByText("Downtown destination 4")).toBeNull();
+    expect(screen.getAllByText("Uptown destination 3")).toHaveLength(2);
+    expect(screen.getAllByText("Downtown destination 3")).toHaveLength(2);
+    expect(screen.getAllByText("Uptown destination 4")).toHaveLength(1);
+    expect(screen.getAllByText("Downtown destination 4")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "View all 4 Uptown trains" }));
     expect(window.location.search).toBe("?direction=Uptown");
     view.rerender(<SubwayBoard stationId="127" />);
-    expect(screen.getByText("Uptown destination 4")).toBeTruthy();
+    expect(screen.getAllByText("Uptown destination 4")).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: "Downtown" })).toBeNull();
     expect(screen.getByRole("button", { name: "All directions" })).toBeTruthy();
 
@@ -81,7 +81,42 @@ describe("interactive component contract", () => {
     expect(window.location.search).toBe("");
     view.rerender(<SubwayBoard stationId="127" />);
     expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
-    expect(screen.queryByText("Uptown destination 4")).toBeNull();
+    expect(screen.getAllByText("Uptown destination 4")).toHaveLength(1);
+  });
+
+  it("filters Subway destinations with bookmarkable OR semantics while preserving direction groups", async () => {
+    window.history.replaceState(null, "", "/subway/station/127?destination=mta%3Astop%3AWK&destination=unknown");
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      station: { id: "127", name: "34 St-Penn Station" },
+      sourceTimestamp: "2026-08-04T12:00:00.000Z",
+      departures: [
+        { id: "up-bronx", route: "2", direction: "Uptown", destination: "Wakefield-241 St", destinationId: "mta:stop:WK", expectedTime: "2026-08-04T12:05:00.000Z" },
+        { id: "up-manhattan", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", destinationId: "mta:stop:VC", expectedTime: "2026-08-04T12:06:00.000Z" },
+        { id: "down-brooklyn", route: "2", direction: "Downtown", destination: "Flatbush Av-Brooklyn College", destinationId: "mta:stop:FB", expectedTime: "2026-08-04T12:07:00.000Z" },
+      ],
+    })))));
+
+    const view = render(<SubwayBoard stationId="127" />);
+
+    expect(await screen.findByRole("group", { name: "Filter by destination" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Wakefield-241 St" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getAllByText("Wakefield-241 St")).toHaveLength(2);
+    expect(screen.getAllByText("Van Cortlandt Park-242 St")).toHaveLength(1);
+    expect(screen.queryByRole("heading", { name: "Downtown" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Flatbush Av-Brooklyn College" }));
+    expect(window.location.search).toBe("?destination=mta%3Astop%3AWK&destination=mta%3Astop%3AFB");
+    view.rerender(<SubwayBoard stationId="127" />);
+    expect(screen.getByRole("heading", { name: "Uptown" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
+    expect(screen.getAllByText("Flatbush Av-Brooklyn College")).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear destination filter" }));
+    expect(window.location.search).toBe("");
+    view.rerender(<SubwayBoard stationId="127" />);
+    expect(screen.getAllByText("Van Cortlandt Park-242 St")).toHaveLength(2);
   });
 
   it("retries an initial Subway failure and retains the last source-dated board after a later failure", async () => {
@@ -216,9 +251,41 @@ describe("interactive component contract", () => {
     expect(await screen.findByRole("heading", { name: "Eastbound" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Westbound" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Other departures" })).toBeNull();
-    expect(screen.getByText("Trenton")).toBeTruthy();
-    expect(screen.getByText("Dover")).toBeTruthy();
-    expect(screen.getByText("Long Branch")).toBeTruthy();
+    expect(screen.getAllByText("Trenton")).toHaveLength(2);
+    expect(screen.getAllByText("Dover")).toHaveLength(2);
+    expect(screen.getAllByText("Long Branch")).toHaveLength(2);
+  });
+
+  it("filters NJT destinations from the URL without persisting them", async () => {
+    window.history.replaceState(null, "", "/station/NY?destination=Trenton&destination=Dover&destination=unknown");
+    const grouped = [
+      { ...departure, id: "east", trainNumber: "east", destination: "Trenton", direction: "Eastbound" as const },
+      { ...departure, id: "west", trainNumber: "west", destination: "Dover", direction: "Westbound" as const },
+      { ...departure, id: "other", trainNumber: "other", destination: "Long Branch" },
+    ];
+    vi.stubGlobal("fetch", vi.fn((input: unknown) =>
+      String(input).includes("service-advisories")
+        ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
+        : Promise.resolve(new Response(JSON.stringify({ departures: grouped, fixtures: false }))),
+    ));
+
+    const view = render(<DepartureBoard code="NY" />);
+
+    expect(await screen.findByRole("checkbox", { name: "Trenton" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Dover" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("heading", { name: "Eastbound" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Westbound" })).toBeTruthy();
+    expect(screen.getAllByText("Long Branch")).toHaveLength(1);
+    expect(window.localStorage.length).toBe(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear destination filter" }));
+    expect(window.location.search).toBe("");
+    view.rerender(<DepartureBoard code="NY" />);
+    expect(screen.getAllByText("Long Branch")).toHaveLength(2);
+
+    window.history.replaceState(null, "", "/station/NY?destination=njt%3Anever");
+    view.rerender(<DepartureBoard code="NY" />);
+    expect(screen.getByText("No live departures match this destination filter.")).toBeTruthy();
   });
 
   it("keeps an all-unmatched live board as one neutral chronological list", async () => {
@@ -239,8 +306,8 @@ describe("interactive component contract", () => {
 
     render(<DepartureBoard code="NY" />);
 
-    expect(await screen.findByText("Trenton")).toBeTruthy();
-    expect(screen.getByText("Dover")).toBeTruthy();
+    expect(await screen.findAllByText("Trenton")).toHaveLength(2);
+    expect(screen.getAllByText("Dover")).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: /bound|other departures/i })).toBeNull();
   });
 

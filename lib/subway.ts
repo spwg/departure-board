@@ -27,6 +27,8 @@ export type SubwayDeparture = {
   route: string;
   direction: string;
   destination: string;
+  /** Provider-qualified stop/headsign identity for destination filtering. */
+  destinationId?: string;
   expectedTime: string;
   stationId: string;
 };
@@ -122,6 +124,7 @@ export function decodeSubwayBoard(
       route,
       direction,
       destination,
+      destinationId: finalStopId ? `mta:stop:${finalStopId}` : `mta:headsign:${destination.toLowerCase()}`,
       expectedTime: new Date(departureTime * 1000).toISOString(),
       stationId: member.id,
     });

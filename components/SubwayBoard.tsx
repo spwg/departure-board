@@ -6,6 +6,7 @@ import { formatClock } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { DestinationFilter, useDestinationFilter } from "./DestinationFilter";
 
 const REFRESH_MS = 30_000;
 const OVERVIEW_DEPARTURES_PER_DIRECTION = 3;
@@ -20,6 +21,13 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
   const [stale, setStale] = useState(false);
   const [now, setNow] = useState(0);
   const loaded = useRef(false);
+  const destinationFilter = useDestinationFilter(
+    board?.departures.map((departure) => ({
+      id: departure.destinationId ?? departure.destination,
+      label: departure.destination,
+    })) ?? [],
+    (id) => id.startsWith("mta:"),
+  );
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -66,9 +74,15 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     </div>
   ) : <p className="px-5 py-16 text-center text-muted">Loading live departures…</p>;
 
-  const groups = [...new Set(board.departures.map((departure) => departure.direction))].map((direction) => ({
+  const visibleDepartures = board.departures.filter((departure) =>
+    destinationFilter.matches({
+      id: departure.destinationId ?? departure.destination,
+      label: departure.destination,
+    }),
+  );
+  const groups = [...new Set(visibleDepartures.map((departure) => departure.direction))].map((direction) => ({
     direction,
-    departures: board.departures.filter((departure) => departure.direction === direction),
+    departures: visibleDepartures.filter((departure) => departure.direction === direction),
   }));
   const focusedDirection = groups.some((group) => group.direction === directionParam)
     ? directionParam
@@ -78,6 +92,12 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     : groups;
   return <>
     {stale && <FreshnessWarning lastLiveAt={Date.parse(board.sourceTimestamp)} />}
+    <DestinationFilter
+      options={destinationFilter.options}
+      selected={destinationFilter.selected}
+      onToggle={destinationFilter.toggle}
+      onClear={destinationFilter.clear}
+    />
     {focusedDirection && (
       <button
         type="button"

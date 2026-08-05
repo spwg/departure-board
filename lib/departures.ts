@@ -39,6 +39,8 @@ export type Departure = {
   /** Stable identity across refreshes, so the list can update in place. */
   id: string;
   destination: string;
+  /** Provider-qualified stable identity for destination filtering. */
+  destinationId?: string;
   /** ISO 8601, so the client can render in the viewer's timezone. */
   scheduledTime: string;
   /** When the train should actually leave: scheduled time plus any delay. */
@@ -287,9 +289,11 @@ export function normalizeDeparture(
   const statusText = decodeEntities(item.STATUS);
   const expected = new Date(scheduled.getTime() + delayMinutes * 60_000);
 
+  const destination = decodeEntities(item.DESTINATION);
   return {
     id: `${item.TRAIN_ID}-${scheduled.toISOString()}`,
-    destination: decodeEntities(item.DESTINATION),
+    destination,
+    destinationId: `njt:${destination.toLowerCase()}`,
     scheduledTime: scheduled.toISOString(),
     expectedTime: expected.toISOString(),
     trainNumber: (item.TRAIN_ID ?? "").trim(),
