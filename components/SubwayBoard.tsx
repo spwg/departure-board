@@ -15,14 +15,10 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const directionParam = searchParams.get("direction");
-  const urlDirection = directionParam === "Uptown" || directionParam === "Downtown"
-    ? directionParam
-    : null;
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
   const [stale, setStale] = useState(false);
   const [now, setNow] = useState(0);
-  const focusedDirection = urlDirection;
   const loaded = useRef(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
@@ -70,26 +66,26 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     </div>
   ) : <p className="px-5 py-16 text-center text-muted">Loading live departures…</p>;
 
-  const groups = ["Uptown", "Downtown"].map((direction) => ({
+  const groups = [...new Set(board.departures.map((departure) => departure.direction))].map((direction) => ({
     direction,
     departures: board.departures.filter((departure) => departure.direction === direction),
-  })).filter((group) => group.departures.length > 0);
+  }));
+  const focusedDirection = groups.some((group) => group.direction === directionParam)
+    ? directionParam
+    : null;
   const visibleGroups = focusedDirection
     ? groups.filter((group) => group.direction === focusedDirection)
     : groups;
-
   return <>
     {stale && <FreshnessWarning lastLiveAt={Date.parse(board.sourceTimestamp)} />}
     {focusedDirection && (
       <button
         type="button"
-        onClick={() => {
-          router.replace(directionUrl(null), { scroll: false });
-        }}
+        onClick={() => router.replace(directionUrl(null), { scroll: false })}
         className="flex w-full items-center gap-2 border-b border-edge bg-surface px-5 py-3 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
       >
         <span aria-hidden>←</span>
-        Both directions
+        All directions
       </button>
     )}
     {groups.length === 0 ? <p className="px-5 py-16 text-center text-muted">No live departures available.</p> : visibleGroups.map((group) => (
@@ -99,9 +95,7 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
         departures={group.departures}
         now={now}
         focused={focusedDirection === group.direction}
-        onFocus={() => {
-          router.push(directionUrl(group.direction), { scroll: false });
-        }}
+        onFocus={() => router.push(directionUrl(group.direction), { scroll: false })}
       />
     ))}
   </>;
@@ -122,10 +116,7 @@ function DirectionSection({
 }) {
   const listId = `subway-${direction}-departures`;
   const hasMore = departures.length > OVERVIEW_DEPARTURES_PER_DIRECTION;
-  const visible = focused
-    ? departures
-    : departures.slice(0, OVERVIEW_DEPARTURES_PER_DIRECTION);
-
+  const visible = focused ? departures : departures.slice(0, OVERVIEW_DEPARTURES_PER_DIRECTION);
   return (
     <section aria-labelledby={`subway-${direction}`}>
       <h2 id={`subway-${direction}`} className="border-y border-edge bg-bg px-5 py-2 text-sm font-semibold">{direction}</h2>
