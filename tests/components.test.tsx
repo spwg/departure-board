@@ -9,6 +9,7 @@ import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
 import { WatchedDepartures } from "@/components/WatchedDepartures";
+import { SubwayBoard } from "@/components/SubwayBoard";
 import { njtBoardChoice } from "@/lib/boardChoices";
 import type { Departure } from "@/lib/departures";
 import type { StopList as StopListData } from "@/lib/stops";
@@ -27,6 +28,49 @@ afterEach(() => {
 });
 
 describe("interactive component contract", () => {
+  it("renders a live Subway board with simultaneous official directions and provider-native rows", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      station: { id: "127", name: "34 St-Penn Station" },
+      sourceTimestamp: "2026-08-04T12:00:00.000Z",
+      departures: [
+        { id: "mta:a:127", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", expectedTime: "2026-08-04T12:05:00.000Z" },
+        { id: "mta:b:127", route: "2", direction: "Downtown", destination: "Flatbush Av-Brooklyn College", expectedTime: "2026-08-04T12:07:00.000Z" },
+      ],
+    })))));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    render(<SubwayBoard stationId="127" />);
+    expect(await screen.findByRole("heading", { name: "Uptown" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
+    expect(screen.getByLabelText("1 train")).toBeTruthy();
+    expect(screen.getByText("Van Cortlandt Park-242 St")).toBeTruthy();
+    expect(screen.getByText("5 min")).toBeTruthy();
+  });
+
+  it("retries an initial Subway failure and retains the last source-dated board after a later failure", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(() => {
+      calls += 1;
+      if (calls === 1 || calls === 3) return Promise.reject(new Error("offline"));
+      return Promise.resolve(new Response(JSON.stringify({
+        station: { id: "127", name: "34 St-Penn Station" },
+        sourceTimestamp: "2026-08-04T12:00:00.000Z",
+        departures: [{ id: "mta:a:127", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", expectedTime: "2026-08-04T12:05:00.000Z" }],
+      })));
+    }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<SubwayBoard stationId="127" />);
+    expect(await screen.findByText("Couldn't load departures.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Van Cortlandt Park-242 St")).toBeTruthy();
+    vi.setSystemTime("2026-08-04T12:02:00.000Z");
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect((await screen.findByRole("status")).textContent).toContain("last updated 2 minutes ago");
+    expect(screen.getByText("Van Cortlandt Park-242 St")).toBeTruthy();
+  });
+
   it("persists favourite choices and exposes the action through accessible state", async () => {
     render(<FavoriteButton choice={njtBoardChoice("NY")} name="New York Penn Station" />);
     const button = screen.getByRole("button", { name: /add new york/i });

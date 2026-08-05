@@ -6,24 +6,32 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { WatchedDepartures } from "@/components/WatchedDepartures";
 import { useFavorites } from "@/lib/favorites";
 import { useRecentStations } from "@/lib/recentStations";
-import { boardChoiceKey, isNjtBoardChoice, njtBoardChoice, type BoardChoice } from "@/lib/boardChoices";
+import { boardChoiceKey, isNjtBoardChoice, njtBoardChoice, subwayBoardChoice, type BoardChoice } from "@/lib/boardChoices";
 import { type Station, getStation, lineColor, nearestStation, searchStations, stations } from "@/lib/stations";
+import { PENN_123 } from "@/lib/subway";
 
 
 type LocationState =
   | { status: "locating" | "unavailable" }
   | { status: "found"; station: Station; distanceKm: number };
 
-type NjtStationChoice = { choice: BoardChoice; station: Station };
+type HomeStationChoice = { choice: BoardChoice; station: Station; href: string; systemLabel: "NJT" | "Subway" };
 
-function toNjtStationChoice(station: Station): NjtStationChoice {
-  return { choice: njtBoardChoice(station.code), station };
+function toNjtStationChoice(station: Station): HomeStationChoice {
+  return { choice: njtBoardChoice(station.code), station, href: `/station/${station.code}`, systemLabel: "NJT" };
 }
 
-function resolveNjtStationChoice(choice: BoardChoice): NjtStationChoice | null {
-  if (!isNjtBoardChoice(choice)) return null;
+const pennSubwayChoice: HomeStationChoice = {
+  choice: subwayBoardChoice(PENN_123.id),
+  station: { code: PENN_123.id, name: PENN_123.name, lat: 40.7506, lng: -73.991, lines: [...PENN_123.routes] },
+  href: `/subway/station/${PENN_123.id}`,
+  systemLabel: "Subway",
+};
+
+function resolveStationChoice(choice: BoardChoice): HomeStationChoice | null {
+  if (!isNjtBoardChoice(choice)) return choice.stationId === PENN_123.id ? pennSubwayChoice : null;
   const station = getStation(choice.stationId);
-  return station ? { choice, station } : null;
+  return station ? { choice, station, href: `/station/${station.code}`, systemLabel: "NJT" } : null;
 }
 
 const noopSubscribe = () => () => {};
@@ -92,26 +100,26 @@ export function StationPicker() {
   }, [clearedRecentStations]);
 
   const results = useMemo(
-    () => searchStations(query, 40).map(toNjtStationChoice),
+    () => [...searchStations(query, 40).map(toNjtStationChoice), ...(PENN_123.name.toLowerCase().includes(query.trim().toLowerCase()) ? [pennSubwayChoice] : [])],
     [query],
   );
   const recent = useMemo(
     () =>
       recentStations
-        .map(resolveNjtStationChoice)
-        .filter((choice): choice is NjtStationChoice => Boolean(choice)),
+        .map(resolveStationChoice)
+        .filter((choice): choice is HomeStationChoice => Boolean(choice)),
     [recentStations],
   );
   const favoriteStations = useMemo(
     () =>
       favorites
-        .map(resolveNjtStationChoice)
-        .filter((choice): choice is NjtStationChoice => Boolean(choice)),
+        .map(resolveStationChoice)
+        .filter((choice): choice is HomeStationChoice => Boolean(choice)),
     [favorites],
   );
 
   const grouped = useMemo(() => {
-    const groups = new Map<string, NjtStationChoice[]>();
+    const groups = new Map<string, HomeStationChoice[]>();
     for (const station of stations) {
       const letter = station.name[0].toUpperCase();
       const group = groups.get(letter);
@@ -119,6 +127,8 @@ export function StationPicker() {
       if (group) group.push(choice);
       else groups.set(letter, [choice]);
     }
+    const pennGroup = groups.get("3") ?? [];
+    groups.set("3", [...pennGroup, pennSubwayChoice]);
     return [...groups.entries()];
   }, []);
 
@@ -134,7 +144,7 @@ export function StationPicker() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             Departures
           </h1>
-          <p className="mt-1 text-sm text-muted">NJ Transit rail</p>
+          <p className="mt-1 text-sm text-muted">NJ Transit rail and NYC Subway</p>
         </div>
         <SettingsButton />
       </div>
@@ -291,15 +301,15 @@ function StationList({
   items,
   subtitle,
 }: {
-  items: NjtStationChoice[];
+  items: HomeStationChoice[];
   subtitle?: string;
 }) {
   return (
     <ul className="divide-y divide-edge">
-      {items.map(({ choice, station }) => (
+      {items.map(({ choice, station, href, systemLabel }) => (
         <li key={boardChoiceKey(choice)}>
           <Link
-            href={`/station/${station.code}`}
+            href={href}
             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
           >
             <span className="min-w-0 flex-1">
@@ -312,7 +322,7 @@ function StationList({
             </span>
 
             <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-              NJT
+              {systemLabel}
             </span>
 
             {/* Line colours double as a hint of where the station can take you. */}
@@ -321,7 +331,7 @@ function StationList({
                 <span
                   key={line}
                   className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: lineColor(line) }}
+                  style={{ backgroundColor: systemLabel === "Subway" ? "#EE352E" : lineColor(line) }}
                 />
               ))}
             </span>
