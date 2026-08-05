@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -12,7 +15,7 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint, test, and build
+    name: Lint, typecheck, test, and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -31,6 +34,9 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
 
       - name: Test
         run: npm test

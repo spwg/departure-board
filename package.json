@@ -11,6 +11,7 @@
     "test:node": "tsx --test tests/njtTokenStore.test.ts",
     "test:unit": "vitest run",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "build-stations": "node scripts/build-stations.mjs",
     "build-subway-stops": "node scripts/build-subway-stops.mjs",
     "build-subway-headsigns": "node scripts/build-subway-headsigns.mjs",
