@@ -42,3 +42,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code
+# Machine-local only: settings.local.json, plus a `skills` symlink pointing at
+# .agents/skills — the skills themselves are tracked there, not here.
+/.claude
