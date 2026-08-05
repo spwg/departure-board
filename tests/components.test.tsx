@@ -5,15 +5,14 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
+import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
-import { WatchedDepartures } from "@/components/WatchedDepartures";
 import { SubwayBoard } from "@/components/SubwayBoard";
 import { njtBoardChoice } from "@/lib/boardChoices";
 import type { Departure } from "@/lib/departures";
 import type { StopList as StopListData } from "@/lib/stops";
-import { watchDeparture, watchedDepartures } from "@/lib/watches";
 
 const departure: Departure = { id: "1", destination: "Trenton", scheduledTime: "2024-05-30T15:00:00.000Z", expectedTime: "2024-05-30T15:05:00.000Z", trainNumber: "1234", line: "Northeast Corridor Line", lineCode: "NE", track: "5", status: "delayed", statusText: "5 Min Late", delayMinutes: 5 };
 const stopList: StopListData = { trainNumber: "1234", lineCode: "NE", destination: "Trenton", transferAt: "", stops: [{ code: "NY", name: "New York Penn Station", time: "2024-05-30T15:00:00.000Z", departed: false, pickupOnly: false, dropoffOnly: false }] };
@@ -170,33 +169,12 @@ describe("interactive component contract", () => {
     expect(screen.getByText("Trenton")).toBeTruthy(); expect(screen.getByText("#1234")).toBeTruthy(); expect(screen.getByLabelText("Track 5")).toBeTruthy(); expect(screen.getByText("11:00 AM")).toBeTruthy(); expect(screen.getByText("11:05 AM")).toBeTruthy();
   });
 
-  it("watches an exact departure and lets riders manage it from the home-page list", async () => {
-    render(<><DepartureRow departure={departure} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" /><WatchedDepartures /></>);
+  it("makes the whole rail row one tap target", () => {
+    render(<DepartureRow departure={departure} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Watch train 1234 to Trenton" }));
-    expect(await screen.findByRole("heading", { name: "Watched departures" })).toBeTruthy();
-    expect(screen.getByText(/New York Penn Station/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Unwatch train 1234 from New York Penn Station" }));
-    await waitFor(() => expect(screen.queryByRole("heading", { name: "Watched departures" })).toBeNull());
-  });
-
-  it("leaves Watch reconciliation to the client watcher so board refreshes cannot absorb an alert", async () => {
-    watchDeparture("NY", departure);
-    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
-      if (String(input).includes("service-advisories")) {
-        return Promise.resolve(new Response(JSON.stringify({ advisories: [] })));
-      }
-      return Promise.resolve(new Response(JSON.stringify({
-        departures: [{ ...departure, expectedTime: "2024-05-30T15:07:00.000Z" }],
-        fixtures: false,
-      })));
-    }));
-
-    render(<DepartureBoard code="NY" />);
-    expect(await screen.findByText("Trenton")).toBeTruthy();
-    expect(watchedDepartures()[0]?.expectedTime).toBe(departure.expectedTime);
+    const row = screen.getByText("Trenton").closest("li")!;
+    expect(within(row).getAllByRole("link")).toHaveLength(1);
+    expect(within(row).queryAllByRole("button")).toHaveLength(0);
   });
 
   it("shows initial request failures with a retry affordance", async () => {
@@ -432,6 +410,18 @@ describe("interactive component contract", () => {
     const favorites = screen.getAllByRole("heading", { name: "Favorites" })[0]!.closest("section")!;
     expect(within(favorites).getByText("New York Penn Station")).toBeTruthy();
     expect(within(favorites).getByText("NJT")).toBeTruthy();
+  });
+
+  it("ignores and clears watch state left over from before watches were retired", () => {
+    window.localStorage.setItem("departure-board:watches", JSON.stringify([
+      { stationCode: "NY", trainNumber: "1234", scheduledTime: "2024-05-30T15:00:00.000Z", destination: "Trenton", expectedTime: "2024-05-30T15:05:00.000Z", status: "delayed", track: "5", line: "Northeast Corridor Line", lineCode: "NE" },
+    ]));
+
+    render(<><RetiredWatchStateCleanup /><StationPicker /></>);
+
+    expect(screen.getByRole("heading", { name: "Departures" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Watched departures" })).toBeNull();
+    expect(window.localStorage.getItem("departure-board:watches")).toBeNull();
   });
 
   it("keeps the full directory collapsed and avoids repeating a recent nearest station", async () => {
