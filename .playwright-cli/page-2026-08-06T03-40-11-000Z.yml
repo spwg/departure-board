@@ -1,0 +1,148 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link "All stations" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - img [ref=e6]
+        - heading "New York Penn Station" [level=1] [ref=e8]
+        - button "Add New York Penn Station to favorites" [ref=e9]:
+          - img [ref=e10]
+      - region "Service status" [ref=e50]:
+        - group [ref=e51]:
+          - generic "Service status — 8 advisories" [ref=e52] [cursor=pointer]
+      - button "Filter destinations All destinations" [ref=e54]:
+        - generic [ref=e55]:
+          - generic [ref=e56]: ⌄
+          - text: Filter destinations
+        - generic [ref=e57]: All destinations
+      - region "Westbound" [ref=e59]:
+        - heading "Westbound" [level=2] [ref=e60]
+        - list [ref=e61]:
+          - listitem [ref=e62]:
+            - 'link "MSU -SEC Montclair-Boonton Line #6299 Boarding 11:41 PM Track 12 See stops" [ref=e64] [cursor=pointer]':
+              - /url: /train/6299?from=NY
+              - generic [ref=e65]:
+                - generic [ref=e66]: MSU -SEC
+                - generic [ref=e67]:
+                  - generic [ref=e68]: Montclair-Boonton Line
+                  - generic [ref=e69]: ·
+                  - generic [ref=e70]: "#6299"
+              - generic [ref=e71]:
+                - generic [ref=e72]: Boarding
+                - generic [ref=e73]: 11:41 PM
+              - generic "Track 12" [ref=e74]: "12"
+              - generic [ref=e75]: See stops
+          - listitem [ref=e76]:
+            - 'link "Dover -SEC Morris & Essex Line #6601 22 min 12:02 AM Track not yet assigned See stops" [ref=e78] [cursor=pointer]':
+              - /url: /train/6601?from=NY
+              - generic [ref=e79]:
+                - generic [ref=e80]: Dover -SEC
+                - generic [ref=e81]:
+                  - generic [ref=e82]: Morris & Essex Line
+                  - generic [ref=e83]: ·
+                  - generic [ref=e84]: "#6601"
+              - generic [ref=e85]:
+                - generic [ref=e86]: 22 min
+                - generic [ref=e87]: 12:02 AM
+              - generic "Track not yet assigned" [ref=e88]: –
+              - generic [ref=e89]: See stops
+          - listitem [ref=e90]:
+            - 'link "Long Branch -SEC ✈ North Jersey Coast Line #3201 25 min 12:05 AM Track not yet assigned See stops" [ref=e92] [cursor=pointer]':
+              - /url: /train/3201?from=NY
+              - generic [ref=e93]:
+                - generic [ref=e94]: Long Branch -SEC ✈
+                - generic [ref=e95]:
+                  - generic [ref=e96]: North Jersey Coast Line
+                  - generic [ref=e97]: ·
+                  - generic [ref=e98]: "#3201"
+              - generic [ref=e99]:
+                - generic [ref=e100]: 25 min
+                - generic [ref=e101]: 12:05 AM
+              - generic "Track not yet assigned" [ref=e102]: –
+              - generic [ref=e103]: See stops
+          - listitem [ref=e104]:
+            - 'link "Trenton -SEC ✈ Northeast Corridor Line #3801 34 min 12:14 AM Track not yet assigned See stops" [ref=e106] [cursor=pointer]':
+              - /url: /train/3801?from=NY
+              - generic [ref=e107]:
+                - generic [ref=e108]: Trenton -SEC ✈
+                - generic [ref=e109]:
+                  - generic [ref=e110]: Northeast Corridor Line
+                  - generic [ref=e111]: ·
+                  - generic [ref=e112]: "#3801"
+              - generic [ref=e113]:
+                - generic [ref=e114]: 34 min
+                - generic [ref=e115]: 12:14 AM
+              - generic "Track not yet assigned" [ref=e116]: –
+              - generic [ref=e117]: See stops
+          - listitem [ref=e118]:
+            - 'link "MSU -SEC Montclair-Boonton Line #6201 54 min 12:34 AM Track not yet assigned See stops" [ref=e120] [cursor=pointer]':
+              - /url: /train/6201?from=NY
+              - generic [ref=e121]:
+                - generic [ref=e122]: MSU -SEC
+                - generic [ref=e123]:
+                  - generic [ref=e124]: Montclair-Boonton Line
+                  - generic [ref=e125]: ·
+                  - generic [ref=e126]: "#6201"
+              - generic [ref=e127]:
+                - generic [ref=e128]: 54 min
+                - generic [ref=e129]: 12:34 AM
+              - generic "Track not yet assigned" [ref=e130]: –
+              - generic [ref=e131]: See stops
+          - listitem [ref=e132]:
+            - 'link "Trenton -SEC ✈ Northeast Corridor Line #3803 1h 3m 12:43 AM Track not yet assigned See stops" [ref=e134] [cursor=pointer]':
+              - /url: /train/3803?from=NY
+              - generic [ref=e135]:
+                - generic [ref=e136]: Trenton -SEC ✈
+                - generic [ref=e137]:
+                  - generic [ref=e138]: Northeast Corridor Line
+                  - generic [ref=e139]: ·
+                  - generic [ref=e140]: "#3803"
+              - generic [ref=e141]:
+                - generic [ref=e142]: 1h 3m
+                - generic [ref=e143]: 12:43 AM
+              - generic "Track not yet assigned" [ref=e144]: –
+              - generic [ref=e145]: See stops
+          - listitem [ref=e146]:
+            - 'link "Dover -SEC Morris & Essex Line #6603 1h 16m 12:56 AM Track not yet assigned See stops" [ref=e148] [cursor=pointer]':
+              - /url: /train/6603?from=NY
+              - generic [ref=e149]:
+                - generic [ref=e150]: Dover -SEC
+                - generic [ref=e151]:
+                  - generic [ref=e152]: Morris & Essex Line
+                  - generic [ref=e153]: ·
+                  - generic [ref=e154]: "#6603"
+              - generic [ref=e155]:
+                - generic [ref=e156]: 1h 16m
+                - generic [ref=e157]: 12:56 AM
+              - generic "Track not yet assigned" [ref=e158]: –
+              - generic [ref=e159]: See stops
+          - listitem [ref=e160]:
+            - 'link "Long Branch -SEC ✈ North Jersey Coast Line #3205 1h 20m 1:00 AM Track not yet assigned See stops" [ref=e162] [cursor=pointer]':
+              - /url: /train/3205?from=NY
+              - generic [ref=e163]:
+                - generic [ref=e164]: Long Branch -SEC ✈
+                - generic [ref=e165]:
+                  - generic [ref=e166]: North Jersey Coast Line
+                  - generic [ref=e167]: ·
+                  - generic [ref=e168]: "#3205"
+              - generic [ref=e169]:
+                - generic [ref=e170]: 1h 20m
+                - generic [ref=e171]: 1:00 AM
+              - generic "Track not yet assigned" [ref=e172]: –
+              - generic [ref=e173]: See stops
+          - listitem [ref=e174]:
+            - 'link "Trenton -SEC ✈ Northeast Corridor Line #3805 1h 42m 1:22 AM Track not yet assigned See stops" [ref=e176] [cursor=pointer]':
+              - /url: /train/3805?from=NY
+              - generic [ref=e177]:
+                - generic [ref=e178]: Trenton -SEC ✈
+                - generic [ref=e179]:
+                  - generic [ref=e180]: Northeast Corridor Line
+                  - generic [ref=e181]: ·
+                  - generic [ref=e182]: "#3805"
+              - generic [ref=e183]:
+                - generic [ref=e184]: 1h 42m
+                - generic [ref=e185]: 1:22 AM
+              - generic "Track not yet assigned" [ref=e186]: –
+              - generic [ref=e187]: See stops
+  - alert [ref=e49]

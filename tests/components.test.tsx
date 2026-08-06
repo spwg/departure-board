@@ -285,6 +285,49 @@ describe("interactive component contract", () => {
     expect(screen.getByText("No live departures match this destination filter.")).toBeTruthy();
   });
 
+  it("puts every service notice on one summary line and the freshness warning on its own", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2024-05-30T15:00:00.000Z");
+    const notice = (id: string, severity: "disruption" | "advisory") => ({
+      id, revision: `${id}-r`, severity, text: `${id} notice text`,
+      url: `https://www.njtransit.com/node/${id}`, publishedAt: null,
+    });
+    const advisories = [notice("a", "disruption"), notice("b", "disruption"), notice("c", "advisory")];
+    let departureCalls = 0;
+    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
+      if (String(input).includes("service-advisories")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          advisories,
+          authoritativeRevisions: Object.fromEntries(advisories.map((a) => [a.id, a.revision])),
+        })));
+      }
+      departureCalls += 1;
+      return departureCalls === 1
+        ? Promise.resolve(new Response(JSON.stringify({ departures: [departure], fixtures: false })))
+        : Promise.reject(new Error("offline"));
+    }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { container } = render(<DepartureBoard code="NY" />);
+    const summary = await screen.findByText("Service status — 2 disruptions, 1 advisory");
+    expect(container.querySelectorAll("details")).toHaveLength(1);
+    // Not one of the three, current or not, takes a line above the departures.
+    expect((summary.closest("details") as HTMLDetailsElement).open).toBe(false);
+    for (const advisory of advisories) {
+      expect(screen.getByText(advisory.text).closest("details")).toBe(summary.closest("details"));
+    }
+
+    // "This board may be wrong" is a different claim from "the railroad has
+    // news", so it keeps its own line rather than joining the summary.
+    vi.setSystemTime("2024-05-30T15:02:00.000Z");
+    fireEvent(document, new Event("visibilitychange"));
+    const freshness = await screen.findByRole("status");
+    expect(freshness.textContent).toContain("Data is no longer live — last updated 2 minutes ago");
+    expect(freshness.closest("details")).toBeNull();
+    expect(within(freshness).queryByRole("button")).toBeNull();
+    expect(screen.getByText("Service status — 2 disruptions, 1 advisory")).toBeTruthy();
+  });
+
   it("retains departures after any later failure, reports their age, and clears the warning on recovery", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
