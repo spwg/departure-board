@@ -3,8 +3,10 @@ import { readFileSync } from "node:fs";
 import { transit_realtime } from "gtfs-realtime-bindings";
 import {
   decodeSubwayBoard,
+  decodeSubwayTrip,
   getSubwayStation,
   fetchSubwayFeedsForStation,
+  parseSubwayDepartureId,
   subwayMetadata,
   subwayRouteColor,
   type FeedFamily,
@@ -141,6 +143,37 @@ describe("MTA realtime board contract", () => {
       stations: [{ ...station, directions: {} }],
     });
     expect(board.departures[0]?.direction).toBe(board.departures[0]?.destination);
+  });
+
+  it("opens one exact trip's remaining route and refuses identities MTA no longer publishes", () => {
+    const metadata = {
+      stopNames: { "101": "Van Cortlandt Park-242 St", "120": "96 St", "128": "34 St-Penn Station", "247": "Flatbush Av-Brooklyn College", "301": "Harlem-148 St" },
+      headsigns: { "trip-2": "Brooklyn College-Flatbush Av" },
+      stations: [{ id: "128", name: "34 St-Penn Station", complexId: "318", routes: ["1", "2", "3"], latitude: 40.750373, longitude: -73.991057, directions: { N: "Uptown", S: "Downtown" } }],
+    };
+    const feeds = [snapshot(fixture())];
+
+    expect(parseSubwayDepartureId("mta:numbered:trip-1:128")).toEqual({ family: "numbered", tripId: "trip-1", stationId: "128" });
+    expect(parseSubwayDepartureId("mta:nosuchfeed:trip-1:128")).toBeNull();
+    expect(parseSubwayDepartureId("trip-1")).toBeNull();
+
+    const trip = decodeSubwayTrip(feeds, "mta:numbered:trip-1:128", metadata)!;
+    expect(trip).toMatchObject({ route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St" });
+    // Only the calls the train has still to make — the feed drops the rest,
+    // and nothing reconstructs them.
+    expect(trip.stops).toEqual([
+      { id: "128", name: "34 St-Penn Station", time: "2026-08-06T07:11:40.000Z" },
+      { id: "101", name: "Van Cortlandt Park-242 St", time: "2026-08-06T07:23:20.000Z" },
+    ]);
+    expect(trip.sourceTimestamp).toBe("2026-08-06T07:06:40.000Z");
+
+    // A reliably joined headsign still wins over the final remaining stop.
+    expect(decodeSubwayTrip(feeds, "mta:numbered:trip-2:128", metadata)?.destination)
+      .toBe("Brooklyn College-Flatbush Av");
+
+    // Finished, unknown, or wrong-family identities are simply not there.
+    expect(decodeSubwayTrip(feeds, "mta:numbered:trip-gone:128", metadata)).toBeNull();
+    expect(decodeSubwayTrip(feeds, "mta:ace:trip-1:128", metadata)).toBeNull();
   });
 
   it("provides official route colors across every feed family", () => {

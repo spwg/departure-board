@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
@@ -132,16 +133,24 @@ function DirectionSection({
  */
 function SubwayRow({ departure, now }: { departure: Board["departures"][number]; now: number }) {
   const minutes = Math.max(0, Math.round((Date.parse(departure.expectedTime) - now) / 60_000));
-  return <li className="flex items-center gap-4 px-5 py-4">
-    <span aria-label={`${departure.route} train`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-lg font-bold text-white" style={{ backgroundColor: subwayRouteColor(departure.route) }}>{departure.route}</span>
-    <span className="min-w-0 flex-1">
-      <span className="block truncate text-lg font-semibold">{departure.destination}</span>
-      <span className="mt-0.5 flex items-baseline gap-1.5 text-sm text-muted">
-        <span className="shrink-0">Next stop</span>
-        <span aria-hidden className="text-faint">·</span>
-        <span className="truncate">{departure.nextStop}</span>
+  return <li>
+    {/* The whole row opens this exact train's remaining route — one tap
+        target, as on the rail board. */}
+    <Link
+      href={`/subway/train/${encodeURIComponent(departure.id)}`}
+      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
+    >
+      <span aria-label={`${departure.route} train`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-lg font-bold text-white" style={{ backgroundColor: subwayRouteColor(departure.route) }}>{departure.route}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-lg font-semibold">{departure.destination}</span>
+        <span className="mt-0.5 flex items-baseline gap-1.5 text-sm text-muted">
+          <span className="shrink-0">Next stop</span>
+          <span aria-hidden className="text-faint">·</span>
+          <span className="truncate">{departure.nextStop}</span>
+        </span>
       </span>
-    </span>
-    <span className="shrink-0 text-lg font-semibold">{minutes === 0 ? "now" : `${minutes} min`}</span>
+      <span className="shrink-0 text-lg font-semibold">{minutes === 0 ? "now" : `${minutes} min`}</span>
+      <span className="sr-only">See remaining stops</span>
+    </Link>
   </li>;
 }

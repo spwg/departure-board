@@ -39,6 +39,30 @@ export type SubwayDeparture = {
   stationId: string;
 };
 
+/** One upcoming call on a train's remaining route. */
+export type SubwayTripStop = {
+  id: string;
+  name: string;
+  /** Live predicted time. Null where the feed carries no prediction yet. */
+  time: string | null;
+};
+
+/**
+ * One exact live trip, from wherever it is now to where it terminates.
+ *
+ * Only what MTA still publishes for it: the feed drops a call once the train
+ * has made it, and passed stops are never reconstructed from static schedules.
+ */
+export type SubwayTrip = {
+  /** The same provider-qualified identity the departure row carried. */
+  id: string;
+  route: string;
+  direction: string;
+  destination: string;
+  stops: SubwayTripStop[];
+  sourceTimestamp: string;
+};
+
 export type SubwayBoard = {
   station: { id: string; name: string; memberIds: string[]; routes: string[] };
   departures: SubwayDeparture[];
@@ -165,6 +189,89 @@ export function decodeSubwayBoard(
       new Date(seconds(feed.header.timestamp)! * 1000).toISOString(),
     ])),
   };
+}
+
+/**
+ * Splits a departure identity back into the feed family, MTA trip and boarding
+ * station it was built from. The trip id may itself contain separators, so only
+ * the first two and last segments are fixed.
+ */
+export function parseSubwayDepartureId(
+  id: string,
+): { family: FeedFamily; tripId: string; stationId: string } | null {
+  const parts = id.split(":");
+  if (parts.length < 4 || parts[0] !== "mta") return null;
+  const family = parts[1] as FeedFamily;
+  if (!(family in SUBWAY_FEEDS)) return null;
+  const stationId = parts.at(-1)!;
+  const tripId = parts.slice(2, -1).join(":");
+  return tripId && stationId ? { family, tripId, stationId } : null;
+}
+
+/**
+ * Projects one exact live trip out of its feed family.
+ *
+ * Returns null when MTA no longer publishes the trip — a train that has
+ * finished its run, or an identity that was never live — so the caller can say
+ * so plainly rather than render an empty route.
+ */
+export function decodeSubwayTrip(
+  feedSnapshots: SubwayFeedSnapshot[],
+  id: string,
+  metadata: SubwayMetadata,
+): SubwayTrip | null {
+  const parsed = parseSubwayDepartureId(id);
+  if (!parsed) return null;
+
+  for (const { family, bytes } of feedSnapshots) {
+    if (family !== parsed.family) continue;
+    const feed = transit_realtime.FeedMessage.decode(bytes);
+    const timestamp = seconds(feed.header.timestamp);
+    if (!timestamp || !Number.isFinite(timestamp)) {
+      throw new Error("Missing MTA feed timestamp");
+    }
+
+    for (const entity of feed.entity) {
+      const update = entity.tripUpdate;
+      if (update?.trip.tripId !== parsed.tripId) continue;
+
+      const calls = (update.stopTimeUpdate ?? []).filter((call) => call.stopId);
+      if (calls.length === 0) return null;
+
+      const stops = calls.map((call) => {
+        const parent = parentStopId(call.stopId!);
+        const time = seconds(call.arrival?.time) ?? seconds(call.departure?.time);
+        return {
+          id: parent,
+          name: metadata.stopNames[parent] ?? parent,
+          time: time ? new Date(time * 1000).toISOString() : null,
+        };
+      });
+
+      const headsign = metadata.headsigns?.[parsed.tripId];
+      const destination = headsign ?? stops.at(-1)!.name;
+      // The rider opened this from a board, so prefer that station's own
+      // wayfinding; if the train is already past it, the first stop it still
+      // makes publishes a label for the same direction.
+      const directionCode = calls[0]!.stopId!.slice(-1) as "N" | "S";
+      const boarding = metadata.stations.find((station) => station.id === parsed.stationId);
+      const ahead = metadata.stations.find((station) => station.id === stops[0]!.id);
+      const direction =
+        boarding?.directions[directionCode] ||
+        ahead?.directions[directionCode] ||
+        destination;
+
+      return {
+        id,
+        route: update.trip.routeId ?? "",
+        direction,
+        destination,
+        stops,
+        sourceTimestamp: new Date(timestamp * 1000).toISOString(),
+      };
+    }
+  }
+  return null;
 }
 
 export const SUBWAY_FEEDS = {

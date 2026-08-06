@@ -10,6 +10,7 @@ import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
 import { SubwayBoard } from "@/components/SubwayBoard";
+import { SubwayStopList } from "@/components/SubwayStopList";
 import { njtBoardChoice } from "@/lib/boardChoices";
 import type { Departure } from "@/lib/departures";
 import type { StopList as StopListData } from "@/lib/stops";
@@ -128,6 +129,78 @@ describe("interactive component contract", () => {
     expect(window.location.search).toBe("");
     view.rerender(<SubwayBoard stationId="127" />);
     expect(screen.getAllByText("Van Cortlandt Park-242 St")).toHaveLength(1);
+  });
+
+  it("opens an exact Subway train's remaining live route from its row", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      station: { id: "127", name: "34 St-Penn Station" },
+      sourceTimestamp: "2026-08-04T12:00:00.000Z",
+      departures: [{ id: "mta:numbered:064150_1..N03R:127", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", nextStop: "Times Sq-42 St", expectedTime: "2026-08-04T12:05:00.000Z" }],
+    })))));
+
+    render(<SubwayBoard stationId="127" />);
+
+    const row = await screen.findByRole("link", { name: /Van Cortlandt Park-242 St/ });
+    expect(row.getAttribute("href")).toBe(`/subway/train/${encodeURIComponent("mta:numbered:064150_1..N03R:127")}`);
+  });
+
+  it("shows a Subway train's remaining stops, its live count, and an honest end of run", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(() => {
+      calls += 1;
+      if (calls === 1) return Promise.reject(new Error("offline"));
+      if (calls === 4) return Promise.resolve(new Response(JSON.stringify({ error: "gone" }), { status: 404 }));
+      return Promise.resolve(new Response(JSON.stringify({
+        id: "mta:numbered:trip:127", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St",
+        stops: [
+          { id: "127", name: "Times Sq-42 St", time: "2026-08-04T12:01:00.000Z" },
+          { id: "125", name: "59 St-Columbus Circle", time: "2026-08-04T12:06:00.000Z" },
+          { id: "101", name: "Van Cortlandt Park-242 St", time: null },
+        ],
+        sourceTimestamp: "2026-08-04T12:00:00.000Z",
+      })));
+    }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<SubwayStopList tripId="mta:numbered:trip:127" />);
+
+    expect(await screen.findByText("Couldn't load this train.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    // The route's own identity, in MTA's terms; the internal trip id is never
+    // rider-facing text.
+    expect(await screen.findByLabelText("1 train")).toBeTruthy();
+    expect(screen.getByText("Van Cortlandt Park-242 St", { selector: "span.font-semibold" })).toBeTruthy();
+    expect(screen.getByText("Uptown")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("mta:numbered:trip:127");
+
+    const stops = within(screen.getByRole("list", { name: "Remaining stops" })).getAllByRole("listitem");
+    expect(stops.map((stop) => stop.textContent)).toEqual([
+      expect.stringContaining("Times Sq-42 St"),
+      expect.stringContaining("59 St-Columbus Circle"),
+      expect.stringContaining("Van Cortlandt Park-242 St"),
+    ]);
+    expect(screen.getByText("3 stops remaining")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/Underway|hiding \d+ stops/);
+    expect(within(stops[2]!).getByLabelText("No estimate yet")).toBeTruthy();
+
+    // A later failure keeps the route on screen and dates it.
+    vi.setSystemTime("2026-08-04T12:03:00.000Z");
+    fireEvent(document, new Event("visibilitychange"));
+    expect((await screen.findByRole("status")).textContent).toContain("last updated 3 minutes ago");
+    expect(screen.getByText("59 St-Columbus Circle")).toBeTruthy();
+  });
+
+  it("says plainly when a Subway train has finished its run", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({ error: "gone" }), { status: 404 }))));
+
+    render(<SubwayStopList tripId="mta:numbered:finished:127" />);
+
+    expect(await screen.findByText(/no longer running/i)).toBeTruthy();
   });
 
   it("retries an initial Subway failure and retains the last source-dated board after a later failure", async () => {
