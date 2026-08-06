@@ -4,6 +4,7 @@ import {
   subwayBoardChoice,
   type BoardChoice,
 } from "./boardChoices";
+import { INTERCHANGES, interchangeHref } from "./interchanges";
 import { distanceKm, normalizeStationName, stations } from "./stations";
 import { SUBWAY_STATIONS, type SubwayStation } from "./subway";
 
@@ -31,6 +32,8 @@ export type BoardListing = {
   routes: string[];
   latitude: number;
   longitude: number;
+  /** Set when this board is one system's view of an Interchange. */
+  interchangeId?: string;
 };
 
 /**
@@ -91,8 +94,7 @@ function subwayListings(): { listings: BoardListing[]; byMember: Map<string, Boa
 
 const subway = subwayListings();
 
-/** Every board choice in both systems, ordered by name. */
-export const boardListings: BoardListing[] = [
+const ungrouped: BoardListing[] = [
   ...stations.map((station) => ({
     choice: njtBoardChoice(station.code),
     name: station.name,
@@ -104,12 +106,91 @@ export const boardListings: BoardListing[] = [
     longitude: station.lng,
   })),
   ...subway.listings,
-].sort((a, b) => a.name.localeCompare(b.name) || a.system.localeCompare(b.system));
+];
 
+/**
+ * Folds the boards an Interchange presents into one listing per system view.
+ *
+ * At Penn, MTA publishes 34 St-Penn Station as two separate complexes; the
+ * rider recognises one place with a rail side and a subway side. So Home
+ * offers exactly two Penn choices, and each opens the Interchange with that
+ * system already active. The provider stations behind them stay distinct.
+ */
+function applyInterchanges(listings: BoardListing[]): {
+  listings: BoardListing[];
+  /** Where a folded-away listing's saved identities now resolve to. */
+  redirects: Map<BoardListing, BoardListing>;
+} {
+  const folded: BoardListing[] = [];
+  const redirects = new Map<BoardListing, BoardListing>();
+
+  for (const interchange of INTERCHANGES) {
+    for (const view of interchange.views) {
+      const members = listings.filter((listing) =>
+        view.stationIds.some(
+          (stationId) => memberListing(listing, view.system, stationId),
+        ),
+      );
+      if (members.length === 0) continue;
+      const listing: BoardListing = {
+        choice: members[0]!.choice,
+        name: interchange.name,
+        alsoKnownAs: [
+          ...new Set(members.flatMap((member) => [member.name, ...member.alsoKnownAs])),
+        ].filter((name) => name !== interchange.name),
+        system: view.label,
+        href: interchangeHref(interchange, view),
+        routes: [...new Set(members.flatMap((member) => member.routes))],
+        latitude: interchange.latitude,
+        longitude: interchange.longitude,
+        interchangeId: interchange.id,
+      };
+      folded.push(listing);
+      for (const member of members) redirects.set(member, listing);
+    }
+  }
+
+  return {
+    listings: [...listings.filter((listing) => !redirects.has(listing)), ...folded],
+    redirects,
+  };
+}
+
+/** True when `listing` is the board that `stationId` in `system` opens. */
+function memberListing(
+  listing: BoardListing,
+  system: BoardChoice["system"],
+  stationId: string,
+): boolean {
+  if (listing.choice.system !== system) return false;
+  if (system === "njt") return listing.choice.stationId === stationId;
+  return subway.byMember.get(boardChoiceKey(subwayBoardChoice(stationId))) === listing;
+}
+
+const interchanged = applyInterchanges(ungrouped);
+
+/** Every board choice in both systems, ordered by name. */
+export const boardListings: BoardListing[] = [...interchanged.listings]
+  .sort((a, b) => a.name.localeCompare(b.name) || a.system.localeCompare(b.system));
+
+/** Follows a listing an Interchange folded away to the view that replaced it. */
+const resolve = (listing: BoardListing) => interchanged.redirects.get(listing) ?? listing;
+
+/**
+ * Every provider identity that resolves to a board: a listing's own choice,
+ * every MTA member of its complex, and every station an Interchange folded in.
+ */
 const byChoiceKey = new Map<string, BoardListing>([
+  ...[...subway.byMember].map(([key, listing]) => [key, resolve(listing)] as const),
+  ...ungrouped.map((listing) => [boardChoiceKey(listing.choice), resolve(listing)] as const),
   ...boardListings.map((listing) => [boardChoiceKey(listing.choice), listing] as const),
-  ...subway.byMember,
 ]);
+
+/** The other system views of the same Interchange, this one included. */
+export function interchangeSiblings(listing: BoardListing): BoardListing[] {
+  if (!listing.interchangeId) return [listing];
+  return boardListings.filter((candidate) => candidate.interchangeId === listing.interchangeId);
+}
 
 /**
  * Resolves a saved choice to the board it opens — including an MTA complex

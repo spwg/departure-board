@@ -4,6 +4,7 @@ import {
   boardListings,
   boardListingsByLetter,
   getBoardListing,
+  interchangeSiblings,
   nearestBoardListing,
   searchBoardListings,
 } from "@/lib/boardDirectory";
@@ -14,7 +15,9 @@ describe("combined board directory", () => {
   it("offers every NJT station and every Subway complex as one board choice each", () => {
     const complexes = new Set(SUBWAY_STATIONS.map((station) => station.complexId));
     expect(boardListings.filter((listing) => listing.system === "NJT")).toHaveLength(stations.length);
-    expect(boardListings.filter((listing) => listing.system === "Subway")).toHaveLength(complexes.size);
+    // One short of the complex count: MTA publishes the two Penn complexes
+    // separately and the Interchange presents them as one Subway board.
+    expect(boardListings.filter((listing) => listing.system === "Subway")).toHaveLength(complexes.size - 1);
 
     // One entry per complex, not per platform: the members share a board.
     const timesSquare = boardListings.filter((listing) => listing.name === "Times Sq-42 St");
@@ -41,16 +44,38 @@ describe("combined board directory", () => {
   });
 
   it("resolves saved choices across both systems and both storage generations", () => {
-    expect(getBoardListing(njtBoardChoice("NY"))?.href).toBe("/station/NY");
+    expect(getBoardListing(njtBoardChoice("AM"))?.href).toBe("/station/AM");
     // A Subway complex member saved before it was folded under its complex's
     // title still opens the board it always opened.
-    expect(getBoardListing(subwayBoardChoice("128"))?.href).toBe("/subway/station/128");
+    expect(getBoardListing(subwayBoardChoice("R16"))?.href).toBe("/subway/station/R16");
     expect(getBoardListing(subwayBoardChoice("no-such-stop"))).toBeNull();
+  });
+
+  it("presents an Interchange as one choice per system, both opening the same page", () => {
+    const penn = boardListings.filter((listing) => listing.interchangeId === "penn");
+    expect(penn.map((listing) => [listing.system, listing.href])).toEqual([
+      ["NJT", "/interchange/penn/njt"],
+      ["Subway", "/interchange/penn/subway"],
+    ]);
+    // The Subway view reaches Penn through two distinct MTA stations; both
+    // resolve to it, and its routes are the union of theirs.
+    expect(getBoardListing(njtBoardChoice("NY"))?.href).toBe("/interchange/penn/njt");
+    expect(getBoardListing(subwayBoardChoice("128"))?.href).toBe("/interchange/penn/subway");
+    expect(getBoardListing(subwayBoardChoice("A28"))?.href).toBe("/interchange/penn/subway");
+    expect(penn[1]!.routes).toEqual(expect.arrayContaining(["1", "2", "3", "A", "C", "E"]));
+
+    // Standing at Penn offers both systems rather than letting a few metres
+    // of coordinate difference decide.
+    const nearest = nearestBoardListing(40.7505, -73.9934);
+    expect(interchangeSiblings(nearest.listing)).toEqual(penn);
+    // A station outside any Interchange is its own only sibling.
+    const timesSquare = boardListings.find((listing) => listing.name === "Times Sq-42 St")!;
+    expect(interchangeSiblings(timesSquare)).toEqual([timesSquare]);
   });
 
   it("compares both systems when choosing the nearest board", () => {
     const penn = nearestBoardListing(40.750569, -73.993519);
-    expect(penn.listing.choice).toEqual(njtBoardChoice("NY"));
+    expect(penn.listing.interchangeId).toBe("penn");
     expect(penn.distanceKm).toBeLessThan(0.05);
 
     const unionSquare = nearestBoardListing(40.7359, -73.9906);

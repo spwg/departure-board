@@ -493,7 +493,7 @@ describe("interactive component contract", () => {
       expect.stringContaining("Allendale"),
     ]);
     expect(await screen.findByRole("heading", { name: "Nearest station" })).toBeTruthy();
-    expect(screen.getByText(/Nearest station ·/)).toBeTruthy();
+    expect(screen.getAllByText(/Nearest station ·/).length).toBeGreaterThan(0);
     expect(window.location.pathname).toBe("/");
 
     fireEvent.click(screen.getByRole("button", { name: "Clear recent stations" }));
@@ -528,12 +528,15 @@ describe("interactive component contract", () => {
     render(<StationPicker />);
     const search = screen.getByRole("searchbox", { name: "Search stations" });
 
-    fireEvent.change(search, { target: { value: "penn" } });
+    fireEvent.change(search, { target: { value: "newark" } });
     const results = screen.getByRole("heading", { name: /results?$/ }).closest("section")!;
     const links = within(results).getAllByRole("link");
-    expect(links.some((link) => link.textContent?.includes("New York Penn Station") && link.textContent?.includes("NJT"))).toBe(true);
-    expect(links.some((link) => link.textContent?.includes("34 St-Penn Station") && link.textContent?.includes("Subway"))).toBe(true);
-    expect(links.find((link) => link.textContent?.includes("34 St-Penn Station"))!.getAttribute("href")).toMatch(/^\/subway\/station\//);
+    expect(links.some((link) => link.textContent?.includes("Newark Penn Station") && link.textContent?.includes("NJT"))).toBe(true);
+
+    fireEvent.change(search, { target: { value: "times sq" } });
+    const timesSquare = within(screen.getByRole("heading", { name: /results?$/ }).closest("section")!).getAllByRole("link");
+    expect(timesSquare[0]!.textContent).toContain("Subway");
+    expect(timesSquare[0]!.getAttribute("href")).toMatch(/^\/subway\/station\//);
 
     // Eight stations are called "86 St"; the routes on each row are what tells
     // a rider which one they mean, in text rather than only in colour.
@@ -557,9 +560,13 @@ describe("interactive component contract", () => {
 
     render(<StationPicker />);
 
+    // Both Penn choices resolve, each keeping the system the rider chose.
     const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
-    expect(within(favorites).getByText("New York Penn Station")).toBeTruthy();
-    expect(within(favorites).getByText("34 St-Penn Station")).toBeTruthy();
+    expect(within(favorites).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/interchange/penn/njt",
+      "/interchange/penn/subway",
+    ]);
+    expect(within(favorites).getAllByText("NJT")).toHaveLength(1);
     expect(within(favorites).getAllByText("Subway")).toHaveLength(1);
 
     const recent = screen.getByRole("heading", { name: "Recent stations" }).closest("section")!;
@@ -578,6 +585,85 @@ describe("interactive component contract", () => {
     expect(links.some((link) => link.getAttribute("href")?.startsWith("/station/"))).toBe(true);
     expect(links.some((link) => link.getAttribute("href")?.startsWith("/subway/station/"))).toBe(true);
     expect(within(directory).getAllByRole("heading", { level: 3 }).length).toBeGreaterThan(1);
+  });
+
+  it("presents an Interchange as one Penn choice per system, both opening the same page", () => {
+    render(<StationPicker />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search stations" }), {
+      target: { value: "New York Penn" },
+    });
+
+    const penn = within(screen.getByRole("heading", { name: /results?$/ }).closest("section")!)
+      .getAllByRole("link")
+      .filter((link) => link.textContent?.includes("New York Penn Station"));
+    expect(penn.map((link) => link.getAttribute("href"))).toEqual([
+      "/interchange/penn/njt",
+      "/interchange/penn/subway",
+    ]);
+    // The chip is textual on both, so the two are told apart without colour.
+    expect(penn[0]!.textContent).toContain("NJT");
+    expect(penn[1]!.textContent).toContain("Subway");
+    // The Subway view reaches Penn through both MTA stations.
+    expect(penn[1]!.textContent).toContain("1 · 2 · 3 · A · C · E");
+  });
+
+  it("keeps an Interchange's two systems independent when one of them fails", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
+      const url = String(input);
+      if (url.includes("service-advisories")) return Promise.resolve(new Response(JSON.stringify({ advisories: [] })));
+      // MTA is down; NJ TRANSIT is fine.
+      if (url.includes("/subway/")) return Promise.reject(new Error("MTA unavailable"));
+      return Promise.resolve(new Response(JSON.stringify({ departures: [departure], fixtures: false })));
+    }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    // Only one system's board is mounted at a time, so neither can blank or
+    // stale the other.
+    const njt = render(<DepartureBoard code="NY" />);
+    expect(await screen.findByText("Trenton")).toBeTruthy();
+    expect(screen.queryByText(/Data is no longer live/)).toBeNull();
+    njt.unmount();
+
+    render(<SubwayBoard stationId="128,A28" />);
+    expect(await screen.findByText("Couldn't load departures.")).toBeTruthy();
+    expect(screen.queryByText("Trenton")).toBeNull();
+  });
+
+  it("merges the two MTA Penn stations into shared Uptown and Downtown groups", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    const requested: string[] = [];
+    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
+      requested.push(String(input));
+      return Promise.resolve(new Response(JSON.stringify({
+        station: { id: "128,A28", name: "34 St-Penn Station" },
+        sourceTimestamp: "2026-08-04T12:00:00.000Z",
+        departures: [
+          { id: "mta:numbered:one:128", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", nextStop: "Times Sq-42 St", expectedTime: "2026-08-04T12:03:00.000Z", stationId: "128" },
+          { id: "mta:ace:two:A28", route: "A", direction: "Uptown", destination: "Inwood-207 St", nextStop: "42 St-Port Authority Bus Terminal", expectedTime: "2026-08-04T12:05:00.000Z", stationId: "A28" },
+          { id: "mta:ace:three:A28", route: "E", direction: "Downtown", destination: "World Trade Center", nextStop: "23 St", expectedTime: "2026-08-04T12:06:00.000Z", stationId: "A28" },
+        ],
+      })));
+    }));
+
+    render(<SubwayBoard stationId="128,A28" />);
+
+    // One request covering both provider stations; their identities stay
+    // distinct upstream and only the published labels merge here.
+    expect(await screen.findByRole("heading", { name: "Uptown" })).toBeTruthy();
+    expect(requested[0]).toContain("/api/subway/departures/128,A28");
+    const uptown = screen.getByRole("heading", { name: "Uptown" }).closest("section")!;
+    expect(within(uptown).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(uptown).getByLabelText("1 train")).toBeTruthy();
+    expect(within(uptown).getByLabelText("A train")).toBeTruthy();
+    expect(within(screen.getByRole("heading", { name: "Downtown" }).closest("section")!).getAllByRole("listitem")).toHaveLength(1);
+
+    // No System chip inside a single-system board's own rows.
+    for (const row of screen.getAllByRole("listitem")) {
+      expect(row.textContent).not.toMatch(/\bNJT\b|\bSubway\b/);
+    }
   });
 
   it("offers the nearest board across both systems", async () => {

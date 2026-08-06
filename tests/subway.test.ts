@@ -64,14 +64,14 @@ function fixture() {
 describe("MTA realtime board contract", () => {
   afterEach(() => vi.unstubAllGlobals());
   it("decodes a captured official numbered-line feed against official station metadata", () => {
-    const board = decodeSubwayBoard([snapshot(readFileSync("tests/fixtures/mta-123.pb"))], "127", subwayMetadata);
+    const board = decodeSubwayBoard([snapshot(readFileSync("tests/fixtures/mta-123.pb"))], ["127"], subwayMetadata);
     expect(Date.parse(board.sourceTimestamp)).toBeGreaterThan(0);
     expect(board.departures.length).toBeGreaterThan(0);
     expect(board.departures.every((departure) => ["1", "2", "3"].includes(departure.route))).toBe(true);
   });
 
   it("decodes directions and next stops, uses reliable headsigns then final live stops, and excludes terminal arrivals", () => {
-    const board = decodeSubwayBoard([snapshot(fixture())], "128", {
+    const board = decodeSubwayBoard([snapshot(fixture())], ["128"], {
       stopNames: { "101": "Van Cortlandt Park-242 St", "120": "96 St", "247": "Flatbush Av-Brooklyn College", "301": "Harlem-148 St" },
       headsigns: { "trip-2": "Brooklyn College-Flatbush Av" },
       stations: [{ id: "128", name: "34 St-Penn Station", complexId: "318", routes: ["1", "2", "3"], latitude: 40.750373, longitude: -73.991057, directions: { N: "Uptown", S: "Downtown" } }],
@@ -95,9 +95,9 @@ describe("MTA realtime board contract", () => {
 
   it("rejects malformed protobuf and a missing source timestamp", () => {
     const metadata = { stopNames: {}, stations: [{ id: "128", name: "Penn", complexId: "318", routes: ["1"], latitude: 0, longitude: 0, directions: { N: "Uptown", S: "Downtown" } }] };
-    expect(() => decodeSubwayBoard([snapshot(Uint8Array.of(255))], "128", metadata)).toThrow();
+    expect(() => decodeSubwayBoard([snapshot(Uint8Array.of(255))], ["128"], metadata)).toThrow();
     const noTimestamp = transit_realtime.FeedMessage.encode({ header: { gtfsRealtimeVersion: "2.0" }, entity: [] }).finish();
-    expect(() => decodeSubwayBoard([snapshot(noTimestamp)], "128", metadata)).toThrow("timestamp");
+    expect(() => decodeSubwayBoard([snapshot(noTimestamp)], ["128"], metadata)).toThrow("timestamp");
   });
 
   it("covers official stations and groups complex members only by matching published labels", () => {
@@ -113,7 +113,7 @@ describe("MTA realtime board contract", () => {
         { id: "canarsie", tripUpdate: { trip: { tripId: "l", routeId: "L" }, stopTimeUpdate: [{ stopId: "L03N", departure: { time: 1_786_000_300 } }, { stopId: "L01N", arrival: { time: 1_786_001_000 } }] } },
       ],
     }).finish();
-    const board = decodeSubwayBoard([snapshot(feed, "nqrw")], "R20", subwayMetadata);
+    const board = decodeSubwayBoard([snapshot(feed, "nqrw")], ["R20"], subwayMetadata);
     expect(board.station.memberIds).toEqual(expect.arrayContaining(["R20", "635", "L03"]));
     expect(board.departures.map(({ route, direction }) => [route, direction])).toEqual([
       ["N", "Uptown"], ["4", "Uptown"], ["L", "West Side"],
@@ -124,7 +124,7 @@ describe("MTA realtime board contract", () => {
     const board = decodeSubwayBoard([
       snapshot(readFileSync("tests/fixtures/mta-123.pb"), "numbered"),
       snapshot(readFileSync("tests/fixtures/mta-nqrw.pb"), "nqrw"),
-    ], "127", subwayMetadata);
+    ], ["127"], subwayMetadata);
 
     expect(board.station.name).toBe("Times Sq-42 St");
     expect(board.station.memberIds).toEqual(expect.arrayContaining(["127", "R16", "725", "902"]));
@@ -138,7 +138,7 @@ describe("MTA realtime board contract", () => {
       entity: [{ id: "terminal", tripUpdate: { trip: { tripId: "r", routeId: "R" }, stopTimeUpdate: [{ stopId: "R01S", departure: { time: 1_786_000_100 } }, { stopId: "R27S", arrival: { time: 1_786_001_000 } }] } }],
     }).finish();
     const station = getSubwayStation("R01")!;
-    const board = decodeSubwayBoard([snapshot(feed, "nqrw")], "R01", {
+    const board = decodeSubwayBoard([snapshot(feed, "nqrw")], ["R01"], {
       ...subwayMetadata,
       stations: [{ ...station, directions: {} }],
     });
@@ -191,7 +191,7 @@ describe("MTA realtime board contract", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const batch = await fetchSubwayFeedsForStation("R20");
+    const batch = await fetchSubwayFeedsForStation(["R20"]);
     expect(batch.feeds).toHaveLength(6);
     expect(batch.unavailableFamilies).toEqual(["bdfm", "l"]);
     expect(fetchMock).toHaveBeenCalledTimes(8);
@@ -202,7 +202,7 @@ describe("MTA realtime board contract", () => {
       header: { gtfsRealtimeVersion: "2.0", timestamp: 1_786_000_000 },
       entity: [{ id: "reroute", tripUpdate: { trip: { tripId: "f-reroute", routeId: "F" }, stopTimeUpdate: [{ stopId: "A28N", departure: { time: 1_786_000_100 } }, { stopId: "D13N", arrival: { time: 1_786_001_000 } }] } }],
     }).finish();
-    const board = decodeSubwayBoard([snapshot(feed, "bdfm")], "A28", subwayMetadata);
+    const board = decodeSubwayBoard([snapshot(feed, "bdfm")], ["A28"], subwayMetadata);
     expect(board.departures[0]).toMatchObject({ id: "mta:bdfm:f-reroute:A28", route: "F", direction: "Uptown" });
     expect(board.feedTimestamps.bdfm).toBe(board.sourceTimestamp);
   });

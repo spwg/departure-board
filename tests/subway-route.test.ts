@@ -43,7 +43,7 @@ describe("Subway departures route contract", () => {
     const response = await GET(new Request("http://test"), context("R20"));
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(fetchSubwayFeedsForStation).toHaveBeenCalledWith("R20");
+    expect(fetchSubwayFeedsForStation).toHaveBeenCalledWith(["R20"]);
     const body = await response.json();
     expect(body.unavailableFeedFamilies).toEqual(["l"]);
     expect(body.departures[0]).toMatchObject({ route: "N", destination: "Astoria-Ditmars Blvd", nextStop: "49 St" });

@@ -9,6 +9,7 @@ import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
 import {
   boardListingsByLetter,
   getBoardListing,
+  interchangeSiblings,
   nearestBoardListing,
   searchBoardListings,
   type BoardListing,
@@ -180,8 +181,11 @@ export function StationPicker() {
         (listing) => boardChoiceKey(listing.choice) === boardChoiceKey(location.listing.choice),
       ) && (
         <Section title="Nearest station">
+          {/* An Interchange is one place with a board per system, so the
+              nearest result offers both rather than letting a few metres of
+              coordinate difference pick one for the rider. */}
           <StationList
-            items={[location.listing]}
+            items={interchangeSiblings(location.listing)}
             subtitle={`Nearest station · ${formatDistance(location.distanceKm)}`}
           />
         </Section>

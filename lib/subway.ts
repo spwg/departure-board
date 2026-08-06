@@ -111,15 +111,29 @@ function parentStopId(stopId: string): string {
   return stopId.replace(/[NS]$/, "");
 }
 
-/** Decode and project official GTFS-Realtime feed families into one station-complex board. */
+/**
+ * Decode and project official GTFS-Realtime feed families into one board.
+ *
+ * More than one station id may be given, for an Interchange whose system
+ * reaches it through separate provider stations. Their identities stay
+ * separate here — each departure keeps the member it was seen at — and only
+ * the presentation layer groups them, and only where MTA's own published
+ * direction labels agree.
+ */
 export function decodeSubwayBoard(
   feedSnapshots: SubwayFeedSnapshot[],
-  stationId: string,
+  stationIds: string[],
   metadata: SubwayMetadata,
 ): SubwayBoard {
-  const selected = metadata.stations.find((station) => station.id === stationId);
-  if (!selected) throw new Error(`Unknown Subway station: ${stationId}`);
-  const members = getSubwayStationMembers(stationId, metadata);
+  const selected = metadata.stations.find((station) => station.id === stationIds[0]);
+  if (!selected) throw new Error(`Unknown Subway station: ${stationIds[0]}`);
+  const members = [
+    ...new Map(
+      stationIds
+        .flatMap((stationId) => getSubwayStationMembers(stationId, metadata))
+        .map((member) => [member.id, member]),
+    ).values(),
+  ];
   const memberById = new Map(members.map((station) => [station.id, station]));
   const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: transit_realtime.FeedMessage.decode(bytes) }));
   const generated = feeds.map(({ feed }) => seconds(feed.header.timestamp));
@@ -177,7 +191,7 @@ export function decodeSubwayBoard(
   departures.sort((a, b) => Date.parse(a.expectedTime) - Date.parse(b.expectedTime));
   return {
     station: {
-      id: selected.id,
+      id: stationIds.join(","),
       name: selected.name,
       memberIds: members.map((station) => station.id),
       routes: [...new Set(members.flatMap((station) => station.routes))],
@@ -322,9 +336,12 @@ export async function fetchSubwayFeed(family: FeedFamily): Promise<Uint8Array> {
   return request;
 }
 
-export async function fetchSubwayFeedsForStation(stationId: string): Promise<SubwayFeedBatch> {
-  const members = getSubwayStationMembers(stationId);
-  if (members.length === 0) throw new Error(`Unknown Subway station: ${stationId}`);
+export async function fetchSubwayFeedsForStation(stationIds: string[]): Promise<SubwayFeedBatch> {
+  for (const stationId of stationIds) {
+    if (getSubwayStationMembers(stationId).length === 0) {
+      throw new Error(`Unknown Subway station: ${stationId}`);
+    }
+  }
   // A route may be rerouted through a station it does not serve in static
   // metadata, so every family must be available to every station projection.
   const families = Object.keys(SUBWAY_FEEDS) as FeedFamily[];
