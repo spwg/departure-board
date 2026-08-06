@@ -8,7 +8,11 @@ import { DestinationFilter, useDestinationFilter } from "./DestinationFilter";
 
 const REFRESH_MS = 30_000;
 
-export function SubwayBoard({ stationId }: { stationId: string }) {
+/**
+ * `after` is a transfer cutoff: show only trains leaving strictly after an
+ * instant. Nothing is judged catchable — every later departure is shown.
+ */
+export function SubwayBoard({ stationId, after = null }: { stationId: string; after?: number | null }) {
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
   const [stale, setStale] = useState(false);
@@ -59,11 +63,13 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     </div>
   ) : <p className="px-5 py-16 text-center text-muted">Loading live departures…</p>;
 
-  const visibleDepartures = board.departures.filter((departure) =>
-    destinationFilter.matches({
-      id: departure.destinationId ?? departure.destination,
-      label: departure.destination,
-    }),
+  const visibleDepartures = board.departures.filter(
+    (departure) =>
+      (after === null || Date.parse(departure.expectedTime) > after) &&
+      destinationFilter.matches({
+        id: departure.destinationId ?? departure.destination,
+        label: departure.destination,
+      }),
   );
   const groups = [...new Set(visibleDepartures.map((departure) => departure.direction))].map((direction) => ({
     direction,
@@ -77,7 +83,13 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
       onToggle={destinationFilter.toggle}
       onClear={destinationFilter.clear}
     />
-    {groups.length === 0 ? <p className="px-5 py-16 text-center text-muted">No live departures available.</p> : groups.map((group) => (
+    {groups.length === 0 ? (
+      <p className="px-5 py-16 text-center text-muted">
+        {after === null
+          ? "No live departures available."
+          : "No live departures yet for that arrival time."}
+      </p>
+    ) : groups.map((group) => (
       <DirectionSection
         key={group.direction}
         direction={group.direction}

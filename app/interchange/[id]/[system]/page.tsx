@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { DepartureBoard } from "@/components/DepartureBoard";
+import { InterchangeBoard } from "@/components/InterchangeBoard";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
-import { SubwayBoard } from "@/components/SubwayBoard";
 import { njtBoardChoice, subwayBoardChoice } from "@/lib/boardChoices";
 import {
   INTERCHANGES,
@@ -97,11 +96,7 @@ export default async function InterchangePage({
         {/* Keyed by system so switching remounts the board rather than showing
             one system's departures under the other's heading. */}
         <Suspense key={active.system} fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
-          {active.system === "njt" ? (
-            <DepartureBoard code={active.stationIds[0]!} />
-          ) : (
-            <SubwayBoard stationId={active.stationIds.join(",")} />
-          )}
+          <InterchangeBoard interchangeId={interchange.id} system={active.system} />
         </Suspense>
         <RecentStationRecorder choice={choice} />
       </div>

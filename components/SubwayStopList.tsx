@@ -8,6 +8,7 @@ import { getBoardListing } from "@/lib/boardDirectory";
 import { subwayBoardChoice } from "@/lib/boardChoices";
 import { subwayRouteColor, type SubwayTrip } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { TransferLinks } from "./TransferLinks";
 
 /** Matches the board's cadence; these are clock times, so no local tick. */
 const REFRESH_MS = 30_000;
@@ -144,6 +145,7 @@ export function SubwayStopList({ tripId }: { tripId: string }) {
             />
             <span className="min-w-0 flex-1">
               <StopName id={stop.id} name={stop.name} />
+              <TransferLinks system="subway" stationId={stop.id} trainRef={tripId} />
             </span>
             <span className="shrink-0 text-right text-sm tabular-nums text-muted sm:text-base">
               {stop.time ? (

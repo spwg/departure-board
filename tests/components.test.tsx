@@ -4,6 +4,7 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
+import { InterchangeBoard } from "@/components/InterchangeBoard";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
@@ -664,6 +665,123 @@ describe("interactive component contract", () => {
     for (const row of screen.getAllByRole("listitem")) {
       expect(row.textContent).not.toMatch(/\bNJT\b|\bSubway\b/);
     }
+  });
+
+  it("offers both directions of a Penn transfer from an upcoming stop", async () => {
+    const njtStops: StopListData = {
+      ...stopList,
+      stops: [
+        { code: "NB", name: "New Brunswick", time: "2024-05-30T15:00:00.000Z", departed: true, pickupOnly: false, dropoffOnly: false },
+        { code: "NY", name: "New York Penn Station", time: "2024-05-30T15:40:00.000Z", departed: false, pickupOnly: false, dropoffOnly: false },
+      ],
+    };
+    vi.stubGlobal("fetch", vi.fn((input: unknown) =>
+      String(input).includes("service-advisories")
+        ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
+        : Promise.resolve(new Response(JSON.stringify({ stopList: njtStops, fixtures: false })))));
+
+    const njt = render(<StopList train="1234" from="NB" />);
+    const toSubway = await screen.findByRole("link", { name: /Subway departures from New York Penn Station after this train arrives/ });
+    expect(toSubway.getAttribute("href")).toBe(`/interchange/penn/subway?after=${encodeURIComponent("njt|1234")}`);
+    // Only the Interchange stop carries one, and only while it is still ahead.
+    expect(screen.getAllByRole("link", { name: /departures from/ })).toHaveLength(1);
+    njt.unmount();
+
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      id: "mta:numbered:trip:127", route: "1", direction: "Downtown", destination: "South Ferry",
+      stops: [
+        { id: "127", name: "Times Sq-42 St", time: "2026-08-04T12:01:00.000Z" },
+        { id: "128", name: "34 St-Penn Station", time: "2026-08-04T12:04:00.000Z" },
+      ],
+      sourceTimestamp: "2026-08-04T12:00:00.000Z",
+    })))));
+
+    render(<SubwayStopList tripId="mta:numbered:trip:127" />);
+    const toNjt = await screen.findByRole("link", { name: /NJT departures from New York Penn Station after this train arrives/ });
+    expect(toNjt.getAttribute("href")).toBe(`/interchange/penn/njt?after=${encodeURIComponent("subway|mta:numbered:trip:127")}`);
+  });
+
+  it("starts a transfer board after the originating train's live arrival and follows it when it slips", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2024-05-30T15:00:00.000Z");
+    window.history.replaceState(null, "", `/interchange/penn/njt?after=${encodeURIComponent("njt|1234")}`);
+
+    let arrivals = 0;
+    const arrival = () => {
+      arrivals += 1;
+      // The originating train slips ten minutes between polls.
+      return arrivals === 1 ? "2024-05-30T15:10:00.000Z" : "2024-05-30T15:20:00.000Z";
+    };
+    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
+      const url = String(input);
+      if (url.includes("service-advisories")) return Promise.resolve(new Response(JSON.stringify({ advisories: [] })));
+      if (url.includes("/api/stops/")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          stopList: { ...stopList, stops: [{ code: "NY", name: "New York Penn Station", time: arrival(), departed: false, pickupOnly: false, dropoffOnly: false }] },
+          fixtures: false,
+        })));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        departures: [
+          { ...departure, id: "early", trainNumber: "early", destination: "Too early", delayMinutes: 0, status: "on-time", expectedTime: "2024-05-30T15:05:00.000Z" },
+          { ...departure, id: "middle", trainNumber: "middle", destination: "Catchable at first", delayMinutes: 0, status: "on-time", expectedTime: "2024-05-30T15:15:00.000Z" },
+          { ...departure, id: "late", trainNumber: "late", destination: "Still later", delayMinutes: 0, status: "on-time", expectedTime: "2024-05-30T15:30:00.000Z" },
+        ],
+        fixtures: false,
+      })));
+    }));
+
+    const view = render(<InterchangeBoard interchangeId="penn" system="njt" />);
+
+    expect((await screen.findByRole("status")).textContent).toContain("when train 1234 arrives");
+    // Strictly after the cutoff, and every one of them: nothing is judged
+    // catchable or unreachable.
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
+    expect(screen.queryByText("Too early")).toBeNull();
+    expect(screen.getByText("Catchable at first")).toBeTruthy();
+
+    // The cutoff follows the originating train rather than a copied timestamp.
+    await vi.advanceTimersByTimeAsync(30_000);
+    view.rerender(<InterchangeBoard interchangeId="penn" system="njt" />);
+    await waitFor(() => expect(screen.queryByText("Catchable at first")).toBeNull());
+    expect(screen.getByText("Still later")).toBeTruthy();
+
+    // Nothing coaches the rider about making the connection.
+    expect(document.body.textContent).not.toMatch(/walk|catch|Seventh|Eighth|front of the train/i);
+  });
+
+  it("keeps a transfer cutoff visible but flagged when the originating train stops updating", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2024-05-30T15:00:00.000Z");
+    window.history.replaceState(null, "", `/interchange/penn/njt?after=${encodeURIComponent("njt|1234")}`);
+    let originCalls = 0;
+    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
+      const url = String(input);
+      if (url.includes("service-advisories")) return Promise.resolve(new Response(JSON.stringify({ advisories: [] })));
+      if (url.includes("/api/stops/")) {
+        originCalls += 1;
+        if (originCalls > 1) return Promise.reject(new Error("origin unavailable"));
+        return Promise.resolve(new Response(JSON.stringify({
+          stopList: { ...stopList, stops: [{ code: "NY", name: "New York Penn Station", time: "2024-05-30T15:10:00.000Z", departed: false, pickupOnly: false, dropoffOnly: false }] },
+          fixtures: false,
+        })));
+      }
+      // The destination system has nothing live past the cutoff yet.
+      return Promise.resolve(new Response(JSON.stringify({
+        departures: [{ ...departure, id: "early", destination: "Too early", delayMinutes: 0, status: "on-time", expectedTime: "2024-05-30T15:05:00.000Z" }],
+        fixtures: false,
+      })));
+    }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(<InterchangeBoard interchangeId="penn" system="njt" />);
+
+    await waitFor(() => expect(screen.getByText("No live departures yet for that arrival time.")).toBeTruthy());
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await waitFor(() => expect(screen.getByText(/no longer updating/)).toBeTruthy());
+    // The last cutoff stays on screen rather than silently reverting.
+    expect(screen.getByRole("status").textContent).toContain("when train 1234 arrives");
   });
 
   it("offers the nearest board across both systems", async () => {
