@@ -451,6 +451,81 @@ describe("interactive component contract", () => {
     expect(within(favorites).getByText("NJT")).toBeTruthy();
   });
 
+  it("searches both systems from one box and tells repeated Subway names apart", () => {
+    render(<StationPicker />);
+    const search = screen.getByRole("searchbox", { name: "Search stations" });
+
+    fireEvent.change(search, { target: { value: "penn" } });
+    const results = screen.getByRole("heading", { name: /results?$/ }).closest("section")!;
+    const links = within(results).getAllByRole("link");
+    expect(links.some((link) => link.textContent?.includes("New York Penn Station") && link.textContent?.includes("NJT"))).toBe(true);
+    expect(links.some((link) => link.textContent?.includes("34 St-Penn Station") && link.textContent?.includes("Subway"))).toBe(true);
+    expect(links.find((link) => link.textContent?.includes("34 St-Penn Station"))!.getAttribute("href")).toMatch(/^\/subway\/station\//);
+
+    // Eight stations are called "86 St"; the routes on each row are what tells
+    // a rider which one they mean, in text rather than only in colour.
+    fireEvent.change(search, { target: { value: "86 St" } });
+    const eightySixth = within(screen.getByRole("heading", { name: /results?$/ }).closest("section")!)
+      .getAllByRole("link")
+      .filter((link) => link.textContent?.startsWith("86 St"));
+    expect(eightySixth.length).toBeGreaterThan(3);
+    expect(new Set(eightySixth.map((link) => link.textContent)).size).toBe(eightySixth.length);
+
+    // A complex is one board however many names its members publish.
+    fireEvent.change(search, { target: { value: "World Trade Center" } });
+    expect(screen.getByText(/also .*World Trade Center/)).toBeTruthy();
+  });
+
+  it("keeps saved boards from both systems and both storage generations resolving", () => {
+    // A bare code is the app's pre-Subway format; an MTA member id predates
+    // that complex being listed under one title.
+    window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NY", "subway:128"]));
+    window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["subway:R20", "AM"]));
+
+    render(<StationPicker />);
+
+    const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
+    expect(within(favorites).getByText("New York Penn Station")).toBeTruthy();
+    expect(within(favorites).getByText("34 St-Penn Station")).toBeTruthy();
+    expect(within(favorites).getAllByText("Subway")).toHaveLength(1);
+
+    const recent = screen.getByRole("heading", { name: "Recent stations" }).closest("section")!;
+    expect(within(recent).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      "/subway/station/R20",
+      "/station/AM",
+    ]);
+  });
+
+  it("browses one alphabetical directory covering both systems", () => {
+    render(<StationPicker />);
+
+    fireEvent.click(screen.getByText("Browse all stations"));
+    const directory = screen.getByText("Browse all stations").closest("details")!;
+    const links = within(directory).getAllByRole("link");
+    expect(links.some((link) => link.getAttribute("href")?.startsWith("/station/"))).toBe(true);
+    expect(links.some((link) => link.getAttribute("href")?.startsWith("/subway/station/"))).toBe(true);
+    expect(within(directory).getAllByRole("heading", { level: 3 }).length).toBeGreaterThan(1);
+  });
+
+  it("offers the nearest board across both systems", async () => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        // Union Square: the closest board here belongs to MTA, not NJT.
+        getCurrentPosition: (onSuccess: PositionCallback) => onSuccess({
+          coords: { latitude: 40.7359, longitude: -73.9906 },
+        } as GeolocationPosition),
+      },
+    });
+
+    render(<StationPicker />);
+
+    const nearest = (await screen.findByRole("heading", { name: "Nearest station" })).closest("section")!;
+    expect(within(nearest).getByText("Subway")).toBeTruthy();
+    expect(within(nearest).getByRole("link").getAttribute("href")).toMatch(/^\/subway\/station\//);
+    expect(within(nearest).getByText(/Nearest station ·/)).toBeTruthy();
+  });
+
   it("ignores and clears watch state left over from before watches were retired", () => {
     window.localStorage.setItem("departure-board:watches", JSON.stringify([
       { stationCode: "NY", trainNumber: "1234", scheduledTime: "2024-05-30T15:00:00.000Z", destination: "Trenton", expectedTime: "2024-05-30T15:05:00.000Z", status: "delayed", track: "5", line: "Northeast Corridor Line", lineCode: "NE" },

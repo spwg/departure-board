@@ -1,0 +1,14 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - link "All stations" [ref=e5] [cursor=pointer]:
+          - /url: /
+          - text: ←
+        - generic [ref=e6]:
+          - heading "34 St-Penn Station" [level=1] [ref=e7]
+          - paragraph [ref=e8]: 1 · 2 · 3 Subway
+        - button "Add 34 St-Penn Station Subway to favorites" [ref=e9]:
+          - img [ref=e10]
+      - paragraph [ref=e12]: Loading live departures…
+  - alert [ref=e13]
