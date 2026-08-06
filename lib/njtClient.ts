@@ -2,7 +2,6 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { RawDeparture } from "./departures";
 import { fixtureDepartures, fixtureStopList } from "./fixtures";
-import type { RawStationScheduleDeparture } from "./njtSchedule";
 import {
   getOrCreateStoredToken,
   invalidateStoredToken,
@@ -180,20 +179,6 @@ function itemsOf(payload: unknown): RawDeparture[] {
   return [];
 }
 
-function stationScheduleItemsOf(payload: unknown): RawStationScheduleDeparture[] {
-  // Unlike the live board endpoint, the daily schedule wraps its one station
-  // object in an array. Be deliberately tolerant of either shape: this keeps
-  // direction enrichment isolated from a provider envelope change.
-  const stations = Array.isArray(payload) ? payload : [payload];
-  for (const station of stations) {
-    if (station && typeof station === "object" && "ITEMS" in station) {
-      const items = (station as { ITEMS: unknown }).ITEMS;
-      if (Array.isArray(items)) return items as RawStationScheduleDeparture[];
-    }
-  }
-  return [];
-}
-
 /**
  * Raw departures for a station, newest token first.
  *
@@ -225,87 +210,6 @@ export async function fetchDepartures(
   if (error) throw new Error(`NJT getTrainSchedule19Rec failed: ${error}`);
 
   return itemsOf(payload);
-}
-
-/**
- * NJT recommends obtaining this 27-hour schedule only once per day, shortly
- * after midnight. The generation boundary is therefore 00:30 Eastern: it
- * avoids requesting a partial new schedule during the first half-hour while
- * letting all boards share the same provider snapshot for the rest of the day.
- */
-export function scheduleGeneration(now = new Date()): string {
-  const easternDateParts = (date: Date) => {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/New_York",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    }).formatToParts(date);
-    return Object.fromEntries(
-      parts.map((part) => [part.type, part.value]),
-    ) as Record<string, string>;
-  };
-  const field = easternDateParts(now);
-  const date = `${field.year}-${field.month}-${field.day}`;
-  // Before 00:30 use the preceding generation. The exact date is only a cache
-  // namespace; the 36-hour revalidation is a backstop for clock anomalies.
-  if (Number(field.hour) > 0 || Number(field.minute ?? "0") >= 30) return date;
-  // These values represent an Eastern *calendar* date. Subtracting 24 elapsed
-  // hours from `now` is wrong across the spring DST transition, so subtract a
-  // day from a UTC date made from the calendar fields instead.
-  const previousDate = new Date(Date.UTC(
-    Number(field.year),
-    Number(field.month) - 1,
-    Number(field.day) - 1,
-  ));
-  return previousDate.toISOString().slice(0, 10);
-}
-
-async function fetchStationScheduleUncached(
-  stationCode: string,
-): Promise<RawStationScheduleDeparture[]> {
-  const token = await getToken();
-  const payload = await post("/TrainData/getStationSchedule", {
-    token,
-    station: stationCode,
-    // This endpoint binds the multipart field as a Boolean. Unlike the older
-    // XML API, it rejects the legacy 1/0 representation.
-    NJTOnly: "true",
-  });
-
-  if (isInvalidToken(payload)) throw new InvalidTokenError(token);
-  const error = errorMessageOf(payload);
-  if (error) throw new Error(`NJT getStationSchedule failed: ${error}`);
-  return stationScheduleItemsOf(payload);
-}
-
-const getDailyStationSchedule = unstable_cache(
-  async (stationCode: string, generation: string) => {
-    // The calendar generation scopes this cache entry; only the station is
-    // needed by the provider call itself.
-    void generation;
-    return fetchStationScheduleUncached(stationCode);
-  },
-  // v2 deliberately leaves behind entries written before the provider's
-  // top-level array envelope was understood. Those entries are valid cached
-  // values (an empty list), but cannot enrich any live departure.
-  ["njt-daily-station-schedule-v2"],
-  { revalidate: 36 * 60 * 60 },
-);
-
-/**
- * Daily schedule metadata for one station. It enriches a realtime response
- * with official direction only; consumers must never render it as departures.
- */
-export async function fetchStationSchedule(
-  stationCode: string,
-): Promise<RawStationScheduleDeparture[]> {
-  if (usingFixtures()) return [];
-  const station = stationCode.toUpperCase();
-  return getDailyStationSchedule(station, scheduleGeneration());
 }
 
 /**

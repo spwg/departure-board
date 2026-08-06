@@ -207,11 +207,11 @@ describe("interactive component contract", () => {
     expect(screen.queryByText(/Data is no longer live/)).toBeNull();
   });
 
-  it("keeps official NJT direction groups and unmatched live departures visible", async () => {
-    const grouped = [
-      { ...departure, id: "east", trainNumber: "east", destination: "Trenton", direction: "Eastbound" as const },
-      { ...departure, id: "west", trainNumber: "west", destination: "Dover", direction: "Westbound" as const },
-      { ...departure, id: "other", trainNumber: "other", destination: "Long Branch" },
+  it("renders the rail board as one chronological list with no direction headings", async () => {
+    const board = [
+      { ...departure, id: "first", trainNumber: "first", destination: "Trenton", expectedTime: "2024-05-30T15:05:00.000Z" },
+      { ...departure, id: "second", trainNumber: "second", destination: "Dover", delayMinutes: 0, status: "on-time" as const, expectedTime: "2024-05-30T15:10:00.000Z" },
+      { ...departure, id: "third", trainNumber: "third", destination: "Long Branch", delayMinutes: 0, status: "on-time" as const, expectedTime: "2024-05-30T15:20:00.000Z" },
     ];
     vi.stubGlobal(
       "fetch",
@@ -219,40 +219,47 @@ describe("interactive component contract", () => {
         String(input).includes("service-advisories")
           ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
           : Promise.resolve(
-              new Response(JSON.stringify({ departures: grouped, fixtures: false })),
+              new Response(JSON.stringify({ departures: board, fixtures: false })),
             ),
       ),
     );
 
     render(<DepartureBoard code="NY" />);
 
-    expect(await screen.findByRole("heading", { name: "Eastbound" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Westbound" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Other departures" })).toBeNull();
-    expect(screen.getAllByText("Trenton")).toHaveLength(1);
-    expect(screen.getAllByText("Dover")).toHaveLength(1);
-    expect(screen.getAllByText("Long Branch")).toHaveLength(1);
+    expect(await screen.findAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Trenton"),
+      expect.stringContaining("Dover"),
+      expect.stringContaining("Long Branch"),
+    ]);
+    expect(screen.queryByRole("heading", { name: /bound|other departures/i })).toBeNull();
+
+    // A delayed train shows its timetabled identity struck through beside the
+    // later time it will actually leave.
+    const delayed = screen.getAllByRole("listitem")[0]!;
+    expect(within(delayed).getByText("11:00 AM").className).toContain("line-through");
+    expect(within(delayed).getByText("11:05 AM")).toBeTruthy();
+
+    expect(screen.queryByRole("button", { name: /watch/i })).toBeNull();
   });
 
   it("filters NJT destinations from the URL without persisting them", async () => {
     window.history.replaceState(null, "", "/station/NY?destination=Trenton&destination=Dover&destination=unknown");
-    const grouped = [
-      { ...departure, id: "east", trainNumber: "east", destination: "Trenton", direction: "Eastbound" as const },
-      { ...departure, id: "west", trainNumber: "west", destination: "Dover", direction: "Westbound" as const },
+    const board = [
+      { ...departure, id: "east", trainNumber: "east", destination: "Trenton" },
+      { ...departure, id: "west", trainNumber: "west", destination: "Dover" },
       { ...departure, id: "other", trainNumber: "other", destination: "Long Branch" },
     ];
     vi.stubGlobal("fetch", vi.fn((input: unknown) =>
       String(input).includes("service-advisories")
         ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
-        : Promise.resolve(new Response(JSON.stringify({ departures: grouped, fixtures: false }))),
+        : Promise.resolve(new Response(JSON.stringify({ departures: board, fixtures: false }))),
     ));
 
     const view = render(<DepartureBoard code="NY" />);
 
     expect(await screen.findByRole("checkbox", { name: "Trenton" })).toBeTruthy();
     expect(screen.getByRole("checkbox", { name: "Dover" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getByRole("heading", { name: "Eastbound" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Westbound" })).toBeTruthy();
     expect(screen.getAllByText("Long Branch")).toHaveLength(1);
     expect(window.localStorage.length).toBe(0);
 
@@ -264,29 +271,6 @@ describe("interactive component contract", () => {
     window.history.replaceState(null, "", "/station/NY?destination=njt%3Anever");
     view.rerender(<DepartureBoard code="NY" />);
     expect(screen.getByText("No live departures match this destination filter.")).toBeTruthy();
-  });
-
-  it("keeps an all-unmatched live board as one neutral chronological list", async () => {
-    const ungrouped = [
-      { ...departure, id: "first", trainNumber: "first", destination: "Trenton" },
-      { ...departure, id: "second", trainNumber: "second", destination: "Dover" },
-    ];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn((input: unknown) =>
-        String(input).includes("service-advisories")
-          ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
-          : Promise.resolve(
-              new Response(JSON.stringify({ departures: ungrouped, fixtures: false })),
-            ),
-      ),
-    );
-
-    render(<DepartureBoard code="NY" />);
-
-    expect(await screen.findAllByText("Trenton")).toHaveLength(1);
-    expect(screen.getAllByText("Dover")).toHaveLength(1);
-    expect(screen.queryByRole("heading", { name: /bound|other departures/i })).toBeNull();
   });
 
   it("retains departures after any later failure, reports their age, and clears the warning on recovery", async () => {

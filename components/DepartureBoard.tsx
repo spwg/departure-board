@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
-import { directionGroups, type Departure } from "@/lib/departures";
+import { type Departure } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
 import { DepartureRow } from "./DepartureRow";
 import { DestinationFilter, useDestinationFilter } from "./DestinationFilter";
@@ -148,9 +148,6 @@ export function DepartureBoard({ code }: { code: string }) {
         label: departure.destination,
       }),
     );
-    const groups = directionGroups(visibleDepartures);
-    const hasOfficialDirection = visibleDepartures.some((departure) => departure.direction);
-    const ungrouped = visibleDepartures.filter((departure) => !departure.direction);
     content = (
       <>
         {(stale || fixtures) && (
@@ -173,32 +170,10 @@ export function DepartureBoard({ code }: { code: string }) {
         />
         {visibleDepartures.length === 0 ? (
           <p className="px-5 py-16 text-center text-muted">No live departures match this destination filter.</p>
-        ) : hasOfficialDirection ? (
-          <div>
-            {groups.map((group) => (
-              <section key={group.label} aria-labelledby={`direction-${group.label}`}>
-                <h2
-                  id={`direction-${group.label}`}
-                  className="border-y border-edge bg-bg px-5 py-2 text-sm font-semibold text-text"
-                >
-                  {group.label}
-                </h2>
-                <DepartureList
-                  departures={group.departures}
-                  now={now}
-                  stationCode={code}
-                />
-              </section>
-            ))}
-            {ungrouped.length > 0 && (
-              <DepartureList
-                departures={ungrouped}
-                now={now}
-                stationCode={code}
-              />
-            )}
-          </div>
         ) : (
+          // One chronological sequence, no direction headings: the station's
+          // own concourse board is flat and a rail rider scans it for the one
+          // train they already have in mind.
           <DepartureList departures={visibleDepartures} now={now} stationCode={code} />
         )}
       </>
