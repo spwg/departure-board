@@ -87,60 +87,15 @@ export function distanceKm(
 }
 
 /**
- * Finds the directory station nearest to a latitude/longitude coordinate.
- * Preconditions: coordinates use decimal degrees. Postcondition: the returned
- * distance is in kilometres and is no greater than that of any listed station.
+ * Folds case, accents and punctuation so "Glen Rock-Boro Hall" matches
+ * "glen rock boro hall". Shared with the combined board directory, which does
+ * the searching now that Home covers two systems.
  */
-export function nearestStation(
-  lat: number,
-  lng: number,
-): { station: Station; distanceKm: number } {
-  let best = stations[0];
-  let bestDistance = Infinity;
-  for (const station of stations) {
-    const d = distanceKm(lat, lng, station.lat, station.lng);
-    if (d < bestDistance) {
-      best = station;
-      bestDistance = d;
-    }
-  }
-  return { station: best, distanceKm: bestDistance };
-}
-
-const normalize = (value: string) =>
-  value
+export function normalizeStationName(value: string): string {
+  return value
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    // Fold punctuation so "Glen Rock-Boro Hall" matches "glen rock boro hall".
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
-
-/**
- * Stations matching a search query, ranked so that name-prefix matches come
- * first, then word-prefix matches, then anything else containing the query.
- * An exact station code (e.g. "NY") always ranks first. Empty queries return
- * no rows; returned rows never exceed `limit` and preserve deterministic ties.
- */
-export function searchStations(query: string, limit = 12): Station[] {
-  const q = normalize(query);
-  if (!q) return [];
-
-  const scored: { station: Station; score: number }[] = [];
-  for (const station of stations) {
-    const name = normalize(station.name);
-    let score: number;
-    if (station.code.toLowerCase() === q) score = 0;
-    else if (name.startsWith(q)) score = 1;
-    else if (name.split(" ").some((word) => word.startsWith(q))) score = 2;
-    else if (name.includes(q)) score = 3;
-    else continue;
-    scored.push({ station, score });
-  }
-
-  scored.sort(
-    (a, b) =>
-      a.score - b.score || a.station.name.localeCompare(b.station.name),
-  );
-  return scored.slice(0, limit).map((s) => s.station);
 }

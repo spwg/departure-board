@@ -1,17 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { fixtureDepartures } from "@/lib/fixtures";
-import { distanceKm, getStation, lineColor, lineName, nearestStation, searchStations } from "@/lib/stations";
+import { distanceKm, getStation, lineColor, lineName, normalizeStationName } from "@/lib/stations";
 
 describe("station directory contract", () => {
-  it("looks up codes, ranks search, and supplies display fallbacks", () => {
+  it("looks up codes, folds names for search, and supplies display fallbacks", () => {
     expect(getStation("ny")?.name).toBe("New York Penn Station");
-    expect(searchStations("ny")[0]?.code).toBe("NY");
-    expect(searchStations("glen rock boro")[0]?.name).toBe("Glen Rock Boro Hall");
-    expect(searchStations("", 2)).toEqual([]); expect(lineName("ZZ")).toBe("ZZ"); expect(lineColor("ZZ")).toBe("#6B7280");
+    expect(normalizeStationName("Glen Rock-Boro Hall")).toBe("glen rock boro hall");
+    expect(lineName("ZZ")).toBe("ZZ"); expect(lineColor("ZZ")).toBe("#6B7280");
   });
-  it("calculates great-circle distance and selects the closest station", () => {
+  it("calculates great-circle distance", () => {
     expect(distanceKm(40.7128, -74.006, 40.7128, -74.006)).toBe(0);
-    const ny = getStation("NY")!; expect(nearestStation(ny.lat, ny.lng)).toMatchObject({ station: ny, distanceKm: 0 });
+    const ny = getStation("NY")!; expect(distanceKm(ny.lat, ny.lng, ny.lat, ny.lng)).toBe(0);
   });
 });
 describe("fixture contract", () => {

@@ -6,7 +6,11 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./tests/setup.tsx"],
-    include: ["tests/{components,departures,njt-client,njt-directions,recent-stations,route,service-advisories,service-advisories-route,service-status,stations-fixtures,subway,subway-route}.test.{ts,tsx}"],
+    // Every test module except the token store, which runs under `node:test`
+    // via `npm run test:node`. A glob rather than a list so a new test file is
+    // never silently left unrun.
+    include: ["tests/**/*.test.{ts,tsx}"],
+    exclude: ["**/node_modules/**", "tests/njtTokenStore.test.ts"],
     clearMocks: true,
   },
 });

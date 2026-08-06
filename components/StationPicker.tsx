@@ -5,32 +5,40 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { SettingsButton } from "@/components/SettingsButton";
 import { useFavorites } from "@/lib/favorites";
 import { useRecentStations } from "@/lib/recentStations";
-import { boardChoiceKey, isNjtBoardChoice, njtBoardChoice, subwayBoardChoice, type BoardChoice } from "@/lib/boardChoices";
-import { type Station, getStation, lineColor, nearestStation, searchStations, stations } from "@/lib/stations";
-import { PENN_123 } from "@/lib/subway";
+import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
+import {
+  boardListingsByLetter,
+  getBoardListing,
+  interchangeSiblings,
+  nearestBoardListing,
+  searchBoardListings,
+  type BoardListing,
+} from "@/lib/boardDirectory";
+import { lineColor } from "@/lib/stations";
+import { subwayRouteColor } from "@/lib/subway";
 
 
 type LocationState =
   | { status: "locating" | "unavailable" }
-  | { status: "found"; station: Station; distanceKm: number };
+  | { status: "found"; listing: BoardListing; distanceKm: number };
 
-type HomeStationChoice = { choice: BoardChoice; station: Station; href: string; systemLabel: "NJT" | "Subway" };
-
-function toNjtStationChoice(station: Station): HomeStationChoice {
-  return { choice: njtBoardChoice(station.code), station, href: `/station/${station.code}`, systemLabel: "NJT" };
-}
-
-const pennSubwayChoice: HomeStationChoice = {
-  choice: subwayBoardChoice(PENN_123.id),
-  station: { code: PENN_123.id, name: PENN_123.name, lat: 40.7506, lng: -73.991, lines: [...PENN_123.routes] },
-  href: `/subway/station/${PENN_123.id}`,
-  systemLabel: "Subway",
-};
-
-function resolveStationChoice(choice: BoardChoice): HomeStationChoice | null {
-  if (!isNjtBoardChoice(choice)) return choice.stationId === PENN_123.id ? pennSubwayChoice : null;
-  const station = getStation(choice.stationId);
-  return station ? { choice, station, href: `/station/${station.code}`, systemLabel: "NJT" } : null;
+/**
+ * Turns saved choices into the boards they open, dropping any this build no
+ * longer recognises and collapsing two members of one Subway complex into the
+ * single board they share.
+ */
+function resolveChoices(choices: BoardChoice[]): BoardListing[] {
+  const seen = new Set<string>();
+  const listings: BoardListing[] = [];
+  for (const choice of choices) {
+    const listing = getBoardListing(choice);
+    if (!listing) continue;
+    const key = boardChoiceKey(listing.choice);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    listings.push(listing);
+  }
+  return listings;
 }
 
 const noopSubscribe = () => () => {};
@@ -73,11 +81,11 @@ export function StationPicker() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return;
-        const { station, distanceKm } = nearestStation(
+        const { listing, distanceKm } = nearestBoardListing(
           position.coords.latitude,
           position.coords.longitude,
         );
-        setLocated({ status: "found", station, distanceKm });
+        setLocated({ status: "found", listing, distanceKm });
       },
       () => {
         // Denied or timed out — fall back to favourites and search rather
@@ -98,38 +106,10 @@ export function StationPicker() {
     return () => window.clearTimeout(timeout);
   }, [clearedRecentStations]);
 
-  const results = useMemo(
-    () => [...searchStations(query, 40).map(toNjtStationChoice), ...(PENN_123.name.toLowerCase().includes(query.trim().toLowerCase()) ? [pennSubwayChoice] : [])],
-    [query],
-  );
-  const recent = useMemo(
-    () =>
-      recentStations
-        .map(resolveStationChoice)
-        .filter((choice): choice is HomeStationChoice => Boolean(choice)),
-    [recentStations],
-  );
-  const favoriteStations = useMemo(
-    () =>
-      favorites
-        .map(resolveStationChoice)
-        .filter((choice): choice is HomeStationChoice => Boolean(choice)),
-    [favorites],
-  );
-
-  const grouped = useMemo(() => {
-    const groups = new Map<string, HomeStationChoice[]>();
-    for (const station of stations) {
-      const letter = station.name[0].toUpperCase();
-      const group = groups.get(letter);
-      const choice = toNjtStationChoice(station);
-      if (group) group.push(choice);
-      else groups.set(letter, [choice]);
-    }
-    const pennGroup = groups.get("3") ?? [];
-    groups.set("3", [...pennGroup, pennSubwayChoice]);
-    return [...groups.entries()];
-  }, []);
+  const results = useMemo(() => searchBoardListings(query, 40), [query]);
+  const recent = useMemo(() => resolveChoices(recentStations), [recentStations]);
+  const favoriteStations = useMemo(() => resolveChoices(favorites), [favorites]);
+  const grouped = useMemo(() => boardListingsByLetter(), []);
 
   const clearRecentStations = () => {
     setClearedRecentStations(recentStations);
@@ -197,12 +177,15 @@ export function StationPicker() {
         </Section>
       )}
 
-      {location.status === "found" && recentStationsLoaded && !recentStations.some(
-        (choice) => boardChoiceKey(choice) === boardChoiceKey(njtBoardChoice(location.station.code)),
+      {location.status === "found" && recentStationsLoaded && !recent.some(
+        (listing) => boardChoiceKey(listing.choice) === boardChoiceKey(location.listing.choice),
       ) && (
         <Section title="Nearest station">
+          {/* An Interchange is one place with a board per system, so the
+              nearest result offers both rather than letting a few metres of
+              coordinate difference pick one for the rider. */}
           <StationList
-            items={[toNjtStationChoice(location.station)]}
+            items={interchangeSiblings(location.listing)}
             subtitle={`Nearest station · ${formatDistance(location.distanceKm)}`}
           />
         </Section>
@@ -294,43 +277,66 @@ function Section({
   );
 }
 
+function subwayDetail(listing: BoardListing): string {
+  if (listing.system !== "Subway") return "";
+  const routes = listing.routes.join(" · ");
+  return listing.alsoKnownAs.length > 0
+    ? `${routes} — also ${listing.alsoKnownAs.join(", ")}`
+    : routes;
+}
+
 function StationList({
   items,
   subtitle,
 }: {
-  items: HomeStationChoice[];
+  items: BoardListing[];
   subtitle?: string;
 }) {
   return (
     <ul className="divide-y divide-edge">
-      {items.map(({ choice, station, href, systemLabel }) => (
-        <li key={boardChoiceKey(choice)}>
+      {items.map((listing) => (
+        <li key={boardChoiceKey(listing.choice)}>
           <Link
-            href={href}
+            href={listing.href}
             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate font-medium">{station.name}</span>
-              {subtitle && (
-                <span className="mt-0.5 block text-xs text-muted">
-                  {subtitle}
+              <span className="block truncate font-medium">{listing.name}</span>
+              {/* Dozens of Subway stations share a name, so the routes have to
+                  be readable rather than only coloured — the bullets beside
+                  them are decoration. The complex's other published names
+                  follow, for a rider who searched one of those instead. */}
+              {(subtitle ?? subwayDetail(listing)) && (
+                <span className="mt-0.5 block truncate text-xs text-muted">
+                  {subtitle ?? subwayDetail(listing)}
                 </span>
               )}
             </span>
 
             <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-              {systemLabel}
+              {listing.system}
             </span>
 
-            {/* Line colours double as a hint of where the station can take you. */}
+            {/* Provider-native symbols: MTA route bullets carry their letter,
+                NJT line colours are a hint alongside the names above. */}
             <span aria-hidden className="flex shrink-0 gap-1">
-              {station.lines.map((line) => (
-                <span
-                  key={line}
-                  className="h-2 w-2 rounded-full"
-                  style={{ backgroundColor: systemLabel === "Subway" ? "#EE352E" : lineColor(line) }}
-                />
-              ))}
+              {listing.system === "Subway"
+                ? listing.routes.slice(0, 4).map((route) => (
+                    <span
+                      key={route}
+                      className="grid h-4 w-4 place-items-center rounded-full text-[0.6rem] font-bold text-white"
+                      style={{ backgroundColor: subwayRouteColor(route) }}
+                    >
+                      {route}
+                    </span>
+                  ))
+                : listing.routes.map((line) => (
+                    <span
+                      key={line}
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: lineColor(line) }}
+                    />
+                  ))}
             </span>
           </Link>
         </li>

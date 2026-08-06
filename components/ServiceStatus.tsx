@@ -14,9 +14,30 @@ type ServiceStatusResponse = {
   authoritativeRevisions: Record<string, string>;
 };
 
+/** "1 disruption, 2 advisories" — what the rider judges before opening. */
+function counts(disruptions: number, advisories: number): string {
+  const parts: string[] = [];
+  if (disruptions > 0) {
+    parts.push(`${disruptions} ${disruptions === 1 ? "disruption" : "disruptions"}`);
+  }
+  if (advisories > 0) {
+    parts.push(`${advisories} ${advisories === 1 ? "advisory" : "advisories"}`);
+  }
+  return parts.join(", ");
+}
+
 /**
- * Compactly displays only official notices relevant to this board. The
- * separate, small client boundary keeps local dismissals out of server state.
+ * The one line official notices get above a board, however many there are and
+ * whatever they are marked.
+ *
+ * A provider marks whether a notice is current, not whether it matters — the
+ * same flag covers a full suspension and one train running late — so nothing
+ * here decides placement by severity. Three stacked banners used to eat a third
+ * of a phone screen before the first departure; now the counts sit on one line
+ * and the notices themselves are one tap away.
+ *
+ * The separate, small client boundary keeps local dismissals out of server
+ * state.
  */
 export function ServiceStatus({
   stationCode,
@@ -80,54 +101,37 @@ export function ServiceStatus({
       : current);
   };
 
+  // A current notice is styled inside the summary rather than lifted out of it.
+  const urgent = disruptions.length > 0;
   return (
     <section aria-label="Service status" className="border-b border-edge">
-      {disruptions.map((notice) => (
-        <Notice
-          key={notice.id}
-          notice={notice}
-          active
-          onDismiss={() => dismiss(notice)}
-        />
-      ))}
-      {plannedAdvisories.length > 0 && (
-        <details className="bg-warn-soft text-warn">
-          <summary className="cursor-pointer px-4 py-2 text-sm font-semibold sm:px-5">
-            {plannedAdvisories.length === 1
-              ? "Service advisory"
-              : `Service status — ${plannedAdvisories.length} advisories`}
-          </summary>
-          <div className="divide-y divide-warn/20 border-t border-warn/20">
-            {plannedAdvisories.map((notice) => (
-              <Notice
-                key={notice.id}
-                notice={notice}
-                onDismiss={() => dismiss(notice)}
-              />
-            ))}
-          </div>
-        </details>
-      )}
+      <details className={urgent ? "bg-danger-soft text-danger" : "bg-warn-soft text-warn"}>
+        <summary className="cursor-pointer px-4 py-2 text-sm font-semibold sm:px-5">
+          Service status — {counts(disruptions.length, plannedAdvisories.length)}
+        </summary>
+        <div className={`divide-y border-t ${urgent ? "divide-danger/20 border-danger/20" : "divide-warn/20 border-warn/20"}`}>
+          {[...disruptions, ...plannedAdvisories].map((notice) => (
+            <Notice
+              key={notice.id}
+              notice={notice}
+              onDismiss={() => dismiss(notice)}
+            />
+          ))}
+        </div>
+      </details>
     </section>
   );
 }
 
 function Notice({
   notice,
-  active = false,
   onDismiss,
 }: {
   notice: ServiceAdvisory;
-  active?: boolean;
   onDismiss: () => void;
 }) {
   return (
-    <article
-      role={active ? "alert" : undefined}
-      className={`flex gap-3 px-4 py-3 text-sm sm:px-5 ${
-        active ? "bg-danger-soft text-danger" : ""
-      }`}
-    >
+    <article className="flex gap-3 px-4 py-3 text-sm sm:px-5">
       <p className="min-w-0 flex-1 leading-5">
         <a
           href={notice.url}

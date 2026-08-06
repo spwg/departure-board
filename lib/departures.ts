@@ -1,9 +1,3 @@
-import {
-  directionForDeparture,
-  type NjtDirection,
-  type RawStationScheduleDeparture,
-} from "./njtSchedule";
-
 /**
  * Turns NJ Transit's raw departure records into the small, stable shape the UI
  * renders. Everything NJT-specific — Amtrak rows, non-revenue moves, Eastern
@@ -54,14 +48,11 @@ export type Departure = {
   /** NJT's own wording, e.g. "in 13 Min" — shown verbatim when useful. */
   statusText: string;
   delayMinutes: number;
-  /** NJT daily-schedule enrichment; absent rather than inferred when unmatched. */
-  direction?: NjtDirection;
 };
 
 /**
  * Line codes we never show. The user rides NJT rail only, and the real-time
- * departures endpoint has no server-side filter for this (unlike
- * getStationSchedule's NJTOnly parameter), so we drop them here.
+ * departures endpoint has no server-side filter for this, so we drop them here.
  */
 const EXCLUDED_LINE_CODES = new Set(["AM", "SP"]);
 const EXCLUDED_LINE_ABBREVIATIONS = new Set(["AMTK", "SEPTA"]);
@@ -275,10 +266,7 @@ export function toStatus(statusText: string, delayMinutes: number): DepartureSta
  * timestamps return null; valid results use ISO instants and never have a
  * negative delay.
  */
-export function normalizeDeparture(
-  item: RawDeparture,
-  schedule: RawStationScheduleDeparture[] = [],
-): Departure | null {
+export function normalizeDeparture(item: RawDeparture): Departure | null {
   const scheduled = parseNjtDate(item.SCHED_DEP_DATE);
   if (!scheduled) return null;
 
@@ -303,43 +291,22 @@ export function normalizeDeparture(
     status: toStatus(statusText, delayMinutes),
     statusText,
     delayMinutes,
-    direction: directionForDeparture(item, schedule),
   };
 }
 
 /**
- * Filters out non-NJT trains and normalizes the rest.
+ * Filters out non-NJT trains and normalizes the rest into the one chronological
+ * sequence the rail board renders — the station's own concourse board is flat,
+ * and a rail rider hunting one particular train scans it that way.
  *
  * Ordered by when each train will actually leave rather than by its timetable
  * slot, so the countdown column reads straight down and a badly delayed train
  * does not sit above one that will depart sooner.
  */
-export function normalizeDepartures(
-  items: RawDeparture[],
-  schedule: RawStationScheduleDeparture[] = [],
-): Departure[] {
+export function normalizeDepartures(items: RawDeparture[]): Departure[] {
   return items
     .filter((item) => !isExcluded(item))
-    .map((item) => normalizeDeparture(item, schedule))
+    .map((item) => normalizeDeparture(item))
     .filter((d): d is Departure => d !== null)
     .sort((a, b) => a.expectedTime.localeCompare(b.expectedTime));
-}
-
-export type DirectionGroup = {
-  label: NjtDirection;
-  departures: Departure[];
-};
-
-/**
- * Keeps all provider direction groups visible. Rows without a reliable daily
- * schedule match are intentionally absent: they remain ungrouped rather than
- * being guessed from their destination or line.
- */
-export function directionGroups(departures: Departure[]): DirectionGroup[] {
-  const groups: DirectionGroup[] = [];
-  for (const label of ["Eastbound", "Westbound"] as const) {
-    const matching = departures.filter((departure) => departure.direction === label);
-    if (matching.length) groups.push({ label, departures: matching });
-  }
-  return groups;
 }

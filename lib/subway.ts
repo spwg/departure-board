@@ -27,10 +27,40 @@ export type SubwayDeparture = {
   route: string;
   direction: string;
   destination: string;
+  /**
+   * MTA's own name for the first stop this train makes after the board's
+   * station — the cue on the sign inside the train. A departure with no later
+   * stop is never emitted, so this is always present.
+   */
+  nextStop: string;
   /** Provider-qualified stop/headsign identity for destination filtering. */
   destinationId?: string;
   expectedTime: string;
   stationId: string;
+};
+
+/** One upcoming call on a train's remaining route. */
+export type SubwayTripStop = {
+  id: string;
+  name: string;
+  /** Live predicted time. Null where the feed carries no prediction yet. */
+  time: string | null;
+};
+
+/**
+ * One exact live trip, from wherever it is now to where it terminates.
+ *
+ * Only what MTA still publishes for it: the feed drops a call once the train
+ * has made it, and passed stops are never reconstructed from static schedules.
+ */
+export type SubwayTrip = {
+  /** The same provider-qualified identity the departure row carried. */
+  id: string;
+  route: string;
+  direction: string;
+  destination: string;
+  stops: SubwayTripStop[];
+  sourceTimestamp: string;
 };
 
 export type SubwayBoard = {
@@ -81,15 +111,29 @@ function parentStopId(stopId: string): string {
   return stopId.replace(/[NS]$/, "");
 }
 
-/** Decode and project official GTFS-Realtime feed families into one station-complex board. */
+/**
+ * Decode and project official GTFS-Realtime feed families into one board.
+ *
+ * More than one station id may be given, for an Interchange whose system
+ * reaches it through separate provider stations. Their identities stay
+ * separate here — each departure keeps the member it was seen at — and only
+ * the presentation layer groups them, and only where MTA's own published
+ * direction labels agree.
+ */
 export function decodeSubwayBoard(
   feedSnapshots: SubwayFeedSnapshot[],
-  stationId: string,
+  stationIds: string[],
   metadata: SubwayMetadata,
 ): SubwayBoard {
-  const selected = metadata.stations.find((station) => station.id === stationId);
-  if (!selected) throw new Error(`Unknown Subway station: ${stationId}`);
-  const members = getSubwayStationMembers(stationId, metadata);
+  const selected = metadata.stations.find((station) => station.id === stationIds[0]);
+  if (!selected) throw new Error(`Unknown Subway station: ${stationIds[0]}`);
+  const members = [
+    ...new Map(
+      stationIds
+        .flatMap((stationId) => getSubwayStationMembers(stationId, metadata))
+        .map((member) => [member.id, member]),
+    ).values(),
+  ];
   const memberById = new Map(members.map((station) => [station.id, station]));
   const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: transit_realtime.FeedMessage.decode(bytes) }));
   const generated = feeds.map(({ feed }) => seconds(feed.header.timestamp));
@@ -117,6 +161,16 @@ export function decodeSubwayBoard(
     const headsign = metadata.headsigns?.[tripId];
     const destination = headsign ?? (finalStopId ? metadata.stopNames[finalStopId] : undefined);
     if (!destination) continue;
+
+    // The next stop comes from this trip's own remaining sequence, never from
+    // a static schedule and never inferred: whatever the train calls at next is
+    // what its interior sign will say, express running included.
+    const followingStopId = calls[stationIndex + 1]!.stopId;
+    const nextStop = followingStopId
+      ? metadata.stopNames[parentStopId(followingStopId)]
+      : undefined;
+    if (!nextStop) continue;
+
     const directionCode = call.stopId!.slice(-1) as "N" | "S";
     const direction = member.directions[directionCode] || destination;
 
@@ -125,6 +179,7 @@ export function decodeSubwayBoard(
       route,
       direction,
       destination,
+      nextStop,
       destinationId: headsign
         ? `mta:headsign:${headsign.toLowerCase()}`
         : `mta:stop:${finalStopId}`,
@@ -136,7 +191,7 @@ export function decodeSubwayBoard(
   departures.sort((a, b) => Date.parse(a.expectedTime) - Date.parse(b.expectedTime));
   return {
     station: {
-      id: selected.id,
+      id: stationIds.join(","),
       name: selected.name,
       memberIds: members.map((station) => station.id),
       routes: [...new Set(members.flatMap((station) => station.routes))],
@@ -148,6 +203,89 @@ export function decodeSubwayBoard(
       new Date(seconds(feed.header.timestamp)! * 1000).toISOString(),
     ])),
   };
+}
+
+/**
+ * Splits a departure identity back into the feed family, MTA trip and boarding
+ * station it was built from. The trip id may itself contain separators, so only
+ * the first two and last segments are fixed.
+ */
+export function parseSubwayDepartureId(
+  id: string,
+): { family: FeedFamily; tripId: string; stationId: string } | null {
+  const parts = id.split(":");
+  if (parts.length < 4 || parts[0] !== "mta") return null;
+  const family = parts[1] as FeedFamily;
+  if (!(family in SUBWAY_FEEDS)) return null;
+  const stationId = parts.at(-1)!;
+  const tripId = parts.slice(2, -1).join(":");
+  return tripId && stationId ? { family, tripId, stationId } : null;
+}
+
+/**
+ * Projects one exact live trip out of its feed family.
+ *
+ * Returns null when MTA no longer publishes the trip — a train that has
+ * finished its run, or an identity that was never live — so the caller can say
+ * so plainly rather than render an empty route.
+ */
+export function decodeSubwayTrip(
+  feedSnapshots: SubwayFeedSnapshot[],
+  id: string,
+  metadata: SubwayMetadata,
+): SubwayTrip | null {
+  const parsed = parseSubwayDepartureId(id);
+  if (!parsed) return null;
+
+  for (const { family, bytes } of feedSnapshots) {
+    if (family !== parsed.family) continue;
+    const feed = transit_realtime.FeedMessage.decode(bytes);
+    const timestamp = seconds(feed.header.timestamp);
+    if (!timestamp || !Number.isFinite(timestamp)) {
+      throw new Error("Missing MTA feed timestamp");
+    }
+
+    for (const entity of feed.entity) {
+      const update = entity.tripUpdate;
+      if (update?.trip.tripId !== parsed.tripId) continue;
+
+      const calls = (update.stopTimeUpdate ?? []).filter((call) => call.stopId);
+      if (calls.length === 0) return null;
+
+      const stops = calls.map((call) => {
+        const parent = parentStopId(call.stopId!);
+        const time = seconds(call.arrival?.time) ?? seconds(call.departure?.time);
+        return {
+          id: parent,
+          name: metadata.stopNames[parent] ?? parent,
+          time: time ? new Date(time * 1000).toISOString() : null,
+        };
+      });
+
+      const headsign = metadata.headsigns?.[parsed.tripId];
+      const destination = headsign ?? stops.at(-1)!.name;
+      // The rider opened this from a board, so prefer that station's own
+      // wayfinding; if the train is already past it, the first stop it still
+      // makes publishes a label for the same direction.
+      const directionCode = calls[0]!.stopId!.slice(-1) as "N" | "S";
+      const boarding = metadata.stations.find((station) => station.id === parsed.stationId);
+      const ahead = metadata.stations.find((station) => station.id === stops[0]!.id);
+      const direction =
+        boarding?.directions[directionCode] ||
+        ahead?.directions[directionCode] ||
+        destination;
+
+      return {
+        id,
+        route: update.trip.routeId ?? "",
+        direction,
+        destination,
+        stops,
+        sourceTimestamp: new Date(timestamp * 1000).toISOString(),
+      };
+    }
+  }
+  return null;
 }
 
 export const SUBWAY_FEEDS = {
@@ -198,9 +336,12 @@ export async function fetchSubwayFeed(family: FeedFamily): Promise<Uint8Array> {
   return request;
 }
 
-export async function fetchSubwayFeedsForStation(stationId: string): Promise<SubwayFeedBatch> {
-  const members = getSubwayStationMembers(stationId);
-  if (members.length === 0) throw new Error(`Unknown Subway station: ${stationId}`);
+export async function fetchSubwayFeedsForStation(stationIds: string[]): Promise<SubwayFeedBatch> {
+  for (const stationId of stationIds) {
+    if (getSubwayStationMembers(stationId).length === 0) {
+      throw new Error(`Unknown Subway station: ${stationId}`);
+    }
+  }
   // A route may be rerouted through a station it does not serve in static
   // metadata, so every family must be available to every station projection.
   const families = Object.keys(SUBWAY_FEEDS) as FeedFamily[];
