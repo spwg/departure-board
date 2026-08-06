@@ -1,0 +1,14 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - heading "Departures" [level=1] [ref=e5]
+        - paragraph [ref=e6]: NJ Transit rail and NYC Subway
+      - button "Settings" [ref=e8]:
+        - img [ref=e9]
+    - searchbox "Search stations" [ref=e12]
+    - group [ref=e13]:
+      - generic "Browse all stations" [ref=e14] [cursor=pointer]:
+        - generic [ref=e15]: Browse all stations
+        - img [ref=e17]
+  - alert [ref=e19]

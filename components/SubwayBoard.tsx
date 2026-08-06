@@ -1,19 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
 import { DestinationFilter, useDestinationFilter } from "./DestinationFilter";
 
 const REFRESH_MS = 30_000;
-const OVERVIEW_DEPARTURES_PER_DIRECTION = 3;
 
 export function SubwayBoard({ stationId }: { stationId: string }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const directionParam = searchParams.get("direction");
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
   const [stale, setStale] = useState(false);
@@ -56,14 +50,6 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     return () => { controller.abort(); window.clearInterval(poll); window.clearInterval(tick); };
   }, [load]);
 
-  const directionUrl = (direction: string | null) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (direction) params.set("direction", direction);
-    else params.delete("direction");
-    const query = params.toString();
-    return query ? `${pathname}?${query}` : pathname;
-  };
-
   if (!board) return failed ? (
     <div className="px-5 py-16 text-center">
       <p className="font-medium">Couldn&apos;t load departures.</p>
@@ -82,12 +68,6 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
     direction,
     departures: visibleDepartures.filter((departure) => departure.direction === direction),
   }));
-  const focusedDirection = groups.some((group) => group.direction === directionParam)
-    ? directionParam
-    : null;
-  const visibleGroups = focusedDirection
-    ? groups.filter((group) => group.direction === focusedDirection)
-    : groups;
   return <>
     {stale && <FreshnessWarning lastLiveAt={Date.parse(board.sourceTimestamp)} />}
     <DestinationFilter
@@ -96,61 +76,49 @@ export function SubwayBoard({ stationId }: { stationId: string }) {
       onToggle={destinationFilter.toggle}
       onClear={destinationFilter.clear}
     />
-    {focusedDirection && (
-      <button
-        type="button"
-        onClick={() => router.replace(directionUrl(null), { scroll: false })}
-        className="flex w-full items-center gap-2 border-b border-edge bg-surface px-5 py-3 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
-      >
-        <span aria-hidden>←</span>
-        All directions
-      </button>
-    )}
-    {groups.length === 0 ? <p className="px-5 py-16 text-center text-muted">No live departures available.</p> : visibleGroups.map((group) => (
+    {groups.length === 0 ? <p className="px-5 py-16 text-center text-muted">No live departures available.</p> : groups.map((group) => (
       <DirectionSection
         key={group.direction}
         direction={group.direction}
         departures={group.departures}
         now={now}
-        focused={focusedDirection === group.direction}
-        onFocus={() => router.push(directionUrl(group.direction), { scroll: false })}
       />
     ))}
   </>;
 }
 
+/**
+ * One direction group, whole. Every train in it is on screen: the platform
+ * sign's three-train rotation is the size of an LED panel, not a rider's
+ * appetite, and hiding the train after the next one behind a tap was the wrong
+ * lesson to draw from it.
+ *
+ * The heading pins to the top of the board while its own group scrolls, which
+ * is what makes an uncapped group safe to read — a rider deep in a long list
+ * can still see which direction they are looking at.
+ */
 function DirectionSection({
   direction,
   departures,
   now,
-  focused,
-  onFocus,
 }: {
   direction: string;
   departures: Board["departures"];
   now: number;
-  focused: boolean;
-  onFocus: () => void;
 }) {
-  const listId = `subway-${direction}-departures`;
-  const hasMore = departures.length > OVERVIEW_DEPARTURES_PER_DIRECTION;
-  const visible = focused ? departures : departures.slice(0, OVERVIEW_DEPARTURES_PER_DIRECTION);
   return (
     <section aria-labelledby={`subway-${direction}`}>
-      <h2 id={`subway-${direction}`} className="border-y border-edge bg-bg px-5 py-2 text-sm font-semibold">{direction}</h2>
-      <ul id={listId} className="divide-y divide-edge">{visible.map((departure) => (
+      <h2
+        id={`subway-${direction}`}
+        // Clears the station header, which is itself pinned on phones and
+        // static from tablet up.
+        className="sticky top-15 z-9 border-y border-edge bg-bg px-5 py-2 text-sm font-semibold sm:top-0"
+      >
+        {direction}
+      </h2>
+      <ul className="divide-y divide-edge">{departures.map((departure) => (
         <SubwayRow key={departure.id} departure={departure} now={now} />
       ))}</ul>
-      {!focused && hasMore && (
-        <button
-          type="button"
-          aria-controls={listId}
-          onClick={onFocus}
-          className="w-full border-t border-edge bg-surface px-5 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
-        >
-          View all {departures.length} {direction} trains
-        </button>
-      )}
     </section>
   );
 }

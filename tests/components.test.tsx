@@ -59,40 +59,40 @@ describe("interactive component contract", () => {
     }
   });
 
-  it("previews every Subway direction before focusing one full list", async () => {
+  it("shows every Subway departure in every direction group under a pinned heading", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2026-08-04T12:00:00.000Z");
+    const minutes = [1, 2, 3, 4, 5, 6];
     const departures = [
-      ...[1, 2, 3, 4].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown destination ${minute}`, nextStop: "Times Sq-42 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
-      ...[1, 2, 3, 4].map((minute) => ({ id: `down-${minute}`, route: "2", direction: "Downtown", destination: `Downtown destination ${minute}`, nextStop: "14 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+      ...minutes.map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown destination ${minute}`, nextStop: "Times Sq-42 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+      ...minutes.map((minute) => ({ id: `down-${minute}`, route: "2", direction: "Downtown", destination: `Downtown destination ${minute}`, nextStop: "14 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
     ];
+    // The board arrives chronologically; grouping must not reorder within a group.
+    departures.sort((a, b) => a.expectedTime.localeCompare(b.expectedTime));
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       station: { id: "127", name: "34 St-Penn Station" },
       sourceTimestamp: "2026-08-04T12:00:00.000Z",
       departures,
     })))));
 
-    const view = render(<SubwayBoard stationId="127" />);
+    // A direction-focus parameter left in an old bookmark no longer narrows
+    // anything — the concept it selected is gone.
+    window.history.replaceState(null, "", "/subway/station/127?direction=Uptown");
+    render(<SubwayBoard stationId="127" />);
 
-    expect(await screen.findByRole("heading", { name: "Uptown" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
-    expect(screen.getAllByText("Uptown destination 3")).toHaveLength(1);
-    expect(screen.getAllByText("Downtown destination 3")).toHaveLength(1);
-    expect(screen.queryAllByText("Uptown destination 4")).toHaveLength(0);
-    expect(screen.queryAllByText("Downtown destination 4")).toHaveLength(0);
+    const uptown = (await screen.findByRole("heading", { name: "Uptown" })).closest("section")!;
+    const downtown = screen.getByRole("heading", { name: "Downtown" }).closest("section")!;
+    expect(within(uptown).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(downtown).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(uptown).getAllByRole("listitem").map((row) => row.textContent)).toEqual(
+      minutes.map((minute) => expect.stringContaining(`Uptown destination ${minute}`)),
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "View all 4 Uptown trains" }));
-    expect(window.location.search).toBe("?direction=Uptown");
-    view.rerender(<SubwayBoard stationId="127" />);
-    expect(screen.getAllByText("Uptown destination 4")).toHaveLength(1);
-    expect(screen.queryByRole("heading", { name: "Downtown" })).toBeNull();
-    expect(screen.getByRole("button", { name: "All directions" })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "All directions" }));
-    expect(window.location.search).toBe("");
-    view.rerender(<SubwayBoard stationId="127" />);
-    expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
-    expect(screen.queryAllByText("Uptown destination 4")).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: /view all/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /all directions/i })).toBeNull();
+    for (const heading of screen.getAllByRole("heading", { level: 2 })) {
+      expect(heading.className).toContain("sticky");
+    }
   });
 
   it("filters Subway destinations with bookmarkable OR semantics while preserving direction groups", async () => {
