@@ -27,6 +27,12 @@ export type SubwayDeparture = {
   route: string;
   direction: string;
   destination: string;
+  /**
+   * MTA's own name for the first stop this train makes after the board's
+   * station — the cue on the sign inside the train. A departure with no later
+   * stop is never emitted, so this is always present.
+   */
+  nextStop: string;
   /** Provider-qualified stop/headsign identity for destination filtering. */
   destinationId?: string;
   expectedTime: string;
@@ -117,6 +123,16 @@ export function decodeSubwayBoard(
     const headsign = metadata.headsigns?.[tripId];
     const destination = headsign ?? (finalStopId ? metadata.stopNames[finalStopId] : undefined);
     if (!destination) continue;
+
+    // The next stop comes from this trip's own remaining sequence, never from
+    // a static schedule and never inferred: whatever the train calls at next is
+    // what its interior sign will say, express running included.
+    const followingStopId = calls[stationIndex + 1]!.stopId;
+    const nextStop = followingStopId
+      ? metadata.stopNames[parentStopId(followingStopId)]
+      : undefined;
+    if (!nextStop) continue;
+
     const directionCode = call.stopId!.slice(-1) as "N" | "S";
     const direction = member.directions[directionCode] || destination;
 
@@ -125,6 +141,7 @@ export function decodeSubwayBoard(
       route,
       direction,
       destination,
+      nextStop,
       destinationId: headsign
         ? `mta:headsign:${headsign.toLowerCase()}`
         : `mta:stop:${finalStopId}`,

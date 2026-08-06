@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { formatClock } from "@/lib/departures";
-import { useClockFormat } from "@/lib/clockFormat";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
 import { DestinationFilter, useDestinationFilter } from "./DestinationFilter";
@@ -157,18 +155,25 @@ function DirectionSection({
   );
 }
 
+/**
+ * One subway departure: route bullet, destination, next stop, countdown.
+ *
+ * No direction — the sticky heading above already says it — and no clock time,
+ * which was the countdown's own instant printed a second way. The two facts a
+ * boarding rider reads, destination and next stop, own all the flexible width.
+ */
 function SubwayRow({ departure, now }: { departure: Board["departures"][number]; now: number }) {
-  const { use24Hour } = useClockFormat();
   const minutes = Math.max(0, Math.round((Date.parse(departure.expectedTime) - now) / 60_000));
   return <li className="flex items-center gap-4 px-5 py-4">
     <span aria-label={`${departure.route} train`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-lg font-bold text-white" style={{ backgroundColor: subwayRouteColor(departure.route) }}>{departure.route}</span>
     <span className="min-w-0 flex-1">
       <span className="block truncate text-lg font-semibold">{departure.destination}</span>
-      <span className="block text-sm text-muted">{departure.direction}</span>
+      <span className="mt-0.5 flex items-baseline gap-1.5 text-sm text-muted">
+        <span className="shrink-0">Next stop</span>
+        <span aria-hidden className="text-faint">·</span>
+        <span className="truncate">{departure.nextStop}</span>
+      </span>
     </span>
-    <span className="shrink-0 text-right">
-      <span className="block text-lg font-semibold">{minutes === 0 ? "now" : `${minutes} min`}</span>
-      <span className="block text-sm text-muted">{formatClock(departure.expectedTime, { hour12: !use24Hour })}</span>
-    </span>
+    <span className="shrink-0 text-lg font-semibold">{minutes === 0 ? "now" : `${minutes} min`}</span>
   </li>;
 }

@@ -33,8 +33,8 @@ describe("interactive component contract", () => {
       station: { id: "127", name: "34 St-Penn Station" },
       sourceTimestamp: "2026-08-04T12:00:00.000Z",
       departures: [
-        { id: "mta:a:127", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", expectedTime: "2026-08-04T12:05:00.000Z" },
-        { id: "mta:b:127", route: "2", direction: "Downtown", destination: "Flatbush Av-Brooklyn College", expectedTime: "2026-08-04T12:07:00.000Z" },
+        { id: "mta:a:127", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", nextStop: "Times Sq-42 St", expectedTime: "2026-08-04T12:05:00.000Z" },
+        { id: "mta:b:127", route: "2", direction: "Downtown", destination: "Flatbush Av-Brooklyn College", nextStop: "14 St", expectedTime: "2026-08-04T12:07:00.000Z" },
       ],
     })))));
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -45,14 +45,26 @@ describe("interactive component contract", () => {
     expect(screen.getByLabelText("1 train")).toBeTruthy();
     expect(screen.getAllByText("Van Cortlandt Park-242 St")).toHaveLength(1);
     expect(screen.getByText("5 min")).toBeTruthy();
+
+    // Every row carries its boarding cue, and nothing else: no clock time
+    // beside the countdown, and no direction restating the heading above it.
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(within(rows[0]!).getByText("Times Sq-42 St")).toBeTruthy();
+    expect(within(rows[1]!).getByText("14 St")).toBeTruthy();
+    for (const row of rows) {
+      expect(within(row).getByText("Next stop")).toBeTruthy();
+      expect(row.textContent).not.toMatch(/\d:\d\d/);
+      expect(row.textContent).not.toMatch(/Uptown|Downtown/);
+    }
   });
 
   it("previews every Subway direction before focusing one full list", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2026-08-04T12:00:00.000Z");
     const departures = [
-      ...[1, 2, 3, 4].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown destination ${minute}`, expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
-      ...[1, 2, 3, 4].map((minute) => ({ id: `down-${minute}`, route: "2", direction: "Downtown", destination: `Downtown destination ${minute}`, expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+      ...[1, 2, 3, 4].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown destination ${minute}`, nextStop: "Times Sq-42 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+      ...[1, 2, 3, 4].map((minute) => ({ id: `down-${minute}`, route: "2", direction: "Downtown", destination: `Downtown destination ${minute}`, nextStop: "14 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
     ];
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       station: { id: "127", name: "34 St-Penn Station" },
@@ -91,9 +103,9 @@ describe("interactive component contract", () => {
       station: { id: "127", name: "34 St-Penn Station" },
       sourceTimestamp: "2026-08-04T12:00:00.000Z",
       departures: [
-        { id: "up-bronx", route: "2", direction: "Uptown", destination: "Wakefield-241 St", destinationId: "mta:stop:WK", expectedTime: "2026-08-04T12:05:00.000Z" },
-        { id: "up-manhattan", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", destinationId: "mta:stop:VC", expectedTime: "2026-08-04T12:06:00.000Z" },
-        { id: "down-brooklyn", route: "2", direction: "Downtown", destination: "Flatbush Av-Brooklyn College", destinationId: "mta:stop:FB", expectedTime: "2026-08-04T12:07:00.000Z" },
+        { id: "up-bronx", route: "2", direction: "Uptown", destination: "Wakefield-241 St", nextStop: "Times Sq-42 St", destinationId: "mta:stop:WK", expectedTime: "2026-08-04T12:05:00.000Z" },
+        { id: "up-manhattan", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", nextStop: "Times Sq-42 St", destinationId: "mta:stop:VC", expectedTime: "2026-08-04T12:06:00.000Z" },
+        { id: "down-brooklyn", route: "2", direction: "Downtown", destination: "Flatbush Av-Brooklyn College", nextStop: "14 St", destinationId: "mta:stop:FB", expectedTime: "2026-08-04T12:07:00.000Z" },
       ],
     })))));
 
@@ -128,7 +140,7 @@ describe("interactive component contract", () => {
       return Promise.resolve(new Response(JSON.stringify({
         station: { id: "127", name: "34 St-Penn Station" },
         sourceTimestamp: "2026-08-04T12:00:00.000Z",
-        departures: [{ id: "mta:a:127", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", expectedTime: "2026-08-04T12:05:00.000Z" }],
+        departures: [{ id: "mta:a:127", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", nextStop: "Times Sq-42 St", expectedTime: "2026-08-04T12:05:00.000Z" }],
       })));
     }));
     vi.spyOn(console, "error").mockImplementation(() => {});
