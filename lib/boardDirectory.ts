@@ -219,7 +219,8 @@ function score(listing: BoardListing, query: string): number {
 /**
  * Board choices from both systems in one ranked result set: exact provider id
  * first, then name-prefix, then word-prefix, then any containing match. Ties
- * break by name so results are stable, and an empty query returns nothing.
+ * prefer boards serving more routes, so larger stations appear first, and then
+ * break by name so results are stable. An empty query returns nothing.
  */
 export function searchBoardListings(query: string, limit = 40): BoardListing[] {
   const q = normalizeStationName(query);
@@ -228,7 +229,12 @@ export function searchBoardListings(query: string, limit = 40): BoardListing[] {
   return boardListings
     .map((listing) => ({ listing, score: score(listing, q) }))
     .filter((scored) => scored.score !== Infinity)
-    .sort((a, b) => a.score - b.score || a.listing.name.localeCompare(b.listing.name))
+    .sort((a, b) =>
+      a.score - b.score ||
+      b.listing.routes.length - a.listing.routes.length ||
+      a.listing.name.localeCompare(b.listing.name) ||
+      a.listing.system.localeCompare(b.listing.system),
+    )
     .slice(0, limit)
     .map((scored) => scored.listing);
 }

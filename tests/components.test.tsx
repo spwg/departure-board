@@ -5,7 +5,6 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
 import { InterchangeBoard } from "@/components/InterchangeBoard";
-import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
@@ -432,11 +431,11 @@ describe("interactive component contract", () => {
     render(<ServiceWorkerRegistrar />); expect(register).toHaveBeenCalledWith("/sw.js");
   });
 
-  it("keeps the picker open, explains nearby and recent stations, and lets riders undo a history clear", async () => {
-    const recorder = render(<RecentStationRecorder choice={njtBoardChoice("AM")} />);
-    for (const code of ["AB", "AZ", "AH", "AS", "AN", "AM"]) {
-      recorder.rerender(<RecentStationRecorder choice={njtBoardChoice(code)} />);
-    }
+  it("keeps the picker open, labels nearby stations, and ignores recent history", async () => {
+    window.localStorage.setItem(
+      "departure-board:recent-stations",
+      JSON.stringify(["AM", "AN", "AS", "AH", "AZ"]),
+    );
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
       value: {
@@ -448,27 +447,16 @@ describe("interactive component contract", () => {
 
     render(<StationPicker />);
 
-    const recent = screen.getByRole("heading", { name: "Recent stations" }).closest("section")!;
-    expect(within(recent).getAllByRole("link").map((link) => link.textContent)).toEqual([
-      expect.stringContaining("Aberdeen-Matawan"),
-      expect.stringContaining("Annandale"),
-      expect.stringContaining("Anderson Street"),
-      expect.stringContaining("Allenhurst"),
-      expect.stringContaining("Allendale"),
+    const stations = screen.getByRole("heading", { name: "Stations" }).closest("section")!;
+    expect(within(stations).getAllByRole("link").map((link) => link.textContent)).toEqual([
+      expect.stringContaining("New York Penn Station"),
+      expect.stringContaining("New York Penn Station"),
     ]);
-    expect(await screen.findByRole("heading", { name: "Nearest station" })).toBeTruthy();
-    expect(screen.getAllByText(/Nearest station ·/).length).toBeGreaterThan(0);
+    expect(within(stations).getAllByText("nearby")).toHaveLength(2);
+    expect(within(stations).queryByText("recent")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear recent stations" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
     expect(window.location.pathname).toBe("/");
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear recent stations" }));
-    expect(screen.queryByRole("heading", { name: "Recent stations" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Undo clearing recent stations" }));
-    expect(screen.getByRole("heading", { name: "Recent stations" })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear recent stations" }));
-    recorder.rerender(<RecentStationRecorder choice={njtBoardChoice("NY")} />);
-    const repopulatedRecent = screen.getByRole("heading", { name: "Recent stations" }).closest("section")!;
-    expect(within(repopulatedRecent).getByText("New York Penn Station")).toBeTruthy();
   });
 
   it("qualifies Home choices with a textual system chip and removes the line filter", () => {
@@ -483,9 +471,10 @@ describe("interactive component contract", () => {
 
     window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NY"]));
     render(<StationPicker />);
-    const favorites = screen.getAllByRole("heading", { name: "Favorites" })[0]!.closest("section")!;
-    expect(within(favorites).getByText("New York Penn Station")).toBeTruthy();
-    expect(within(favorites).getByText("NJT")).toBeTruthy();
+    const stations = screen.getByRole("heading", { name: "Stations" }).closest("section")!;
+    expect(within(stations).getByText("New York Penn Station")).toBeTruthy();
+    expect(within(stations).getByText("NJT")).toBeTruthy();
+    expect(within(stations).getByText("fav")).toBeTruthy();
   });
 
   it("searches both systems from one box and tells repeated Subway names apart", () => {
@@ -524,20 +513,15 @@ describe("interactive component contract", () => {
 
     render(<StationPicker />);
 
-    // Both Penn choices resolve, each keeping the system the rider chose.
-    const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
-    expect(within(favorites).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+    // Both favorite Penn choices resolve, each keeping the system the rider
+    // chose. Recent choices are deliberately not rendered on Home for now.
+    const stations = screen.getByRole("heading", { name: "Stations" }).closest("section")!;
+    expect(within(stations).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/interchange/penn/njt",
       "/interchange/penn/subway",
     ]);
-    expect(within(favorites).getAllByText("NJT")).toHaveLength(1);
-    expect(within(favorites).getAllByText("Subway")).toHaveLength(1);
-
-    const recent = screen.getByRole("heading", { name: "Recent stations" }).closest("section")!;
-    expect(within(recent).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
-      "/subway/station/R20",
-      "/station/AM",
-    ]);
+    expect(within(stations).getAllByText("fav")).toHaveLength(2);
+    expect(within(stations).queryByText("recent")).toBeNull();
   });
 
   it("browses one alphabetical directory covering both systems", () => {
@@ -760,10 +744,10 @@ describe("interactive component contract", () => {
 
     render(<StationPicker />);
 
-    const nearest = (await screen.findByRole("heading", { name: "Nearest station" })).closest("section")!;
-    expect(within(nearest).getByText("Subway")).toBeTruthy();
-    expect(within(nearest).getByRole("link").getAttribute("href")).toMatch(/^\/subway\/station\//);
-    expect(within(nearest).getByText(/Nearest station ·/)).toBeTruthy();
+    const stations = (await screen.findByRole("heading", { name: "Stations" })).closest("section")!;
+    expect(within(stations).getByText("Subway")).toBeTruthy();
+    expect(within(stations).getByRole("link").getAttribute("href")).toMatch(/^\/subway\/station\//);
+    expect(within(stations).getByText(/Nearby ·/)).toBeTruthy();
   });
 
   it("ignores and clears watch state left over from before watches were retired", () => {
@@ -778,7 +762,7 @@ describe("interactive component contract", () => {
     expect(window.localStorage.getItem("departure-board:watches")).toBeNull();
   });
 
-  it("keeps the full directory collapsed and avoids repeating a recent nearest station", async () => {
+  it("keeps the full directory collapsed and shows nearby boards without recent history", async () => {
     window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["NY"]));
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
@@ -791,8 +775,11 @@ describe("interactive component contract", () => {
 
     render(<StationPicker />);
 
-    expect(await screen.findByRole("heading", { name: "Recent stations" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Nearest station" })).toBeNull();
+    const stations = (await screen.findByRole("heading", { name: "Stations" })).closest("section")!;
+    expect(within(stations).getAllByRole("link").filter((link) => link.textContent?.includes("New York Penn Station"))).toHaveLength(2);
+    expect(within(stations).getAllByText("nearby")).toHaveLength(2);
+    expect(within(stations).queryByText("recent")).toBeNull();
+    expect(within(stations).queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
     const directory = screen.getByText("Browse all stations").closest("details")!;
     expect(directory.open).toBe(false);
 

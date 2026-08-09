@@ -94,10 +94,16 @@ export function useRecentStations() {
   const loaded = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
   const clear = useCallback(() => save([]), []);
+  const remove = useCallback((choices: BoardChoice | BoardChoice[]) => {
+    const keys = new Set(
+      (Array.isArray(choices) ? choices : [choices]).map(boardChoiceKey),
+    );
+    save(getSnapshot().filter((choice) => !keys.has(boardChoiceKey(choice))));
+  }, []);
   const restore = useCallback(
     (choices: BoardChoice[]) => save(normalizeRecentStationChoices(choices.map(boardChoiceKey))),
     [],
   );
 
-  return { recentStations, loaded, clear, restore };
+  return { recentStations, loaded, clear, remove, restore };
 }
