@@ -81,8 +81,12 @@ A non-dismissible banner stating that shown realtime departure data is no longer
 _Avoid_: Offline notice, data alert
 
 **Station picker**:
-The home-page selection screen for both rail and subway departure boards. It opens without redirecting and combines favorite and nearby board choices in one list, followed by search and the full directory. Recent station history remains recorded locally but is not shown on Home for now.
+The home-page selection screen for both rail and subway departure boards. It opens without redirecting and shows saved favorite board choices in one list, followed by search and the full directory. Nearby choices have their own page. Recent station history remains recorded locally but is not shown on Home for now.
 _Avoid_: Default station, launch redirect
+
+**Nearby stations**:
+Provider-qualified board choices whose published coordinates are within two miles of the rider's current location, ordered closest first. Interchange views remain separate system-specific choices.
+_Avoid_: Closest station only, merged station
 
 **Recent stations**:
 The five most recently opened system-specific station-board choices, kept in one list and ordered newest first. Reopening a board moves it to the front; the history remains recorded locally for a future picker treatment.
@@ -91,7 +95,3 @@ _Avoid_: Default station, favorite stations
 **Favorite stations**:
 The rider's locally saved system-specific station-board choices, kept together for quick access from the station picker.
 _Avoid_: Recent stations, default stations
-
-**Station-picker provenance label**:
-The visible badge explaining why a board choice appears in the combined picker list: “fav” for a saved favorite and “nearby” for geolocation. Nearby choices also show their distance; when the nearest station belongs to an Interchange, each system-specific choice shares that provenance.
-_Avoid_: Unlabelled suggestions, recommended station
