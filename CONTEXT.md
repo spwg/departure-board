@@ -36,10 +36,6 @@ _Avoid_: Transfer outlook, connection recommendation
 A transit system's own rider-facing label for where a train is headed, kept consistent with its station signs and train displays. When a live Subway trip cannot be joined reliably to its published headsign, the official name of its final remaining stop is the destination; destinations are never normalized into shared cross-system labels.
 _Avoid_: App-defined direction, universal destination
 
-**Destination filter**:
-A departure-board filter that narrows trains by their provider-native destinations while leaving those labels unchanged.
-_Avoid_: Cross-system direction filter, renamed destination
-
 **Direction group**:
 A simultaneously visible subway-board section labeled with MTA's own station-direction wayfinding, with departures ordered chronologically inside it. Complex members merge only when their published labels match, falling back to provider-native destinations rather than cardinal wording. It stands in for the platform a rider has not yet chosen, so it exists only on subway boards; rail boards list every departure in one chronological sequence, as the station's own board does.
 _Avoid_: Inferred direction, shared cross-system direction, rail direction group

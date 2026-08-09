@@ -33,8 +33,6 @@ export type SubwayDeparture = {
    * stop is never emitted, so this is always present.
    */
   nextStop: string;
-  /** Provider-qualified stop/headsign identity for destination filtering. */
-  destinationId?: string;
   expectedTime: string;
   stationId: string;
 };
@@ -180,9 +178,6 @@ export function decodeSubwayBoard(
       direction,
       destination,
       nextStop,
-      destinationId: headsign
-        ? `mta:headsign:${headsign.toLowerCase()}`
-        : `mta:stop:${finalStopId}`,
       expectedTime: new Date(departureTime * 1000).toISOString(),
       stationId: member.id,
     });

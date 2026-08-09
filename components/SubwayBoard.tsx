@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
-import { DestinationFilter, useDestinationFilter } from "./DestinationFilter";
 
 const REFRESH_MS = 30_000;
 
@@ -18,13 +17,6 @@ export function SubwayBoard({ stationId, after = null }: { stationId: string; af
   const [stale, setStale] = useState(false);
   const [now, setNow] = useState(0);
   const loaded = useRef(false);
-  const destinationFilter = useDestinationFilter(
-    board?.departures.map((departure) => ({
-      id: departure.destinationId ?? departure.destination,
-      label: departure.destination,
-    })) ?? [],
-    (id) => id.startsWith("mta:"),
-  );
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -65,11 +57,7 @@ export function SubwayBoard({ stationId, after = null }: { stationId: string; af
 
   const visibleDepartures = board.departures.filter(
     (departure) =>
-      (after === null || Date.parse(departure.expectedTime) > after) &&
-      destinationFilter.matches({
-        id: departure.destinationId ?? departure.destination,
-        label: departure.destination,
-      }),
+      after === null || Date.parse(departure.expectedTime) > after,
   );
   const groups = [...new Set(visibleDepartures.map((departure) => departure.direction))].map((direction) => ({
     direction,
@@ -77,12 +65,6 @@ export function SubwayBoard({ stationId, after = null }: { stationId: string; af
   }));
   return <>
     {stale && <FreshnessWarning lastLiveAt={Date.parse(board.sourceTimestamp)} />}
-    <DestinationFilter
-      options={destinationFilter.options}
-      selected={destinationFilter.selected}
-      onToggle={destinationFilter.toggle}
-      onClear={destinationFilter.clear}
-    />
     {groups.length === 0 ? (
       <p className="px-5 py-16 text-center text-muted">
         {after === null

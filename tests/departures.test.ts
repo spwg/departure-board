@@ -22,21 +22,17 @@ describe("departure normalization contract", () => {
     expect(result.map((departure) => departure.trainNumber)).toEqual(["board", "late"]);
     expect(result[1]).toMatchObject({ destination: "Newark Airport", track: "5", delayMinutes: 10, status: "delayed" });
   });
-  it("normalizes NJT destinations and keeps trip qualifiers out of filter identities", () => {
+  it("normalizes NJT destinations and keeps trip qualifiers out of rider-facing names", () => {
     expect(normalizeNjtDestination("MSU -SEC")).toMatchObject({
       destination: "Montclair State University",
-      destinationId: "njt:station:UV",
       viaSecaucus: true,
       servesNewarkAirport: false,
     });
     expect(normalizeNjtDestination("New York -SEC &#9992")).toMatchObject({
       destination: "New York Penn Station",
-      destinationId: "njt:station:NY",
       viaSecaucus: true,
       servesNewarkAirport: true,
     });
-    expect(normalizeNjtDestination("Dover").destinationId)
-      .toBe(normalizeNjtDestination("Dover -SEC").destinationId);
   });
   it("maps operational status and safely cleans track values", () => {
     expect(displayTrack("  A ")).toBe("A");
