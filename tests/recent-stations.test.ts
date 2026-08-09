@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { renderHook } from "@testing-library/react";
 import { njtBoardChoice } from "@/lib/boardChoices";
-import { recordRecentStation, recentStationChoices } from "@/lib/recentStations";
+import { recordRecentStation, recentStationChoices, useRecentStations } from "@/lib/recentStations";
 
 afterEach(() => {
   window.localStorage.clear();
@@ -27,5 +28,17 @@ describe("recent station preference", () => {
       { system: "njt", stationId: "AH" },
       { system: "njt", stationId: "AZ" },
     ]);
+  });
+
+  it("removes selected recent choices without clearing the rest", () => {
+    recordRecentStation(njtBoardChoice("NY"));
+    recordRecentStation(njtBoardChoice("AM"));
+
+    // The hook owns the mutation so the picker and other mounted consumers
+    // receive the same storage-change notification.
+    const { result } = renderHook(() => useRecentStations());
+    result.current.remove(njtBoardChoice("AM"));
+
+    expect(recentStationChoices()).toEqual([njtBoardChoice("NY")]);
   });
 });
