@@ -329,6 +329,33 @@ describe("interactive component contract", () => {
     expect(screen.queryByRole("button", { name: /watch/i })).toBeNull();
   });
 
+  it("explains airport service and only surfaces Secaucus when it distinguishes a destination", async () => {
+    const board = [
+      { ...departure, id: "via", trainNumber: "via", destination: "New York Penn Station", destinationId: "njt:station:NY", viaSecaucus: true },
+      { ...departure, id: "direct", trainNumber: "direct", destination: "New York Penn Station", destinationId: "njt:station:NY", viaSecaucus: false, servesNewarkAirport: true, expectedTime: "2024-05-30T15:10:00.000Z" },
+    ];
+    vi.stubGlobal("fetch", vi.fn((input: unknown) =>
+      String(input).includes("service-advisories")
+        ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
+        : Promise.resolve(new Response(JSON.stringify({ departures: board, fixtures: false }))),
+    ));
+
+    render(<DepartureBoard code="HB" />);
+
+    expect(await screen.findByText("Airport service")).toBeTruthy();
+    expect(screen.getByText("via Secaucus")).toBeTruthy();
+    expect(screen.queryByText("✈")).toBeNull();
+    expect(screen.getByLabelText("Serves Newark Airport")).toBeTruthy();
+  });
+
+  it("uses a high-contrast unassigned track marker without changing its accessible name", () => {
+    render(<DepartureRow departure={{ ...departure, track: "" }} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
+
+    const marker = screen.getByLabelText("Track not yet assigned");
+    expect(marker.className).toContain("text-text");
+    expect(marker.textContent).toBe("–");
+  });
+
   it("filters NJT destinations from the URL without persisting them", async () => {
     window.history.replaceState(null, "", "/station/NY?destination=Trenton&destination=Dover&destination=unknown");
     const board = [

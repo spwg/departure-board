@@ -145,6 +145,22 @@ export function DepartureBoard({ code, after = null }: { code: string; after?: n
       </>
     );
   } else {
+    // The feed's Secaucus marker is useful only when it distinguishes trains
+    // headed to the same destination on this board. At Penn it would be noise;
+    // at places such as Hoboken it can separate otherwise identical choices.
+    const showViaSecaucus = new Set(
+      departures
+        .filter((departure) =>
+          departure.viaSecaucus &&
+          departures.some(
+            (other) =>
+              !other.viaSecaucus &&
+              (other.destinationId ?? other.destination) ===
+                (departure.destinationId ?? departure.destination),
+          ),
+        )
+        .map((departure) => departure.id),
+    );
     const visibleDepartures = departures.filter(
       (departure) =>
         (after === null || Date.parse(departure.expectedTime) > after) &&
@@ -183,7 +199,12 @@ export function DepartureBoard({ code, after = null }: { code: string; after?: n
           // One chronological sequence, no direction headings: the station's
           // own concourse board is flat and a rail rider scans it for the one
           // train they already have in mind.
-          <DepartureList departures={visibleDepartures} now={now} stationCode={code} />
+          <DepartureList
+            departures={visibleDepartures}
+            now={now}
+            stationCode={code}
+            showViaSecaucus={showViaSecaucus}
+          />
         )}
       </>
     );
@@ -201,10 +222,12 @@ function DepartureList({
   departures,
   now,
   stationCode,
+  showViaSecaucus,
 }: {
   departures: Departure[];
   now: number;
   stationCode: string;
+  showViaSecaucus: Set<string>;
 }) {
   return (
     <ul className="divide-y divide-edge">
@@ -214,6 +237,7 @@ function DepartureList({
           departure={departure}
           now={now}
           stationCode={stationCode}
+          showViaSecaucus={showViaSecaucus.has(departure.id)}
         />
       ))}
     </ul>

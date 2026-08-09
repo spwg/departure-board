@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeEntities, displayTrack, formatClock, isExcluded, normalizeDepartures, parseNjtDate, toStatus, type RawDeparture } from "@/lib/departures";
+import { decodeEntities, displayTrack, formatClock, isExcluded, normalizeDepartures, normalizeNjtDestination, parseNjtDate, toStatus, type RawDeparture } from "@/lib/departures";
 
 const item = (overrides: Partial<RawDeparture> = {}): RawDeparture => ({ SCHED_DEP_DATE: "30-May-2024 11:56:00 AM", DESTINATION: "Newark &amp; Airport", TRACK: " 5 ", LINE: "Northeast Corridor Line", LINECODE: "NE", LINEABBREVIATION: "NEC", TRAIN_ID: "1234", STATUS: "in 5 Min", SEC_LATE: "0", INLINEMSG: "", ...overrides });
 
@@ -20,7 +20,23 @@ describe("departure normalization contract", () => {
   it("filters excluded service and orders remaining departures by expected time", () => {
     const result = normalizeDepartures([item({ TRAIN_ID: "X9" }), item({ TRAIN_ID: "A9" }), item({ LINECODE: "SP" }), item({ TRAIN_ID: "late", SEC_LATE: "600", SCHED_DEP_DATE: "30-May-2024 11:50:00 AM" }), item({ TRAIN_ID: "board", SCHED_DEP_DATE: "30-May-2024 11:55:00 AM", STATUS: "ALL ABOARD" })]);
     expect(result.map((departure) => departure.trainNumber)).toEqual(["board", "late"]);
-    expect(result[1]).toMatchObject({ destination: "Newark & Airport", track: "5", delayMinutes: 10, status: "delayed" });
+    expect(result[1]).toMatchObject({ destination: "Newark Airport", track: "5", delayMinutes: 10, status: "delayed" });
+  });
+  it("normalizes NJT destinations and keeps trip qualifiers out of filter identities", () => {
+    expect(normalizeNjtDestination("MSU -SEC")).toMatchObject({
+      destination: "Montclair State University",
+      destinationId: "njt:station:UV",
+      viaSecaucus: true,
+      servesNewarkAirport: false,
+    });
+    expect(normalizeNjtDestination("New York -SEC &#9992")).toMatchObject({
+      destination: "New York Penn Station",
+      destinationId: "njt:station:NY",
+      viaSecaucus: true,
+      servesNewarkAirport: true,
+    });
+    expect(normalizeNjtDestination("Dover").destinationId)
+      .toBe(normalizeNjtDestination("Dover -SEC").destinationId);
   });
   it("maps operational status and safely cleans track values", () => {
     expect(displayTrack("  A ")).toBe("A");

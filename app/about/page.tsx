@@ -44,6 +44,11 @@ export default function AboutPage() {
             This app is not affiliated with, endorsed by, or licensed by NJ
             TRANSIT.
           </p>
+          <p>
+            An <strong className="font-semibold text-text">Airport service</strong> label means the train serves Newark Airport. A
+            <strong className="font-semibold text-text"> via Secaucus</strong> label appears only when it distinguishes trains
+            headed to the same destination.
+          </p>
           <a
             href="https://developer.njtransit.com/terms/"
             target="_blank"

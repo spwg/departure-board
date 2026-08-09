@@ -9,7 +9,7 @@
  * separately, by train number.
  */
 
-import { decodeEntities, parseNjtDate } from "./departures";
+import { decodeEntities, normalizeNjtDestination, parseNjtDate } from "./departures";
 
 /** A record from the API's `STOPS` array. Only fields we actually use. */
 export type RawStop = {
@@ -111,7 +111,7 @@ export function normalizeStopList(raw: RawStopList): StopList {
   return {
     trainNumber: (raw?.TRAIN_ID ?? "").trim(),
     lineCode: (raw?.LINECODE ?? "").trim().toUpperCase(),
-    destination: decodeEntities(raw?.DESTINATION ?? ""),
+    destination: normalizeNjtDestination(raw?.DESTINATION ?? "").destination,
     transferAt: decodeEntities(raw?.TRANSFERAT ?? ""),
     stops: stops
       .map((item) => normalizeStop(item))

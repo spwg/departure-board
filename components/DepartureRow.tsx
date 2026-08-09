@@ -20,10 +20,12 @@ export function DepartureRow({
   departure,
   now,
   stationCode,
+  showViaSecaucus = false,
 }: {
   departure: Departure;
   now: number;
   stationCode: string;
+  showViaSecaucus?: boolean;
 }) {
   const { use24Hour } = useClockFormat();
   // Late trains leave late, so count down to when it will actually go.
@@ -53,12 +55,22 @@ export function DepartureRow({
         className="flex min-w-0 flex-1 items-center gap-3 px-4 py-4 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none sm:gap-4 sm:px-5"
       >
         <div className="min-w-0 flex-1">
-          <div
-            className={`truncate text-lg font-semibold tracking-tight sm:text-xl ${
-              cancelled ? "line-through decoration-2" : ""
-            }`}
-          >
-            {departure.destination}
+          <div className="flex min-w-0 items-center gap-2">
+            <div
+              className={`min-w-0 truncate text-lg font-semibold tracking-tight sm:text-xl ${
+                cancelled ? "line-through decoration-2" : ""
+              }`}
+            >
+              {departure.destination}
+            </div>
+            {departure.servesNewarkAirport && (
+              <span
+                className="shrink-0 rounded bg-bg px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-text"
+                aria-label="Serves Newark Airport"
+              >
+                Airport service
+              </span>
+            )}
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted sm:text-sm">
             <span className="truncate">{lineName(departure.lineCode)}</span>
@@ -66,6 +78,12 @@ export function DepartureRow({
               ·
             </span>
             <span className="shrink-0 font-mono">#{departure.trainNumber}</span>
+            {showViaSecaucus && (
+              <>
+                <span aria-hidden className="text-faint">·</span>
+                <span className="shrink-0">via Secaucus</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -109,7 +127,7 @@ export function DepartureRow({
           } ${
             departure.track
               ? "bg-track text-track-fg"
-              : "border border-dashed border-edge-strong text-faint"
+              : "border border-dashed border-edge-strong text-text"
           }`}
           aria-label={
             departure.track
