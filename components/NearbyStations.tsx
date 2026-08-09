@@ -11,6 +11,8 @@ type Coordinates = {
   longitude: number;
 };
 
+type LocationErrorKind = "denied" | "unavailable" | "unsupported";
+
 const noopSubscribe = () => () => {};
 
 export function NearbyStations() {
@@ -20,6 +22,7 @@ export function NearbyStations() {
     () => true,
   );
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  const [locationError, setLocationError] = useState<LocationErrorKind | null>(null);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) return;
@@ -28,14 +31,15 @@ export function NearbyStations() {
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (cancelled) return;
+        setLocationError(null);
         setCoordinates({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
       },
-      () => {
-        // Location is optional: the page stays useful when the rider denies
-        // access or the browser cannot determine a position.
+      (error) => {
+        if (cancelled) return;
+        setLocationError(error.code === 1 ? "denied" : "unavailable");
       },
       { timeout: 8000, maximumAge: 5 * 60_000 },
     );
@@ -49,7 +53,7 @@ export function NearbyStations() {
     () => coordinates ? nearbyBoardListings(coordinates.latitude, coordinates.longitude) : [],
     [coordinates],
   );
-  const locating = coordinates === null && geolocationAvailable;
+  const locating = coordinates === null && geolocationAvailable && locationError === null;
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
@@ -79,9 +83,11 @@ export function NearbyStations() {
           {locating ? (
             <p className="px-4 py-4 text-sm text-muted">Finding nearby stations…</p>
           ) : !geolocationAvailable ? (
-            <LocationUnavailable />
+            <LocationError kind="unsupported" />
+          ) : locationError ? (
+            <LocationError kind={locationError} />
           ) : coordinates === null ? (
-            <LocationUnavailable />
+            <LocationError kind="unavailable" />
           ) : nearby.length === 0 ? (
             <p className="px-4 py-4 text-sm text-muted">
               No stations found within 2 miles.
@@ -95,10 +101,26 @@ export function NearbyStations() {
   );
 }
 
-function LocationUnavailable() {
+function LocationError({ kind }: { kind: LocationErrorKind }) {
+  const copy = {
+    denied: {
+      title: "Location access was denied",
+      message: "Allow location access in your browser settings to see stations near you.",
+    },
+    unavailable: {
+      title: "We couldn't determine your location",
+      message: "Your browser couldn't provide a location right now. Check your location settings and try again.",
+    },
+    unsupported: {
+      title: "Location isn't available in this browser",
+      message: "Use a browser with location access to see stations near you.",
+    },
+  }[kind];
+
   return (
-    <div className="px-4 py-4 text-sm text-muted">
-      <p>Turn on location access to find stations near you.</p>
+    <div role="alert" className="px-4 py-4 text-sm text-muted">
+      <p className="font-medium text-text">{copy.title}</p>
+      <p className="mt-1">{copy.message}</p>
       <Link
         href="/"
         className="mt-2 inline-block font-medium text-text underline underline-offset-2"

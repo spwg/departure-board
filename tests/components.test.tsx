@@ -827,6 +827,25 @@ describe("interactive component contract", () => {
     expect(within(nearby).queryByText("Atlantic City Rail Terminal")).toBeNull();
   });
 
+  it("explains when the browser denies Nearby location access", async () => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: (_onSuccess: PositionCallback, onError: PositionErrorCallback) => onError({
+          code: 1,
+          message: "User denied Geolocation",
+        } as GeolocationPositionError),
+      },
+    });
+
+    render(<NearbyStations />);
+
+    const error = await screen.findByRole("alert");
+    expect(error.textContent).toContain("Location access was denied");
+    expect(error.textContent).toContain("Allow location access");
+    expect(screen.queryByText("Finding nearby stations…")).toBeNull();
+  });
+
   it("ignores and clears watch state left over from before watches were retired", () => {
     window.localStorage.setItem("departure-board:watches", JSON.stringify([
       { stationCode: "NY", trainNumber: "1234", scheduledTime: "2024-05-30T15:00:00.000Z", destination: "Trenton", expectedTime: "2024-05-30T15:05:00.000Z", status: "delayed", track: "5", line: "Northeast Corridor Line", lineCode: "NE" },
