@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { BoardMenu } from "@/components/BoardMenu";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
@@ -248,6 +249,21 @@ describe("interactive component contract", () => {
 
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
+  });
+
+  it("puts Home and Settings behind the board menu", async () => {
+    render(<BoardMenu />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
+    expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/");
+    const settings = await screen.findByRole("button", { name: "Settings" });
+
+    fireEvent.click(settings);
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
+    expect(screen.queryByRole("navigation", { name: "Board navigation" })).toBeNull();
   });
 
   it("renders a delayed departure with its timetable, train, line, and track", () => {

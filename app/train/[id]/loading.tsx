@@ -1,3 +1,5 @@
+import { BoardMenu } from "@/components/BoardMenu";
+
 /**
  * Also the Suspense boundary the page needs: the train number and the board
  * that linked here are both request-time values, which Cache Components
@@ -8,7 +10,7 @@ export default function Loading() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="flex items-center gap-1 border-b border-edge px-2 py-2.5 sm:px-3">
-          <span aria-hidden className="h-10 w-10 shrink-0" />
+          <BoardMenu />
           <div className="mx-auto h-5 w-28 animate-pulse rounded bg-edge" />
           <span aria-hidden className="h-10 w-10 shrink-0" />
         </header>
