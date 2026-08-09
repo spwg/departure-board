@@ -1,3 +1,5 @@
+import { normalizeStationName, stations } from "./stations";
+
 /**
  * Turns NJ Transit's raw departure records into the small, stable shape the UI
  * renders. Everything NJT-specific — Amtrak rows, non-revenue moves, Eastern
@@ -35,6 +37,10 @@ export type Departure = {
   destination: string;
   /** Provider-qualified stable identity for destination filtering. */
   destinationId?: string;
+  /** True when NJT marks this trip as serving Newark Airport. */
+  servesNewarkAirport?: boolean;
+  /** True when NJT marks this trip as going via Secaucus. */
+  viaSecaucus?: boolean;
   /** ISO 8601, so the client can render in the viewer's timezone. */
   scheduledTime: string;
   /** When the train should actually leave: scheduled time plus any delay. */
@@ -109,6 +115,50 @@ export function decodeEntities(value: string): string {
     .replace(/&(\w+);/g, (match, name) => NAMED_ENTITIES[name] ?? match)
     .replace(/\s+/g, " ")
     .trim();
+}
+
+const DESTINATION_ALIASES: Record<string, string> = {
+  // The RailData feed uses these shorter rider-facing forms while the station
+  // directory keeps the official names used everywhere else in the app.
+  msu: normalizeStationName("Montclair State University"),
+  "new york": normalizeStationName("New York Penn Station"),
+  "newark airport": normalizeStationName("Newark Airport"),
+};
+
+const STATION_BY_NAME = new Map(
+  stations.map((station) => [normalizeStationName(station.name), station]),
+);
+
+export type NormalizedNjtDestination = {
+  destination: string;
+  destinationId: string;
+  servesNewarkAirport: boolean;
+  viaSecaucus: boolean;
+};
+
+/**
+ * Resolves RailData's compact destination notation into one canonical station
+ * identity plus trip attributes. `-SEC` and the plane mark are properties of
+ * the trip, not part of the destination a rider is filtering for.
+ */
+export function normalizeNjtDestination(value: string): NormalizedNjtDestination {
+  const decoded = decodeEntities(value);
+  const servesNewarkAirport = decoded.includes("✈");
+  const withoutAirportMark = decoded.replace(/✈\uFE0F?/g, "").trim();
+  const viaSecaucus = /\s*-\s*SEC\s*$/i.test(withoutAirportMark);
+  const baseName = withoutAirportMark.replace(/\s*-\s*SEC\s*$/i, "").trim();
+  const normalized = normalizeStationName(baseName);
+  const station = STATION_BY_NAME.get(DESTINATION_ALIASES[normalized] ?? normalized);
+  const destination = station?.name ?? baseName;
+
+  return {
+    destination,
+    destinationId: station
+      ? `njt:station:${station.code}`
+      : `njt:${normalizeStationName(destination)}`,
+    servesNewarkAirport,
+    viaSecaucus,
+  };
 }
 
 /**
@@ -277,11 +327,13 @@ export function normalizeDeparture(item: RawDeparture): Departure | null {
   const statusText = decodeEntities(item.STATUS);
   const expected = new Date(scheduled.getTime() + delayMinutes * 60_000);
 
-  const destination = decodeEntities(item.DESTINATION);
+  const destination = normalizeNjtDestination(item.DESTINATION);
   return {
     id: `${item.TRAIN_ID}-${scheduled.toISOString()}`,
-    destination,
-    destinationId: `njt:${destination.toLowerCase()}`,
+    destination: destination.destination,
+    destinationId: destination.destinationId,
+    servesNewarkAirport: destination.servesNewarkAirport,
+    viaSecaucus: destination.viaSecaucus,
     scheduledTime: scheduled.toISOString(),
     expectedTime: expected.toISOString(),
     trainNumber: (item.TRAIN_ID ?? "").trim(),
