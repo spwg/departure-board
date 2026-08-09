@@ -526,7 +526,9 @@ describe("interactive component contract", () => {
     expect(within(stations).getAllByText("recent")).toHaveLength(5);
     expect(window.location.pathname).toBe("/");
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove Aberdeen-Matawan from recent stations" }));
+    const removeAberdeen = screen.getByRole("button", { name: "Remove Aberdeen-Matawan from recent stations" });
+    expect(removeAberdeen.getAttribute("title")).toBe("Remove Aberdeen-Matawan from recent stations");
+    fireEvent.click(removeAberdeen);
     expect(screen.queryByRole("button", { name: "Remove Aberdeen-Matawan from recent stations" })).toBeNull();
     expect(within(stations).getAllByText("recent")).toHaveLength(4);
 
@@ -864,7 +866,9 @@ describe("interactive component contract", () => {
     expect(within(stations).getAllByRole("link").filter((link) => link.textContent?.includes("New York Penn Station"))).toHaveLength(2);
     expect(within(stations).getAllByText("nearby")).toHaveLength(2);
     expect(within(stations).getAllByText("recent")).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "Remove New York Penn Station from recent stations" }));
+    const removePenn = screen.getByRole("button", { name: "Remove New York Penn Station from recent stations" });
+    expect(removePenn.getAttribute("title")).toBe("Remove New York Penn Station from recent stations");
+    fireEvent.click(removePenn);
     expect(within(stations).getAllByRole("link")).toHaveLength(2);
     expect(within(stations).getAllByText("nearby")).toHaveLength(2);
     expect(within(stations).queryByText("recent")).toBeNull();

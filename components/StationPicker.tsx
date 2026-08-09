@@ -405,8 +405,13 @@ function StationList({
             {item.recentChoices.length > 0 && onRemoveRecent && (
               <button
                 type="button"
-                onClick={() => onRemoveRecent(item)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onRemoveRecent(item);
+                }}
                 aria-label={`Remove ${listing.name} from recent stations`}
+                title={`Remove ${listing.name} from recent stations`}
                 className="shrink-0 px-3 text-muted transition-colors hover:bg-bg hover:text-text focus-visible:bg-bg focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
