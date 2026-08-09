@@ -858,15 +858,15 @@ describe("interactive component contract", () => {
     expect(window.localStorage.getItem("departure-board:watches")).toBeNull();
   });
 
-  it("keeps the full directory collapsed and keeps recent history out of Home", () => {
+  it("hides empty Favorites and keeps the full directory collapsed", () => {
     window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["NY"]));
 
     render(<StationPicker />);
 
-    const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
-    expect(within(favorites).getByText(/No favorites yet/)).toBeTruthy();
-    expect(within(favorites).queryByText("recent")).toBeNull();
-    expect(within(favorites).queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Favorites" })).toBeNull();
+    expect(screen.queryByText(/No favorites yet/)).toBeNull();
+    expect(screen.queryByText("recent")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
     const directory = screen.getByText("Browse all stations").closest("details")!;
     expect(directory.open).toBe(false);
 

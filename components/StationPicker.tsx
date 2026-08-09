@@ -67,15 +67,9 @@ export function StationPicker() {
         </div>
       </div>
 
-      {favoritesLoaded && (
+      {favoritesLoaded && favoriteItems.length > 0 && (
         <Section title="Favorites">
-          {favoriteItems.length > 0 ? (
-            <BoardListingList items={favoriteItems} />
-          ) : (
-            <p className="px-4 py-4 text-sm text-muted">
-              No favorites yet. Search for a station below to get started.
-            </p>
-          )}
+          <BoardListingList items={favoriteItems} />
         </Section>
       )}
 
