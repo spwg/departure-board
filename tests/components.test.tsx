@@ -9,6 +9,7 @@ import { InterchangeBoard } from "@/components/InterchangeBoard";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
+import { SettingsPage } from "@/components/SettingsPage";
 import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
 import { SubwayBoard } from "@/components/SubwayBoard";
@@ -237,31 +238,31 @@ describe("interactive component contract", () => {
     expect(JSON.parse(window.localStorage.getItem("departure-board:favorites")!)).toEqual(["njt:NY"]);
   });
 
-  it("lets riders explicitly select 24-hour time", () => {
-    render(<SettingsButton />);
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  it("lets riders explicitly select 24-hour time on the Settings page", () => {
+    render(<SettingsPage />);
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy();
     const button = screen.getByRole("radio", { name: /24-hour/i });
     expect(button.getAttribute("aria-checked")).toBe("false");
     fireEvent.click(button);
     expect(button.getAttribute("aria-checked")).toBe("true");
     expect(button.textContent).toContain("19:05");
     expect(window.localStorage.getItem("departure-board:use-24-hour-time")).toBe("true");
-
-    fireEvent.pointerDown(document.body);
-    expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
   });
 
-  it("puts Home and Settings behind the board menu", async () => {
+  it("links the home settings control to the Settings page", () => {
+    render(<SettingsButton />);
+    expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
+  });
+
+  it("puts Home and Settings links behind the board menu", async () => {
     render(<BoardMenu />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
     expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/");
-    const settings = await screen.findByRole("button", { name: "Settings" });
+    const settings = await screen.findByRole("link", { name: "Settings" });
+    expect(settings.getAttribute("href")).toBe("/settings");
+    expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
 
-    fireEvent.click(settings);
-    expect(screen.getByRole("dialog", { name: "Settings" })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
     fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
     expect(screen.queryByRole("navigation", { name: "Board navigation" })).toBeNull();
   });
