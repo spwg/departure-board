@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { BoardMenu } from "@/components/BoardMenu";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { SubwayBoard } from "@/components/SubwayBoard";
@@ -28,7 +28,7 @@ export default async function SubwayStationPage({ params }: { params: Promise<{ 
         header and direction headings inside actually pin. */}
     <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
       <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-        <Link href="/" aria-label="All stations" className="grid h-10 w-10 place-items-center rounded-full text-muted">←</Link>
+        <BoardMenu />
         <div className="min-w-0 flex-1 text-center"><h1 className="truncate text-base font-semibold sm:text-lg">{station.name}</h1><p className="text-xs text-muted">{routes.join(" · ")} Subway</p></div>
         <FavoriteButton choice={choice} name={`${station.name} Subway`} />
       </header>
