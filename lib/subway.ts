@@ -100,6 +100,17 @@ export function getSubwayStationMembers(stationId: string, metadata: SubwayMetad
   return metadata.stations.filter((station) => station.complexId === selected.complexId);
 }
 
+/** Returns the distinct routes served by one or more provider stations. */
+export function getSubwayStationRoutes(stationIds: string[]): string[] {
+  return [
+    ...new Set(
+      stationIds.flatMap((stationId) =>
+        getSubwayStationMembers(stationId).flatMap((member) => member.routes),
+      ),
+    ),
+  ];
+}
+
 function seconds(value: number | { toNumber(): number } | null | undefined): number | null {
   if (value == null) return null;
   return typeof value === "number" ? value : value.toNumber();

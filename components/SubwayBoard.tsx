@@ -3,15 +3,31 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
+import { encodeTransferOrigin, type TransferOrigin } from "@/lib/transfers";
 import { FreshnessWarning } from "./FreshnessWarning";
 
 const REFRESH_MS = 30_000;
 
 /**
  * `after` is a transfer cutoff: show only trains leaving strictly after an
- * instant. Nothing is judged catchable — every later departure is shown.
+ * instant. The main board shows the next three trains per direction; a
+ * direction page passes `limit={null}` to show the full filtered list. A
+ * transfer origin stays attached to direction links so its live arrival can
+ * continue moving after navigation.
  */
-export function SubwayBoard({ stationId, after = null }: { stationId: string; after?: number | null }) {
+export function SubwayBoard({
+  stationId,
+  after = null,
+  direction,
+  limit = 3,
+  transferOrigin = null,
+}: {
+  stationId: string;
+  after?: number | null;
+  direction?: string;
+  limit?: number | null;
+  transferOrigin?: TransferOrigin | null;
+}) {
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
   const [stale, setStale] = useState(false);
@@ -59,10 +75,19 @@ export function SubwayBoard({ stationId, after = null }: { stationId: string; af
     (departure) =>
       after === null || Date.parse(departure.expectedTime) > after,
   );
-  const groups = [...new Set(visibleDepartures.map((departure) => departure.direction))].map((direction) => ({
-    direction,
-    departures: visibleDepartures.filter((departure) => departure.direction === direction),
-  }));
+  const groups = [...new Set(visibleDepartures.map((departure) => departure.direction))]
+    .filter((groupDirection) => direction === undefined || groupDirection === direction)
+    .map((groupDirection) => {
+      const departures = visibleDepartures.filter((departure) => departure.direction === groupDirection);
+      return {
+        direction: groupDirection,
+        visibleDepartures: limit === null ? departures : departures.slice(0, limit),
+        hasMore: limit !== null && departures.length > limit,
+      };
+    });
+  const visibleGroups = direction === undefined
+    ? selectMainGroups(groups)
+    : groups;
   return <>
     {stale && <FreshnessWarning lastLiveAt={Date.parse(board.sourceTimestamp)} />}
     {groups.length === 0 ? (
@@ -71,35 +96,57 @@ export function SubwayBoard({ stationId, after = null }: { stationId: string; af
           ? "No live departures available."
           : "No live departures yet for that arrival time."}
       </p>
-    ) : groups.map((group) => (
+    ) : visibleGroups.map((group) => (
       <DirectionSection
         key={group.direction}
+        stationId={stationId}
         direction={group.direction}
-        departures={group.departures}
+        departures={group.visibleDepartures}
         now={now}
+        after={after}
+        hasMore={group.hasMore}
+        transferOrigin={transferOrigin}
       />
     ))}
   </>;
 }
 
+type DirectionGroup = {
+  direction: string;
+  visibleDepartures: Board["departures"];
+  hasMore: boolean;
+};
+
+/** Keep the station board to the two directions a rider can scan at once. */
+function selectMainGroups(groups: DirectionGroup[]): DirectionGroup[] {
+  const named = groups.filter(({ direction }) => direction === "Uptown" || direction === "Downtown");
+  return (named.length >= 2 ? named : groups).slice(0, 2);
+}
+
 /**
- * One direction group, whole. Every train in it is on screen: the platform
- * sign's three-train rotation is the size of an LED panel, not a rider's
- * appetite, and hiding the train after the next one behind a tap was the wrong
- * lesson to draw from it.
+ * One direction group. The main station board keeps each group to a short,
+ * scannable set and sends the rider to a dedicated page for the full list.
  *
  * The heading pins to the top of the board while its own group scrolls, which
  * is what makes an uncapped group safe to read — a rider deep in a long list
  * can still see which direction they are looking at.
  */
 function DirectionSection({
+  stationId,
   direction,
   departures,
   now,
+  after,
+  hasMore,
+  transferOrigin,
 }: {
   direction: string;
+  stationId: string;
   departures: Board["departures"];
   now: number;
+  after: number | null;
+  hasMore: boolean;
+  transferOrigin: TransferOrigin | null;
 }) {
   return (
     <section aria-labelledby={`subway-${direction}`}>
@@ -114,8 +161,33 @@ function DirectionSection({
       <ul className="divide-y divide-edge">{departures.map((departure) => (
         <SubwayRow key={departure.id} departure={departure} now={now} />
       ))}</ul>
+      {hasMore && (
+        <div className="border-t border-edge px-5 py-3">
+          <Link
+            href={directionHref(stationId, direction, after, transferOrigin)}
+            className="block rounded-lg px-3 py-2 text-center text-sm font-semibold text-blue-700 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:text-blue-300"
+          >
+            Show more {direction} trains
+          </Link>
+        </div>
+      )}
     </section>
   );
+}
+
+function directionHref(
+  stationId: string,
+  direction: string,
+  after: number | null,
+  transferOrigin: TransferOrigin | null,
+): string {
+  const href = `/subway/station/${encodeURIComponent(stationId)}/${encodeURIComponent(direction)}`;
+  const cutoff = transferOrigin
+    ? encodeTransferOrigin(transferOrigin)
+    : after === null
+      ? null
+      : String(after);
+  return cutoff === null ? href : `${href}?after=${encodeURIComponent(cutoff)}`;
 }
 
 /**

@@ -63,13 +63,14 @@ describe("interactive component contract", () => {
     }
   });
 
-  it("shows every Subway departure in every direction group under a pinned heading", async () => {
+  it("caps each direction at three trains and links to its full direction page", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2026-08-04T12:00:00.000Z");
     const minutes = [1, 2, 3, 4, 5, 6];
     const departures = [
       ...minutes.map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown destination ${minute}`, nextStop: "Times Sq-42 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
       ...minutes.map((minute) => ({ id: `down-${minute}`, route: "2", direction: "Downtown", destination: `Downtown destination ${minute}`, nextStop: "14 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
+      ...minutes.map((minute) => ({ id: `side-${minute}`, route: "7", direction: "Queens", destination: `Queens destination ${minute}`, nextStop: "Grand Central-42 St", expectedTime: `2026-08-04T12:0${minute}:00.000Z` })),
     ];
     // The board arrives chronologically; grouping must not reorder within a group.
     departures.sort((a, b) => a.expectedTime.localeCompare(b.expectedTime));
@@ -79,24 +80,37 @@ describe("interactive component contract", () => {
       departures,
     })))));
 
-    // A direction-focus parameter left in an old bookmark no longer narrows
-    // anything — the concept it selected is gone.
+    // A direction-focus parameter left in an old bookmark does not affect the
+    // main board; direction pages now have their own route.
     window.history.replaceState(null, "", "/subway/station/127?direction=Uptown");
     render(<SubwayBoard stationId="127" />);
 
     const uptown = (await screen.findByRole("heading", { name: "Uptown" })).closest("section")!;
     const downtown = screen.getByRole("heading", { name: "Downtown" }).closest("section")!;
-    expect(within(uptown).getAllByRole("listitem")).toHaveLength(6);
-    expect(within(downtown).getAllByRole("listitem")).toHaveLength(6);
+    expect(within(uptown).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(downtown).getAllByRole("listitem")).toHaveLength(3);
     expect(within(uptown).getAllByRole("listitem").map((row) => row.textContent)).toEqual(
-      minutes.map((minute) => expect.stringContaining(`Uptown destination ${minute}`)),
+      minutes.slice(0, 3).map((minute) => expect.stringContaining(`Uptown destination ${minute}`)),
     );
 
-    expect(screen.queryByRole("button", { name: /view all/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /all directions/i })).toBeNull();
+    expect(screen.getByRole("link", { name: "Show more Uptown trains" }).getAttribute("href"))
+      .toBe("/subway/station/127/Uptown");
+    expect(screen.getByRole("link", { name: "Show more Downtown trains" }).getAttribute("href"))
+      .toBe("/subway/station/127/Downtown");
+    expect(screen.queryByText("Uptown destination 4")).toBeNull();
+    expect(screen.queryByText("Downtown destination 4")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Queens" })).toBeNull();
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
     for (const heading of screen.getAllByRole("heading", { level: 2 })) {
       expect(heading.className).toContain("sticky");
     }
+
+    cleanup();
+    render(<SubwayBoard stationId="127" direction="Uptown" limit={null} />);
+    const fullUptown = (await screen.findByRole("heading", { name: "Uptown" })).closest("section")!;
+    expect(within(fullUptown).getAllByRole("listitem")).toHaveLength(6);
+    expect(screen.queryByRole("link", { name: /Show more/i })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Downtown" })).toBeNull();
   });
 
   it("opens an exact Subway train's remaining live route from its row", async () => {
@@ -663,6 +677,50 @@ describe("interactive component contract", () => {
     render(<SubwayStopList tripId="mta:numbered:trip:127" />);
     const toNjt = await screen.findByRole("link", { name: /NJT departures from New York Penn Station after this train arrives/ });
     expect(toNjt.getAttribute("href")).toBe(`/interchange/penn/njt?after=${encodeURIComponent("subway|mta:numbered:trip:127")}`);
+  });
+
+  it("keeps the live transfer cutoff when opening more Subway trains", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime("2024-05-30T15:00:00.000Z");
+    window.history.replaceState(null, "", `/interchange/penn/subway?after=${encodeURIComponent("njt|1234")}`);
+
+    let originCalls = 0;
+    let boardCalls = 0;
+    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
+      const url = String(input);
+      if (url.includes("/api/stops/")) {
+        originCalls += 1;
+        const arrival = originCalls === 1 ? "2024-05-30T15:10:00.000Z" : "2024-05-30T15:20:00.000Z";
+        return Promise.resolve(new Response(JSON.stringify({
+          stopList: { ...stopList, stops: [{ code: "NY", name: "New York Penn Station", time: arrival, departed: false, pickupOnly: false, dropoffOnly: false }] },
+          fixtures: false,
+        })));
+      }
+
+      boardCalls += 1;
+      const departures = boardCalls === 1
+        ? [1, 2, 3, 4].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown ${minute}`, nextStop: "Times Sq-42 St", expectedTime: `2024-05-30T15:1${minute}:00.000Z` }))
+        : [
+          { id: "too-early", route: "1", direction: "Uptown", destination: "Too early", nextStop: "Times Sq-42 St", expectedTime: "2024-05-30T15:15:00.000Z" },
+          { id: "later", route: "1", direction: "Uptown", destination: "Still later", nextStop: "Times Sq-42 St", expectedTime: "2024-05-30T15:25:00.000Z" },
+        ];
+      return Promise.resolve(new Response(JSON.stringify({
+        station: { id: "128,A28", name: "34 St-Penn Station" },
+        sourceTimestamp: "2024-05-30T15:00:00.000Z",
+        departures,
+      })));
+    }));
+
+    const main = render(<InterchangeBoard interchangeId="penn" system="subway" />);
+    const more = await screen.findByRole("link", { name: "Show more Uptown trains" });
+    expect(more.getAttribute("href")).toBe(`/subway/station/${encodeURIComponent("128,A28")}/Uptown?after=${encodeURIComponent("njt|1234")}`);
+    main.unmount();
+
+    window.history.replaceState(null, "", `/subway/station/128,A28/Uptown?after=${encodeURIComponent("njt|1234")}`);
+    render(<InterchangeBoard interchangeId="penn" system="subway" direction="Uptown" />);
+    expect(await screen.findByText("Still later")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Too early")).toBeNull());
+    expect(originCalls).toBe(2);
   });
 
   it("starts a transfer board after the originating train's live arrival and follows it when it slips", async () => {
