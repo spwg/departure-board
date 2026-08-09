@@ -36,6 +36,14 @@ describe("combined board directory", () => {
     expect(searchBoardListings("")).toEqual([]);
   });
 
+  it("prefers larger stations when match quality is tied", () => {
+    expect(searchBoardListings("newark", 3).map((listing) => listing.name)).toEqual([
+      "Newark Broad Street",
+      "Newark Penn Station",
+      "Newark Airport",
+    ]);
+  });
+
   it("distinguishes repeated Subway names by their provider-native routes", () => {
     const eightySixth = searchBoardListings("86 st", 20).filter((listing) => listing.name === "86 St");
     expect(eightySixth.length).toBeGreaterThan(3);
