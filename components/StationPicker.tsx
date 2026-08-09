@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { SettingsButton } from "@/components/SettingsButton";
 import { useFavorites } from "@/lib/favorites";
-import { useRecentStations } from "@/lib/recentStations";
 import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
 import {
   boardListingsByLetter,
@@ -22,27 +21,29 @@ type LocationState =
   | { status: "locating" | "unavailable" }
   | { status: "found"; listing: BoardListing; distanceKm: number };
 
-type StationReason = "nearby" | "fav" | "recent";
+type StationReason = "nearby" | "fav";
 
 type StationListItem = {
   listing: BoardListing;
   reasons: StationReason[];
   nearbyDistanceKm?: number;
-  recentChoices: BoardChoice[];
 };
 
 /**
  * Turns saved choices into the boards they open, dropping any this build no
- * longer recognises. Multiple provider identities can resolve to one visible
- * board (for example, the two MTA members of an Interchange), so the caller
- * aggregates them by board identity.
+ * longer recognises and collapses multiple provider identities that resolve to
+ * one visible board (for example, the two MTA members of an Interchange).
  */
-function resolveChoices(choices: BoardChoice[]): { choice: BoardChoice; listing: BoardListing }[] {
-  const resolved: { choice: BoardChoice; listing: BoardListing }[] = [];
+function resolveChoices(choices: BoardChoice[]): BoardListing[] {
+  const seen = new Set<string>();
+  const resolved: BoardListing[] = [];
   for (const choice of choices) {
     const listing = getBoardListing(choice);
     if (!listing) continue;
-    resolved.push({ choice, listing });
+    const key = boardChoiceKey(listing.choice);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    resolved.push(listing);
   }
   return resolved;
 }
@@ -58,8 +59,6 @@ function formatDistance(km: number): string {
 
 export function StationPicker() {
   const { favorites, loaded: favoritesLoaded } = useFavorites();
-  const { recentStations, loaded: recentStationsLoaded, clear, remove, restore } =
-    useRecentStations();
 
   // Derived rather than set from an effect, so there is no render-then-correct
   // flicker and no synchronous state update on mount. Assumed available while
@@ -73,7 +72,6 @@ export function StationPicker() {
   const [located, setLocated] = useState<LocationState | null>(null);
   const [query, setQuery] = useState("");
   const [directoryOpen, setDirectoryOpen] = useState(false);
-  const [clearedRecentStations, setClearedRecentStations] = useState<BoardChoice[] | null>(null);
 
   const location = useMemo<LocationState>(
     () => located ?? (geolocationAvailable ? { status: "locating" } : { status: "unavailable" }),
@@ -107,12 +105,6 @@ export function StationPicker() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!clearedRecentStations) return;
-    const timeout = window.setTimeout(() => setClearedRecentStations(null), 5000);
-    return () => window.clearTimeout(timeout);
-  }, [clearedRecentStations]);
-
   const results = useMemo(() => searchBoardListings(query, 40), [query]);
   const grouped = useMemo(() => boardListingsByLetter(), []);
 
@@ -122,23 +114,15 @@ export function StationPicker() {
     const add = (
       listing: BoardListing,
       reason: StationReason,
-      options: { choice?: BoardChoice; distanceKm?: number } = {},
+      options: { distanceKm?: number } = {},
     ) => {
       const key = boardChoiceKey(listing.choice);
       const item = items.get(key) ?? {
         listing,
         reasons: [],
-        recentChoices: [],
       };
       if (!item.reasons.includes(reason)) item.reasons.push(reason);
       if (options.distanceKm !== undefined) item.nearbyDistanceKm = options.distanceKm;
-      const recentChoice = options.choice;
-      if (
-        recentChoice &&
-        !item.recentChoices.some((choice) => boardChoiceKey(choice) === boardChoiceKey(recentChoice))
-      ) {
-        item.recentChoices.push(recentChoice);
-      }
       items.set(key, item);
     };
 
@@ -152,22 +136,11 @@ export function StationPicker() {
     }
 
     if (favoritesLoaded) {
-      for (const { listing } of resolveChoices(favorites)) add(listing, "fav");
-    }
-
-    if (recentStationsLoaded) {
-      for (const { choice, listing } of resolveChoices(recentStations)) {
-        add(listing, "recent", { choice });
-      }
+      for (const listing of resolveChoices(favorites)) add(listing, "fav");
     }
 
     return [...items.values()];
-  }, [favorites, favoritesLoaded, location, recentStations, recentStationsLoaded]);
-
-  const clearRecentStations = () => {
-    setClearedRecentStations(recentStations);
-    clear();
-  };
+  }, [favorites, favoritesLoaded, location]);
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
@@ -182,50 +155,16 @@ export function StationPicker() {
       </div>
 
       {(location.status === "locating" || stationItems.length > 0) && (
-        <Section
-          title="Stations"
-          action={
-            recentStationsLoaded && recentStations.length > 0 ? (
-              <button
-                type="button"
-                onClick={clearRecentStations}
-                aria-label="Clear recent stations"
-                className="rounded px-2 py-1 text-xs font-medium text-muted hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-              >
-                Clear recent
-              </button>
-            ) : undefined
-          }
-        >
+        <Section title="Stations">
           {location.status === "locating" && (
             <p className="border-b border-edge px-4 py-3 text-sm text-muted">
               Finding the nearest station…
             </p>
           )}
           {stationItems.length > 0 && (
-            <StationList
-              items={stationItems}
-              onRemoveRecent={(item) => remove(item.recentChoices)}
-            />
+            <StationList items={stationItems} />
           )}
         </Section>
-      )}
-
-      {clearedRecentStations && (
-        <div className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-bg px-3 py-2 text-sm" role="status">
-          <span>Recent stations cleared.</span>
-          <button
-            type="button"
-            onClick={() => {
-              restore(clearedRecentStations);
-              setClearedRecentStations(null);
-            }}
-            aria-label="Undo clearing recent stations"
-            className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-          >
-            Undo
-          </button>
-        </div>
       )}
 
       <div className="mt-7">
@@ -287,11 +226,9 @@ export function StationPicker() {
 function Section({
   title,
   children,
-  action,
 }: {
   title: string;
   children: React.ReactNode;
-  action?: React.ReactNode;
 }) {
   return (
     <section className="mt-7">
@@ -299,7 +236,6 @@ function Section({
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">
           {title}
         </h2>
-        {action}
       </div>
       <div className="overflow-hidden rounded-xl border border-edge bg-surface">
         {children}
@@ -317,22 +253,15 @@ function subwayDetail(listing: BoardListing): string {
 }
 
 function stationListItem(listing: BoardListing): StationListItem {
-  return { listing, reasons: [], recentChoices: [] };
+  return { listing, reasons: [] };
 }
 
 const reasonStyles: Record<StationReason, string> = {
   nearby: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
   fav: "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
-  recent: "bg-violet-50 text-violet-800 dark:bg-violet-950 dark:text-violet-200",
 };
 
-function StationList({
-  items,
-  onRemoveRecent,
-}: {
-  items: StationListItem[];
-  onRemoveRecent?: (item: StationListItem) => void;
-}) {
+function StationList({ items }: { items: StationListItem[] }) {
   return (
     <ul className="divide-y divide-edge">
       {items.map((item) => {
@@ -345,7 +274,7 @@ function StationList({
         ].filter(Boolean).join(" · ");
 
         return (
-          <li key={boardChoiceKey(listing.choice)} className="flex items-stretch">
+          <li key={boardChoiceKey(listing.choice)}>
             <Link
               href={listing.href}
               className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
@@ -402,23 +331,6 @@ function StationList({
                     ))}
               </span>
             </Link>
-            {item.recentChoices.length > 0 && onRemoveRecent && (
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onRemoveRecent(item);
-                }}
-                aria-label={`Remove ${listing.name} from recent stations`}
-                title={`Remove ${listing.name} from recent stations`}
-                className="shrink-0 px-3 text-muted transition-colors hover:bg-bg hover:text-text focus-visible:bg-bg focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current"
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            )}
           </li>
         );
       })}

@@ -85,11 +85,11 @@ A non-dismissible banner stating that shown realtime departure data is no longer
 _Avoid_: Offline notice, data alert
 
 **Station picker**:
-The home-page selection screen for both rail and subway departure boards. It opens without redirecting and combines recent, favorite, and nearby board choices in one list, followed by search and the full directory.
+The home-page selection screen for both rail and subway departure boards. It opens without redirecting and combines favorite and nearby board choices in one list, followed by search and the full directory. Recent station history remains recorded locally but is not shown on Home for now.
 _Avoid_: Default station, launch redirect
 
 **Recent stations**:
-The five most recently opened system-specific station-board choices, kept in one list and ordered newest first. Reopening a board moves it to the front; riders can remove one choice or clear the history with a brief Undo action, after which it repopulates from newly opened boards.
+The five most recently opened system-specific station-board choices, kept in one list and ordered newest first. Reopening a board moves it to the front; the history remains recorded locally for a future picker treatment.
 _Avoid_: Default station, favorite stations
 
 **Favorite stations**:
@@ -97,5 +97,5 @@ The rider's locally saved system-specific station-board choices, kept together f
 _Avoid_: Recent stations, default stations
 
 **Station-picker provenance label**:
-The visible badge explaining why a board choice appears in the combined picker list: “recent” for browsing history, “fav” for a saved favorite, and “nearby” for geolocation. Nearby choices also show their distance; when the nearest station belongs to an Interchange, each system-specific choice shares that provenance.
+The visible badge explaining why a board choice appears in the combined picker list: “fav” for a saved favorite and “nearby” for geolocation. Nearby choices also show their distance; when the nearest station belongs to an Interchange, each system-specific choice shares that provenance.
 _Avoid_: Unlabelled suggestions, recommended station

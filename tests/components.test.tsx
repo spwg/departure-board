@@ -5,7 +5,6 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
 import { InterchangeBoard } from "@/components/InterchangeBoard";
-import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { StationPicker } from "@/components/StationPicker";
@@ -496,11 +495,11 @@ describe("interactive component contract", () => {
     render(<ServiceWorkerRegistrar />); expect(register).toHaveBeenCalledWith("/sw.js");
   });
 
-  it("keeps the picker open, labels station provenance, and removes one recent station", async () => {
-    const recorder = render(<RecentStationRecorder choice={njtBoardChoice("AM")} />);
-    for (const code of ["AB", "AZ", "AH", "AS", "AN", "AM"]) {
-      recorder.rerender(<RecentStationRecorder choice={njtBoardChoice(code)} />);
-    }
+  it("keeps the picker open, labels nearby stations, and ignores recent history", async () => {
+    window.localStorage.setItem(
+      "departure-board:recent-stations",
+      JSON.stringify(["AM", "AN", "AS", "AH", "AZ"]),
+    );
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
       value: {
@@ -516,32 +515,12 @@ describe("interactive component contract", () => {
     expect(within(stations).getAllByRole("link").map((link) => link.textContent)).toEqual([
       expect.stringContaining("New York Penn Station"),
       expect.stringContaining("New York Penn Station"),
-      expect.stringContaining("Aberdeen-Matawan"),
-      expect.stringContaining("Annandale"),
-      expect.stringContaining("Anderson Street"),
-      expect.stringContaining("Allenhurst"),
-      expect.stringContaining("Allendale"),
     ]);
     expect(within(stations).getAllByText("nearby")).toHaveLength(2);
-    expect(within(stations).getAllByText("recent")).toHaveLength(5);
+    expect(within(stations).queryByText("recent")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Clear recent stations" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
     expect(window.location.pathname).toBe("/");
-
-    const removeAberdeen = screen.getByRole("button", { name: "Remove Aberdeen-Matawan from recent stations" });
-    expect(removeAberdeen.getAttribute("title")).toBe("Remove Aberdeen-Matawan from recent stations");
-    fireEvent.click(removeAberdeen);
-    expect(screen.queryByRole("button", { name: "Remove Aberdeen-Matawan from recent stations" })).toBeNull();
-    expect(within(stations).getAllByText("recent")).toHaveLength(4);
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear recent stations" }));
-    expect(screen.getByRole("heading", { name: "Stations" })).toBeTruthy();
-    expect(screen.queryByText("recent")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Undo clearing recent stations" }));
-    expect(screen.getAllByText("recent").length).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear recent stations" }));
-    recorder.rerender(<RecentStationRecorder choice={njtBoardChoice("NY")} />);
-    expect(within(stations).getAllByText("New York Penn Station").length).toBeGreaterThan(0);
-    expect(within(stations).getAllByText("recent")).toHaveLength(1);
   });
 
   it("qualifies Home choices with a textual system chip and removes the line filter", () => {
@@ -598,17 +577,15 @@ describe("interactive component contract", () => {
 
     render(<StationPicker />);
 
-    // Both Penn choices resolve, each keeping the system the rider chose, in
-    // the same list as the recent choices.
+    // Both favorite Penn choices resolve, each keeping the system the rider
+    // chose. Recent choices are deliberately not rendered on Home for now.
     const stations = screen.getByRole("heading", { name: "Stations" }).closest("section")!;
     expect(within(stations).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/interchange/penn/njt",
       "/interchange/penn/subway",
-      "/subway/station/R20",
-      "/station/AM",
     ]);
     expect(within(stations).getAllByText("fav")).toHaveLength(2);
-    expect(within(stations).getAllByText("recent")).toHaveLength(2);
+    expect(within(stations).queryByText("recent")).toBeNull();
   });
 
   it("browses one alphabetical directory covering both systems", () => {
@@ -849,7 +826,7 @@ describe("interactive component contract", () => {
     expect(window.localStorage.getItem("departure-board:watches")).toBeNull();
   });
 
-  it("keeps the full directory collapsed and avoids repeating a recent nearest station", async () => {
+  it("keeps the full directory collapsed and shows nearby boards without recent history", async () => {
     window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["NY"]));
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
@@ -865,13 +842,8 @@ describe("interactive component contract", () => {
     const stations = (await screen.findByRole("heading", { name: "Stations" })).closest("section")!;
     expect(within(stations).getAllByRole("link").filter((link) => link.textContent?.includes("New York Penn Station"))).toHaveLength(2);
     expect(within(stations).getAllByText("nearby")).toHaveLength(2);
-    expect(within(stations).getAllByText("recent")).toHaveLength(1);
-    const removePenn = screen.getByRole("button", { name: "Remove New York Penn Station from recent stations" });
-    expect(removePenn.getAttribute("title")).toBe("Remove New York Penn Station from recent stations");
-    fireEvent.click(removePenn);
-    expect(within(stations).getAllByRole("link")).toHaveLength(2);
-    expect(within(stations).getAllByText("nearby")).toHaveLength(2);
     expect(within(stations).queryByText("recent")).toBeNull();
+    expect(within(stations).queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
     const directory = screen.getByText("Browse all stations").closest("details")!;
     expect(directory.open).toBe(false);
 
