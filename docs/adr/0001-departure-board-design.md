@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0003
+---
+
 # Departure board design is governed by the rider's job, not by feature parity
 
 The rail and subway boards drifted into two different products — different row
