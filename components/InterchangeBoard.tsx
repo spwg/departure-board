@@ -32,9 +32,11 @@ type Cutoff =
 export function InterchangeBoard({
   interchangeId,
   system,
+  direction,
 }: {
   interchangeId: string;
   system: string;
+  direction?: string;
 }) {
   const interchange = getInterchange(interchangeId)!;
   const view = interchangeView(interchange, system);
@@ -56,6 +58,9 @@ export function InterchangeBoard({
         <SubwayBoard
           stationId={view.stationIds.join(",")}
           after={cutoff.status === "live" || cutoff.status === "stale" ? cutoff.at : null}
+          direction={direction}
+          limit={direction === undefined ? 3 : null}
+          transferOrigin={origin}
         />
       )}
     </>
