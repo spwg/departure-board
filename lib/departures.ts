@@ -35,8 +35,6 @@ export type Departure = {
   /** Stable identity across refreshes, so the list can update in place. */
   id: string;
   destination: string;
-  /** Provider-qualified stable identity for destination filtering. */
-  destinationId?: string;
   /** True when NJT marks this trip as serving Newark Airport. */
   servesNewarkAirport?: boolean;
   /** True when NJT marks this trip as going via Secaucus. */
@@ -131,15 +129,14 @@ const STATION_BY_NAME = new Map(
 
 export type NormalizedNjtDestination = {
   destination: string;
-  destinationId: string;
   servesNewarkAirport: boolean;
   viaSecaucus: boolean;
 };
 
 /**
  * Resolves RailData's compact destination notation into one canonical station
- * identity plus trip attributes. `-SEC` and the plane mark are properties of
- * the trip, not part of the destination a rider is filtering for.
+ * name plus trip attributes. `-SEC` and the plane mark are properties of the
+ * trip, not part of the destination shown to a rider.
  */
 export function normalizeNjtDestination(value: string): NormalizedNjtDestination {
   const decoded = decodeEntities(value);
@@ -153,9 +150,6 @@ export function normalizeNjtDestination(value: string): NormalizedNjtDestination
 
   return {
     destination,
-    destinationId: station
-      ? `njt:station:${station.code}`
-      : `njt:${normalizeStationName(destination)}`,
     servesNewarkAirport,
     viaSecaucus,
   };
@@ -331,7 +325,6 @@ export function normalizeDeparture(item: RawDeparture): Departure | null {
   return {
     id: `${item.TRAIN_ID}-${scheduled.toISOString()}`,
     destination: destination.destination,
-    destinationId: destination.destinationId,
     servesNewarkAirport: destination.servesNewarkAirport,
     viaSecaucus: destination.viaSecaucus,
     scheduledTime: scheduled.toISOString(),

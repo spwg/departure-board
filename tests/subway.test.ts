@@ -80,7 +80,7 @@ describe("MTA realtime board contract", () => {
     expect(board.sourceTimestamp).toBe("2026-08-06T07:06:40.000Z");
     expect(board.departures).toEqual([
       // An ordinary departure: its next stop is the very next station.
-      expect.objectContaining({ route: "2", direction: "Downtown", destination: "Brooklyn College-Flatbush Av", nextStop: "Flatbush Av-Brooklyn College", destinationId: "mta:headsign:brooklyn college-flatbush av" }),
+      expect.objectContaining({ route: "2", direction: "Downtown", destination: "Brooklyn College-Flatbush Av", nextStop: "Flatbush Av-Brooklyn College" }),
       expect.objectContaining({ route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", nextStop: "Van Cortlandt Park-242 St" }),
       // Running ahead: the next stop it makes is several stations up the line,
       // which is how a rider sees it will pass their station without anyone

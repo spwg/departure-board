@@ -47,6 +47,7 @@ describe("interactive component contract", () => {
     expect(screen.getByLabelText("1 train")).toBeTruthy();
     expect(screen.getAllByText("Van Cortlandt Park-242 St")).toHaveLength(1);
     expect(screen.getByText("5 min")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /filter destinations/i })).toBeNull();
 
     // Every row carries its boarding cue, and nothing else: no clock time
     // beside the countdown, and no direction restating the heading above it.
@@ -95,41 +96,6 @@ describe("interactive component contract", () => {
     for (const heading of screen.getAllByRole("heading", { level: 2 })) {
       expect(heading.className).toContain("sticky");
     }
-  });
-
-  it("filters Subway destinations with bookmarkable OR semantics while preserving direction groups", async () => {
-    window.history.replaceState(null, "", "/subway/station/127?destination=mta%3Astop%3AWK&destination=unknown");
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime("2026-08-04T12:00:00.000Z");
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
-      station: { id: "127", name: "34 St-Penn Station" },
-      sourceTimestamp: "2026-08-04T12:00:00.000Z",
-      departures: [
-        { id: "up-bronx", route: "2", direction: "Uptown", destination: "Wakefield-241 St", nextStop: "Times Sq-42 St", destinationId: "mta:stop:WK", expectedTime: "2026-08-04T12:05:00.000Z" },
-        { id: "up-manhattan", route: "1", direction: "Uptown", destination: "Van Cortlandt Park-242 St", nextStop: "Times Sq-42 St", destinationId: "mta:stop:VC", expectedTime: "2026-08-04T12:06:00.000Z" },
-        { id: "down-brooklyn", route: "2", direction: "Downtown", destination: "Flatbush Av-Brooklyn College", nextStop: "14 St", destinationId: "mta:stop:FB", expectedTime: "2026-08-04T12:07:00.000Z" },
-      ],
-    })))));
-
-    const view = render(<SubwayBoard stationId="127" />);
-
-    expect(await screen.findByRole("button", { name: /filter destinations/i })).toBeTruthy();
-    expect(screen.getByRole("checkbox", { name: "Wakefield-241 St" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getAllByText("Wakefield-241 St")).toHaveLength(2);
-    expect(screen.getAllByText("Van Cortlandt Park-242 St")).toHaveLength(1);
-    expect(screen.queryByRole("heading", { name: "Downtown" })).toBeNull();
-
-    fireEvent.click(screen.getByRole("checkbox", { name: "Flatbush Av-Brooklyn College" }));
-    expect(window.location.search).toBe("?destination=mta%3Astop%3AWK&destination=mta%3Astop%3AFB");
-    view.rerender(<SubwayBoard stationId="127" />);
-    expect(screen.getByRole("heading", { name: "Uptown" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Downtown" })).toBeTruthy();
-    expect(screen.getAllByText("Flatbush Av-Brooklyn College")).toHaveLength(2);
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
-    expect(window.location.search).toBe("");
-    view.rerender(<SubwayBoard stationId="127" />);
-    expect(screen.getAllByText("Van Cortlandt Park-242 St")).toHaveLength(1);
   });
 
   it("opens an exact Subway train's remaining live route from its row", async () => {
@@ -331,8 +297,8 @@ describe("interactive component contract", () => {
 
   it("explains airport service and only surfaces Secaucus when it distinguishes a destination", async () => {
     const board = [
-      { ...departure, id: "via", trainNumber: "via", destination: "New York Penn Station", destinationId: "njt:station:NY", viaSecaucus: true },
-      { ...departure, id: "direct", trainNumber: "direct", destination: "New York Penn Station", destinationId: "njt:station:NY", viaSecaucus: false, servesNewarkAirport: true, expectedTime: "2024-05-30T15:10:00.000Z" },
+      { ...departure, id: "via", trainNumber: "via", destination: "New York Penn Station", viaSecaucus: true },
+      { ...departure, id: "direct", trainNumber: "direct", destination: "New York Penn Station", viaSecaucus: false, servesNewarkAirport: true, expectedTime: "2024-05-30T15:10:00.000Z" },
     ];
     vi.stubGlobal("fetch", vi.fn((input: unknown) =>
       String(input).includes("service-advisories")
@@ -354,36 +320,6 @@ describe("interactive component contract", () => {
     const marker = screen.getByLabelText("Track not yet assigned");
     expect(marker.className).toContain("text-text");
     expect(marker.textContent).toBe("–");
-  });
-
-  it("filters NJT destinations from the URL without persisting them", async () => {
-    window.history.replaceState(null, "", "/station/NY?destination=Trenton&destination=Dover&destination=unknown");
-    const board = [
-      { ...departure, id: "east", trainNumber: "east", destination: "Trenton" },
-      { ...departure, id: "west", trainNumber: "west", destination: "Dover" },
-      { ...departure, id: "other", trainNumber: "other", destination: "Long Branch" },
-    ];
-    vi.stubGlobal("fetch", vi.fn((input: unknown) =>
-      String(input).includes("service-advisories")
-        ? Promise.resolve(new Response(JSON.stringify({ advisories: [] })))
-        : Promise.resolve(new Response(JSON.stringify({ departures: board, fixtures: false }))),
-    ));
-
-    const view = render(<DepartureBoard code="NY" />);
-
-    expect(await screen.findByRole("checkbox", { name: "Trenton" })).toBeTruthy();
-    expect(screen.getByRole("checkbox", { name: "Dover" }).getAttribute("aria-checked")).toBe("true");
-    expect(screen.getAllByText("Long Branch")).toHaveLength(1);
-    expect(window.localStorage.length).toBe(0);
-
-    fireEvent.click(screen.getByRole("button", { name: "Clear filter" }));
-    expect(window.location.search).toBe("");
-    view.rerender(<DepartureBoard code="NY" />);
-    expect(screen.getAllByText("Long Branch")).toHaveLength(1);
-
-    window.history.replaceState(null, "", "/station/NY?destination=njt%3Anever");
-    view.rerender(<DepartureBoard code="NY" />);
-    expect(screen.getByText("No live departures match this destination filter.")).toBeTruthy();
   });
 
   it("puts every service notice on one summary line and the freshness warning on its own", async () => {

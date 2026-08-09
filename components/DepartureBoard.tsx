@@ -5,7 +5,6 @@ import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import { type Departure } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
 import { DepartureRow } from "./DepartureRow";
-import { DestinationFilter, useDestinationFilter } from "./DestinationFilter";
 import { FreshnessWarning } from "./FreshnessWarning";
 import { ServiceStatus } from "./ServiceStatus";
 
@@ -34,13 +33,6 @@ export function DepartureBoard({ code, after = null }: { code: string; after?: n
 
   // Held in a ref so the polling effect does not restart on every render.
   const loadedOnce = useRef(false);
-  const destinationFilter = useDestinationFilter(
-    departures?.map((departure) => ({
-      id: departure.destinationId ?? departure.destination,
-      label: departure.destination,
-    })) ?? [],
-    (id) => id.startsWith("njt:"),
-  );
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -155,19 +147,14 @@ export function DepartureBoard({ code, after = null }: { code: string; after?: n
           departures.some(
             (other) =>
               !other.viaSecaucus &&
-              (other.destinationId ?? other.destination) ===
-                (departure.destinationId ?? departure.destination),
+              other.destination === departure.destination,
           ),
         )
         .map((departure) => departure.id),
     );
     const visibleDepartures = departures.filter(
       (departure) =>
-        (after === null || Date.parse(departure.expectedTime) > after) &&
-        destinationFilter.matches({
-          id: departure.destinationId ?? departure.destination,
-          label: departure.destination,
-        }),
+        after === null || Date.parse(departure.expectedTime) > after,
     );
     content = (
       <>
@@ -183,17 +170,9 @@ export function DepartureBoard({ code, after = null }: { code: string; after?: n
             </p>
           )
         )}
-        <DestinationFilter
-          options={destinationFilter.options}
-          selected={destinationFilter.selected}
-          onToggle={destinationFilter.toggle}
-          onClear={destinationFilter.clear}
-        />
         {visibleDepartures.length === 0 ? (
           <p className="px-5 py-16 text-center text-muted">
-            {after === null
-              ? "No live departures match this destination filter."
-              : "No live departures yet for that arrival time."}
+            No live departures yet for that arrival time.
           </p>
         ) : (
           // One chronological sequence, no direction headings: the station's
