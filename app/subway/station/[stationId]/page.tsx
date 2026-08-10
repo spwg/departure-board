@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
+import { StationTransferLinks } from "@/components/StationTransferLinks";
 import { SubwayStationShell } from "@/components/SubwayStationShell";
 import { TransferBoard } from "@/components/TransferBoard";
 import { subwayBoardChoice } from "@/lib/boardChoices";
-import { getSubwayStation, getSubwayStationRoutes, SUBWAY_STATIONS } from "@/lib/subway";
+import { getSubwayStation, SUBWAY_STATIONS } from "@/lib/subway";
 
 export function generateStaticParams() { return SUBWAY_STATIONS.map(({ id: stationId }) => ({ stationId })); }
 
@@ -19,7 +20,7 @@ export default async function SubwayStationPage({ params }: { params: Promise<{ 
   const { stationId } = await params;
   const station = getSubwayStation(stationId);
   if (!station) notFound();
-  const routes = getSubwayStationRoutes([station.id]);
+  const routes = station.routes;
   const choice = subwayBoardChoice(station.id);
   return <SubwayStationShell
     stationName={station.name}
@@ -27,6 +28,7 @@ export default async function SubwayStationPage({ params }: { params: Promise<{ 
     choice={choice}
     favoriteName={`${station.name} Subway`}
   >
+    <StationTransferLinks system="subway" stationId={station.id} />
     <Suspense fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
       <TransferBoard choice={choice} />
     </Suspense>

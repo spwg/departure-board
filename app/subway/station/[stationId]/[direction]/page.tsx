@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
+import { StationTransferLinks } from "@/components/StationTransferLinks";
 import { SubwayStationShell } from "@/components/SubwayStationShell";
 import { TransferBoard } from "@/components/TransferBoard";
 import { subwayBoardChoice } from "@/lib/boardChoices";
-import { getSubwayStation, getSubwayStationRoutes } from "@/lib/subway";
+import { getSubwayStation } from "@/lib/subway";
 import { parseTransferOrigin, transferHref } from "@/lib/transfers";
 
 type SearchParams = Promise<{ after?: string | string[] }>;
@@ -20,7 +21,7 @@ function getStationContext(stationId: string) {
   if (stations.length === 0 || stations.some((station) => !station)) return null;
 
   const station = stations[0]!;
-  const routes = getSubwayStationRoutes(stationIds);
+  const routes = [...new Set(stations.flatMap((current) => current!.routes))];
   return { station, stationIds, routes };
 }
 
@@ -82,6 +83,7 @@ async function SubwayDirectionContent({
       breadcrumbCurrent={direction}
       breadcrumbSubtitle={null}
     >
+      <StationTransferLinks system="subway" stationId={context.stationIds[0]!} />
       <TransferBoard choice={{ ...choice, stationId: boardStationId }} direction={direction} />
       <RecentStationRecorder choice={choice} />
     </SubwayStationShell>

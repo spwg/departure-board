@@ -5,7 +5,7 @@ import {
   type BoardChoice,
 } from "./boardChoices";
 import { distanceKm, normalizeStationName, stations } from "./stations";
-import { SUBWAY_STATIONS, type SubwayStation } from "./subway";
+import { SUBWAY_STATIONS } from "./subway";
 
 /**
  * The one directory Home browses: every station board either system can open,
@@ -19,11 +19,7 @@ export type BoardListing = {
   choice: BoardChoice;
   /** The provider's own name for this board. */
   name: string;
-  /**
-   * MTA's other published names for the same complex. A rider who knows the
-   * place as "World Trade Center" should find it even though the complex's
-   * board is titled "Park Place".
-   */
+  /** MTA's other published names for the same station complex. */
   alsoKnownAs: string[];
   system: "NJT" | "Subway";
   href: string;
@@ -33,63 +29,21 @@ export type BoardListing = {
   longitude: number;
 };
 
-/**
- * Picks the member whose name should title a complex: the name the most
- * members publish, then the member serving the most routes, then the lowest
- * provider id. Every complex has exactly one, deterministically.
- */
-function representative(members: SubwayStation[]): SubwayStation {
-  const nameCounts = new Map<string, number>();
-  for (const member of members) {
-    nameCounts.set(member.name, (nameCounts.get(member.name) ?? 0) + 1);
-  }
-  return [...members].sort((a, b) =>
-    (nameCounts.get(b.name)! - nameCounts.get(a.name)!) ||
-    (b.routes.length - a.routes.length) ||
-    a.id.localeCompare(b.id),
-  )[0]!;
-}
-
-/**
- * One listing per MTA complex, not per member station: a complex's members
- * share a board, so offering the rider four ways into 4 different names for
- * the same platforms would be four ways into the same page. The names of the
- * members that did not win the title are kept as search aliases instead.
- */
-function subwayListings(): { listings: BoardListing[]; byMember: Map<string, BoardListing> } {
-  const complexes = new Map<string, SubwayStation[]>();
-  for (const station of SUBWAY_STATIONS) {
-    const members = complexes.get(station.complexId);
-    if (members) members.push(station);
-    else complexes.set(station.complexId, [station]);
-  }
-
-  const listings: BoardListing[] = [];
-  const byMember = new Map<string, BoardListing>();
-  for (const members of complexes.values()) {
-    const head = representative(members);
-    const ordered = [...members].sort((a, b) => a.id.localeCompare(b.id));
-    const listing: BoardListing = {
-      choice: subwayBoardChoice(head.id),
-      name: head.name,
-      alsoKnownAs: [...new Set(ordered.map((member) => member.name))].filter(
-        (name) => name !== head.name,
-      ),
-      system: "Subway",
-      href: `/subway/station/${head.id}`,
-      routes: [...new Set(ordered.flatMap((member) => member.routes))],
-      latitude: head.latitude,
-      longitude: head.longitude,
-    };
-    listings.push(listing);
-    for (const member of members) {
-      byMember.set(boardChoiceKey(subwayBoardChoice(member.id)), listing);
-    }
-  }
-  return { listings, byMember };
-}
-
-const subway = subwayListings();
+/** One direct listing per provider-owned Subway station. */
+const subwayListings: BoardListing[] = SUBWAY_STATIONS.map((station) => ({
+  choice: subwayBoardChoice(station.id),
+  name: station.name,
+  alsoKnownAs: [...new Set(
+    SUBWAY_STATIONS
+      .filter((member) => member.complexId === station.complexId)
+      .map((member) => member.name),
+  )].filter((name) => name !== station.name),
+  system: "Subway" as const,
+  href: `/subway/station/${station.id}`,
+  routes: station.routes,
+  latitude: station.latitude,
+  longitude: station.longitude,
+}));
 
 const ungrouped: BoardListing[] = [
   ...stations.map((station) => ({
@@ -102,7 +56,7 @@ const ungrouped: BoardListing[] = [
     latitude: station.lat,
     longitude: station.lng,
   })),
-  ...subway.listings,
+  ...subwayListings,
 ];
 
 /** Every board choice in both systems, ordered by name. */
@@ -119,11 +73,9 @@ export type NearbyBoardListing = {
 
 
 /**
- * Every provider identity that resolves to a board: a listing's own choice and
- * every MTA member of its published complex.
+ * Every provider identity resolves directly to its own provider board.
  */
 const byChoiceKey = new Map<string, BoardListing>([
-  ...[...subway.byMember].map(([key, listing]) => [key, listing] as const),
   ...ungrouped.map((listing) => [boardChoiceKey(listing.choice), listing] as const),
   ...boardListings.map((listing) => [boardChoiceKey(listing.choice), listing] as const),
 ]);

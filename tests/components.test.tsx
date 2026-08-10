@@ -531,9 +531,9 @@ describe("interactive component contract", () => {
     expect(eightySixth.length).toBeGreaterThan(3);
     expect(new Set(eightySixth.map((link) => link.textContent)).size).toBe(eightySixth.length);
 
-    // A complex is one board however many names its members publish.
+    // Published names remain searchable as aliases on direct provider station boards.
     fireEvent.change(search, { target: { value: "World Trade Center" } });
-    expect(screen.getByText(/also .*World Trade Center/)).toBeTruthy();
+    expect(screen.getAllByText(/also .*World Trade Center/).length).toBeGreaterThan(0);
   });
 
   it("keeps saved boards from both systems and both storage generations resolving", () => {

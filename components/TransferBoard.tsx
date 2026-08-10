@@ -49,6 +49,7 @@ export function TransferBoard({
           direction={direction}
           limit={direction === undefined ? 3 : null}
           transferOrigin={origin}
+          expandComplex={false}
         />
       )}
     </>

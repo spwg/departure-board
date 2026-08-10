@@ -5,6 +5,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { SettingsButton } from "@/components/SettingsButton";
+import { StationTransferLinks } from "@/components/StationTransferLinks";
 import { TransferBoard } from "@/components/TransferBoard";
 import { njtBoardChoice } from "@/lib/boardChoices";
 import { getStation, stations } from "@/lib/stations";
@@ -59,6 +60,7 @@ export default async function StationPage({
           />
         </header>
 
+        <StationTransferLinks system="njt" stationId={station.code} />
         <Suspense fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
           <TransferBoard choice={njtBoardChoice(station.code)} />
         </Suspense>

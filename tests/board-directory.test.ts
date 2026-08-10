@@ -13,23 +13,25 @@ import { stations } from "@/lib/stations";
 import { SUBWAY_STATIONS } from "@/lib/subway";
 
 describe("combined board directory", () => {
-  it("offers every NJT station and every Subway complex as one board choice each", () => {
-    const complexes = new Set(SUBWAY_STATIONS.map((station) => station.complexId));
+  it("offers every NJT station and every Subway provider station as one board choice each", () => {
     expect(boardListings.filter((listing) => listing.system === "NJT")).toHaveLength(stations.length);
-    expect(boardListings.filter((listing) => listing.system === "Subway")).toHaveLength(complexes.size);
+    expect(boardListings.filter((listing) => listing.system === "Subway")).toHaveLength(SUBWAY_STATIONS.length);
 
     const timesSquare = boardListings.filter((listing) => listing.name === "Times Sq-42 St");
-    expect(timesSquare).toHaveLength(1);
-    expect(timesSquare[0]!.routes).toEqual(expect.arrayContaining(["1", "7", "A", "N", "S"]));
+    expect(timesSquare.length).toBeGreaterThan(1);
+    expect(timesSquare.some((listing) => listing.routes.includes("1"))).toBe(true);
+    expect(timesSquare.some((listing) => listing.routes.includes("7"))).toBe(true);
+    expect(timesSquare.some((listing) => listing.routes.includes("N"))).toBe(true);
   });
 
-  it("searches both systems in one ranked result set, including a complex's other names", () => {
+  it("searches both systems in one ranked result set, including provider station aliases", () => {
     expect(searchBoardListings("ny")[0]).toMatchObject({ name: "New York Penn Station", system: "NJT" });
     expect(searchBoardListings("times sq")[0]).toMatchObject({ name: "Times Sq-42 St", system: "Subway" });
-    expect(searchBoardListings("world trade")[0]).toMatchObject({
-      name: "Park Place",
-      alsoKnownAs: expect.arrayContaining(["World Trade Center"]),
-    });
+    expect(searchBoardListings("world trade")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "Park Place", alsoKnownAs: expect.arrayContaining(["World Trade Center"]) }),
+      ]),
+    );
     expect(searchBoardListings("")).toEqual([]);
   });
 
