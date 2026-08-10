@@ -28,8 +28,8 @@ architectural rule.
   next stop, and countdown without a redundant clock time.
 - Departure rows on both systems open the exact train's remaining route.
   Destination filters are not part of either board.
-- An Interchange presents one system's board at a time and preserves a live
-  originating-train cutoff when the rider switches systems or opens a full
+- A transfer link opens another station's board and preserves a live
+  originating-train cutoff when the rider switches boards or opens a full
   Subway direction page. The product filters departures to those after that
   cutoff but does not claim which transfers are catchable.
 - Service status and freshness remain board-level context. They do not merge

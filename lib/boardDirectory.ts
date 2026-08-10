@@ -4,7 +4,6 @@ import {
   subwayBoardChoice,
   type BoardChoice,
 } from "./boardChoices";
-import { INTERCHANGES, interchangeHref } from "./interchanges";
 import { distanceKm, normalizeStationName, stations } from "./stations";
 import { SUBWAY_STATIONS, type SubwayStation } from "./subway";
 
@@ -32,9 +31,6 @@ export type BoardListing = {
   routes: string[];
   latitude: number;
   longitude: number;
-  /** Set when this board is one provider-owned node in an Interchange. */
-  interchangeId?: string;
-  interchangeNodeId?: string;
 };
 
 /**
@@ -109,89 +105,9 @@ const ungrouped: BoardListing[] = [
   ...subway.listings,
 ];
 
-/**
- * Replaces provider listings that belong to an Interchange with one listing
- * per transfer node. A node is deliberately narrower than a provider system:
- * at Penn, 1/2/3 and A/C/E are separate Subway choices.
- *
- * At Penn, MTA publishes 34 St-Penn Station as separate provider stations and
- * the rider recognises one place with several transfer targets. So Home offers
- * one Penn choice per node, while the provider stations behind them stay
- * distinct.
- */
-function applyInterchanges(listings: BoardListing[]): {
-  listings: BoardListing[];
-  /** Where provider identities folded into a node now resolve to. */
-  redirects: Map<string, BoardListing>;
-} {
-  const folded: BoardListing[] = [];
-  const foldedMembers = new Set<BoardListing>();
-  const redirects = new Map<string, BoardListing>();
-
-  for (const interchange of INTERCHANGES) {
-    for (const node of interchange.nodes) {
-      const members = listings.filter((listing) =>
-        node.stationIds.some(
-          (stationId) => memberListing(listing, node.system, stationId),
-        ),
-      );
-      if (members.length === 0) continue;
-      const choice = node.system === "njt"
-        ? njtBoardChoice(node.stationIds[0]!)
-        : subwayBoardChoice(node.stationIds[0]!);
-      const listing: BoardListing = {
-        choice,
-        name: interchange.name,
-        alsoKnownAs: [
-          ...new Set(members.flatMap((member) => [member.name, ...member.alsoKnownAs])),
-        ].filter((name) => name !== interchange.name),
-        system: node.system === "njt" ? "NJT" : "Subway",
-        href: interchangeHref(interchange, node),
-        routes: node.routes.length > 0
-          ? node.routes
-          : [...new Set(members.flatMap((member) => member.routes))],
-        latitude: interchange.latitude,
-        longitude: interchange.longitude,
-        interchangeId: interchange.id,
-        interchangeNodeId: node.id,
-      };
-      folded.push(listing);
-      for (const member of members) foldedMembers.add(member);
-      for (const stationId of node.stationIds) {
-        const nodeChoice = node.system === "njt"
-          ? njtBoardChoice(stationId)
-          : subwayBoardChoice(stationId);
-        redirects.set(boardChoiceKey(nodeChoice), listing);
-      }
-    }
-  }
-
-  return {
-    listings: [...listings.filter((listing) => !foldedMembers.has(listing)), ...folded],
-    redirects,
-  };
-}
-
-/** True when `listing` is the board that `stationId` in `system` opens. */
-function memberListing(
-  listing: BoardListing,
-  system: BoardChoice["system"],
-  stationId: string,
-): boolean {
-  if (listing.choice.system !== system) return false;
-  if (system === "njt") return listing.choice.stationId === stationId;
-  return subway.byMember.get(boardChoiceKey(subwayBoardChoice(stationId))) === listing;
-}
-
-const interchanged = applyInterchanges(ungrouped);
-
 /** Every board choice in both systems, ordered by name. */
-export const boardListings: BoardListing[] = [...interchanged.listings]
+export const boardListings: BoardListing[] = [...ungrouped]
   .sort((a, b) => a.name.localeCompare(b.name) || a.system.localeCompare(b.system));
-
-/** Follows a provider identity to the node listing that replaced it. */
-const resolve = (choice: BoardChoice, listing: BoardListing) =>
-  interchanged.redirects.get(boardChoiceKey(choice)) ?? listing;
 
 const KM_PER_MILE = 1.609344;
 export const NEARBY_MAX_DISTANCE_KM = 2 * KM_PER_MILE;
@@ -203,20 +119,14 @@ export type NearbyBoardListing = {
 
 
 /**
- * Every provider identity that resolves to a board: a listing's own choice,
- * every MTA member of its complex, and every station an Interchange folded in.
+ * Every provider identity that resolves to a board: a listing's own choice and
+ * every MTA member of its published complex.
  */
 const byChoiceKey = new Map<string, BoardListing>([
-  ...[...subway.byMember].map(([key, listing]) => [key, interchanged.redirects.get(key) ?? listing] as const),
-  ...ungrouped.map((listing) => [boardChoiceKey(listing.choice), resolve(listing.choice, listing)] as const),
+  ...[...subway.byMember].map(([key, listing]) => [key, listing] as const),
+  ...ungrouped.map((listing) => [boardChoiceKey(listing.choice), listing] as const),
   ...boardListings.map((listing) => [boardChoiceKey(listing.choice), listing] as const),
 ]);
-
-/** The other transfer nodes in the same Interchange, this one included. */
-export function interchangeSiblings(listing: BoardListing): BoardListing[] {
-  if (!listing.interchangeId) return [listing];
-  return boardListings.filter((candidate) => candidate.interchangeId === listing.interchangeId);
-}
 
 /**
  * Resolves a saved choice to the board it opens — including an MTA complex

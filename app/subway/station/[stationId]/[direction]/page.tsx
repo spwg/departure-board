@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { InterchangeBoard } from "@/components/InterchangeBoard";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
-import { SubwayBoard } from "@/components/SubwayBoard";
 import { SubwayStationShell } from "@/components/SubwayStationShell";
+import { TransferBoard } from "@/components/TransferBoard";
 import { subwayBoardChoice } from "@/lib/boardChoices";
-import { interchangeForStation } from "@/lib/interchanges";
 import { getSubwayStation, getSubwayStationRoutes } from "@/lib/subway";
+import { parseTransferOrigin, transferHref } from "@/lib/transfers";
 
 type SearchParams = Promise<{ after?: string | string[] }>;
 
@@ -23,13 +22,6 @@ function getStationContext(stationId: string) {
   const station = stations[0]!;
   const routes = getSubwayStationRoutes(stationIds);
   return { station, stationIds, routes };
-}
-
-function parseAfter(value: string | string[] | undefined): number | null {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw) return null;
-  const after = Number(raw);
-  return Number.isFinite(after) ? after : null;
 }
 
 export async function generateMetadata({
@@ -70,10 +62,9 @@ async function SubwayDirectionContent({
 
   const direction = decodeURIComponent(rawDirection);
   const query = await searchParams;
-  const after = parseAfter(query.after);
   const boardStationId = context.stationIds.join(",");
   const choice = subwayBoardChoice(context.stationIds[0]!);
-  const interchange = interchangeForStation("subway", context.stationIds[0]!);
+  const origin = parseTransferOrigin(Array.isArray(query.after) ? query.after[0] ?? null : query.after ?? null);
 
   return (
     <SubwayStationShell
@@ -85,21 +76,13 @@ async function SubwayDirectionContent({
         { label: "Stations", href: "/" },
         {
           label: `${context.station.name} Subway`,
-          href: `/subway/station/${boardStationId}`,
+          href: transferHref(choice, origin ?? undefined),
         },
       ]}
       breadcrumbCurrent={direction}
       breadcrumbSubtitle={null}
     >
-      {interchange ? (
-        <InterchangeBoard
-          interchangeId={interchange.interchange.id}
-          nodeId={interchange.node.id}
-          direction={direction}
-        />
-      ) : (
-        <SubwayBoard stationId={boardStationId} direction={direction} limit={null} after={after} />
-      )}
+      <TransferBoard choice={{ ...choice, stationId: boardStationId }} direction={direction} />
       <RecentStationRecorder choice={choice} />
     </SubwayStationShell>
   );

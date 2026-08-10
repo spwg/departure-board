@@ -10,7 +10,7 @@ for this repository rather than a direct rule from a source._
 drawer or radial menu the primary answer.** The repository’s hierarchy is
 roughly:
 
-`Station picker → Interchange → one system’s departure board → train or direction detail`
+`Station picker → station → service departure board → train or direction detail`
 
 _Inference_: show the relevant portion of that hierarchy in the board header,
 with links for parent pages and the current page clearly marked. Keep Settings

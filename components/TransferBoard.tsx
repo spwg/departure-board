@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import type { StopsResponse } from "@/app/api/stops/[train]/route";
 import { formatClock } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
-import { getInterchange, getTransferNode, type Interchange, type TransferNode } from "@/lib/interchanges";
-import { parseTransferOrigin, transferOriginNode, type TransferOrigin } from "@/lib/transfers";
+import type { BoardChoice } from "@/lib/boardChoices";
+import { encodeTransferOrigin, parseTransferOrigin, type TransferOrigin } from "@/lib/transfers";
 import type { SubwayTrip } from "@/lib/subway";
 import { DepartureBoard } from "./DepartureBoard";
 import { SubwayBoard } from "./SubwayBoard";
@@ -21,47 +21,34 @@ type Cutoff =
   | { status: "unavailable" };
 
 /**
- * One Interchange node board, optionally starting after an exact train's live
- * arrival at the originating node.
- *
- * The cutoff follows that train rather than a timestamp copied when the rider
- * tapped through, so a delay moves it and already-departed trains do not
- * linger in the view. Nothing here judges whether a transfer is catchable: no
- * walking buffer, no platform coaching, every live departure after the cutoff.
+ * One station board, optionally starting after an exact train's live arrival
+ * at the originating station. The cutoff follows that train rather than a
+ * timestamp copied when the rider tapped through.
  */
-export function InterchangeBoard({
-  interchangeId,
-  nodeId,
+export function TransferBoard({
+  choice,
   direction,
 }: {
-  interchangeId: string;
-  nodeId: string;
+  choice: BoardChoice;
   direction?: string;
 }) {
-  const interchange = getInterchange(interchangeId)!;
-  const node = getTransferNode(interchange, nodeId)!;
   const searchParams = useSearchParams();
   const origin = parseTransferOrigin(searchParams.get("after"));
-  const cutoff = useTransferCutoff(interchange, origin);
+  const cutoff = useTransferCutoff(origin);
+  const after = cutoff.status === "live" || cutoff.status === "stale" ? cutoff.at : null;
 
   return (
     <>
-      {cutoff.status !== "none" && (
-        <TransferNotice cutoff={cutoff} origin={origin} interchange={interchange} />
-      )}
-      {node.system === "njt" ? (
-        <DepartureBoard
-          code={node.stationIds[0]!}
-          after={cutoff.status === "live" || cutoff.status === "stale" ? cutoff.at : null}
-        />
+      {cutoff.status !== "none" && <TransferNotice cutoff={cutoff} origin={origin} />}
+      {choice.system === "njt" ? (
+        <DepartureBoard code={choice.stationId} after={after} />
       ) : (
         <SubwayBoard
-          stationId={node.stationIds.join(",")}
-          after={cutoff.status === "live" || cutoff.status === "stale" ? cutoff.at : null}
+          stationId={choice.stationId}
+          after={after}
           direction={direction}
           limit={direction === undefined ? 3 : null}
           transferOrigin={origin}
-          expandComplex={false}
         />
       )}
     </>
@@ -71,16 +58,12 @@ export function InterchangeBoard({
 function TransferNotice({
   cutoff,
   origin,
-  interchange,
 }: {
   cutoff: Cutoff;
   origin: TransferOrigin | null;
-  interchange: Interchange;
 }) {
   const { use24Hour } = useClockFormat();
-  // An NJT train number is rider-facing; an MTA trip identity is not.
-  const originNode = transferOriginNode(interchange, origin);
-  const train = originNode?.system === "njt" && origin
+  const train = origin?.system === "njt" && origin
     ? `train ${origin.trainRef}`
     : "your train";
 
@@ -104,15 +87,10 @@ function TransferNotice({
   );
 }
 
-/**
- * Polls the originating train's own source for its live arrival at this
- * Interchange. A failure keeps the last cutoff on screen and says it has
- * stopped updating, rather than silently reverting to an unfiltered board.
- */
-function useTransferCutoff(interchange: Interchange, origin: TransferOrigin | null): Cutoff {
+function useTransferCutoff(origin: TransferOrigin | null): Cutoff {
   const [cutoff, setCutoff] = useState<Cutoff>({ status: "none" });
   const known = useRef<number | null>(null);
-  const key = origin ? `${origin.nodeId}|${origin.trainRef}` : "";
+  const key = origin ? encodeTransferOrigin(origin) : "";
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const parsed = parseTransferOrigin(key);
@@ -121,11 +99,9 @@ function useTransferCutoff(interchange: Interchange, origin: TransferOrigin | nu
       return;
     }
     try {
-      const node = transferOriginNode(interchange, parsed);
-      if (!node) throw new Error("unknown transfer origin node");
-      const at = node.system === "njt"
-        ? await njtArrival(parsed.trainRef, node, signal)
-        : await subwayArrival(parsed.trainRef, node, signal);
+      const at = parsed.system === "njt"
+        ? await njtArrival(parsed.trainRef, parsed.stationId, signal)
+        : await subwayArrival(parsed.trainRef, parsed.stationId, signal);
       if (at === null) throw new Error("no live arrival");
       known.current = at;
       setCutoff({ status: "live", at });
@@ -136,7 +112,7 @@ function useTransferCutoff(interchange: Interchange, origin: TransferOrigin | nu
         ? { status: "unavailable" }
         : { status: "stale", at: known.current });
     }
-  }, [interchange, key]);
+  }, [key]);
 
   useEffect(() => {
     known.current = null;
@@ -154,24 +130,24 @@ function useTransferCutoff(interchange: Interchange, origin: TransferOrigin | nu
 
 async function njtArrival(
   train: string,
-  node: TransferNode,
+  stationId: string,
   signal?: AbortSignal,
 ): Promise<number | null> {
   const response = await fetch(`/api/stops/${encodeURIComponent(train)}`, { signal, cache: "no-store" });
   if (!response.ok) throw new Error(String(response.status));
   const data: StopsResponse = await response.json();
-  const stop = data.stopList.stops.find((candidate) => node.stationIds.includes(candidate.code));
+  const stop = data.stopList.stops.find((candidate) => candidate.code === stationId);
   return stop?.time ? Date.parse(stop.time) : null;
 }
 
 async function subwayArrival(
   tripId: string,
-  node: TransferNode,
+  stationId: string,
   signal?: AbortSignal,
 ): Promise<number | null> {
   const response = await fetch(`/api/subway/trips/${encodeURIComponent(tripId)}`, { signal, cache: "no-store" });
   if (!response.ok) throw new Error(String(response.status));
   const trip: SubwayTrip = await response.json();
-  const stop = trip.stops.find((candidate) => node.stationIds.includes(candidate.id));
+  const stop = trip.stops.find((candidate) => candidate.id === stationId);
   return stop?.time ? Date.parse(stop.time) : null;
 }

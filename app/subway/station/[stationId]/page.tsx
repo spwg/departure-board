@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
-import { SubwayBoard } from "@/components/SubwayBoard";
 import { SubwayStationShell } from "@/components/SubwayStationShell";
+import { TransferBoard } from "@/components/TransferBoard";
 import { subwayBoardChoice } from "@/lib/boardChoices";
 import { getSubwayStation, getSubwayStationRoutes, SUBWAY_STATIONS } from "@/lib/subway";
 
@@ -28,7 +28,7 @@ export default async function SubwayStationPage({ params }: { params: Promise<{ 
     favoriteName={`${station.name} Subway`}
   >
     <Suspense fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
-      <SubwayBoard stationId={station.id} />
+      <TransferBoard choice={choice} />
     </Suspense>
     <RecentStationRecorder choice={choice} />
   </SubwayStationShell>;

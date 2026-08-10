@@ -70,7 +70,7 @@ export type SubwayBoard = {
 };
 
 export type SubwayBoardOptions = {
-  /** Keep a provider-owned transfer node separate from its MTA complex. */
+  /** Keep one provider station separate from its MTA complex. */
   expandComplex?: boolean;
 };
 
@@ -128,8 +128,8 @@ function parentStopId(stopId: string): string {
 /**
  * Decode and project official GTFS-Realtime feed families into one board.
  *
- * More than one station id may be given, for an Interchange whose system
- * reaches it through separate provider stations. Their identities stay
+ * More than one station id may be given when a board expands an MTA complex.
+ * Their identities stay
  * separate here — each departure keeps the member it was seen at — and only
  * the presentation layer groups them, and only where MTA's own published
  * direction labels agree.

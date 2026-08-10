@@ -6,7 +6,6 @@ import { NearbyStations } from "@/components/NearbyStations";
 import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
-import { InterchangeBoard } from "@/components/InterchangeBoard";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { SettingsPage } from "@/components/SettingsPage";
@@ -14,7 +13,8 @@ import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
 import { SubwayBoard } from "@/components/SubwayBoard";
 import { SubwayStopList } from "@/components/SubwayStopList";
-import { njtBoardChoice } from "@/lib/boardChoices";
+import { njtBoardChoice, subwayBoardChoice } from "@/lib/boardChoices";
+import { TransferBoard } from "@/components/TransferBoard";
 import type { Departure } from "@/lib/departures";
 import type { StopList as StopListData } from "@/lib/stops";
 
@@ -239,7 +239,7 @@ describe("interactive component contract", () => {
       <Breadcrumbs
         parents={[
           { label: "Stations", href: "/" },
-          { label: "New York Penn Station", href: "/interchange/penn" },
+          { label: "New York Penn Station", href: "/station/NY" },
         ]}
         current="NJT departures"
       />,
@@ -247,7 +247,7 @@ describe("interactive component contract", () => {
 
     const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
     expect(within(breadcrumb).getByRole("link", { name: "Stations" }).getAttribute("href")).toBe("/");
-    expect(within(breadcrumb).getByRole("link", { name: "New York Penn Station" }).getAttribute("href")).toBe("/interchange/penn");
+    expect(within(breadcrumb).getByRole("link", { name: "New York Penn Station" }).getAttribute("href")).toBe("/station/NY");
     expect(within(breadcrumb).getByRole("heading", { name: "NJT departures" })).toBeTruthy();
     expect(breadcrumb.querySelector('[aria-current="page"]')).toBeTruthy();
   });
@@ -544,12 +544,12 @@ describe("interactive component contract", () => {
 
     render(<StationPicker />);
 
-    // Both favorite Penn choices resolve, each keeping the transfer node the
-    // rider chose. Recent choices are deliberately not rendered on Home.
+    // Both favorite Penn choices resolve to their provider-owned station
+    // boards. Recent choices are deliberately not rendered on Home.
     const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
     expect(within(favorites).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
-      "/interchange/penn/njt",
-      "/interchange/penn/123",
+      "/station/NY",
+      "/subway/station/128",
     ]);
     expect(within(favorites).queryByText("fav")).toBeNull();
     expect(within(favorites).queryByText("recent")).toBeNull();
@@ -566,28 +566,28 @@ describe("interactive component contract", () => {
     expect(within(directory).getAllByRole("heading", { level: 3 }).length).toBeGreaterThan(1);
   });
 
-  it("presents an Interchange as one Penn choice per transfer node", () => {
+  it("presents Penn's provider station boards as separate choices", () => {
     render(<StationPicker />);
     fireEvent.change(screen.getByRole("searchbox", { name: "Search stations" }), {
-      target: { value: "New York Penn" },
+      target: { value: "Penn Station" },
     });
 
     const penn = within(screen.getByRole("heading", { name: /results?$/ }).closest("section")!)
       .getAllByRole("link")
-      .filter((link) => link.textContent?.includes("New York Penn Station"));
+      .filter((link) => ["/station/NY", "/subway/station/128", "/subway/station/A28"].includes(link.getAttribute("href") ?? ""));
     expect(penn.map((link) => link.getAttribute("href"))).toEqual([
-      "/interchange/penn/njt",
-      "/interchange/penn/123",
-      "/interchange/penn/ace",
+      "/station/NY",
+      "/subway/station/128",
+      "/subway/station/A28",
     ]);
-    // The provider chip and route labels make the target choices explicit.
+    // The provider chip and route labels make the destination choices explicit.
     expect(penn[0]!.textContent).toContain("NJT");
     expect(penn[1]!.textContent).toContain("Subway");
     expect(penn[1]!.textContent).toContain("1 · 2 · 3");
     expect(penn[2]!.textContent).toContain("A · C · E");
   });
 
-  it("keeps an Interchange's two systems independent when one of them fails", async () => {
+  it("keeps two provider boards independent when one of them fails", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2026-08-04T12:00:00.000Z");
     vi.stubGlobal("fetch", vi.fn((input: unknown) => {
@@ -599,7 +599,7 @@ describe("interactive component contract", () => {
     }));
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    // Only one system's board is mounted at a time, so neither can blank or
+    // Only one provider board is mounted at a time, so neither can blank or
     // stale the other.
     const njt = render(<DepartureBoard code="NY" />);
     expect(await screen.findByText("Trenton")).toBeTruthy();
@@ -662,9 +662,9 @@ describe("interactive component contract", () => {
     const njt = render(<StopList train="1234" from="NB" />);
     const to123 = await screen.findByRole("link", { name: /Transfer to 1\/2\/3 at New York Penn Station/ });
     const toAce = screen.getByRole("link", { name: /Transfer to A\/C\/E at New York Penn Station/ });
-    expect(to123.getAttribute("href")).toBe(`/interchange/penn/123?after=${encodeURIComponent("njt|1234")}`);
-    expect(toAce.getAttribute("href")).toBe(`/interchange/penn/ace?after=${encodeURIComponent("njt|1234")}`);
-    // Only the Interchange stop carries transfer choices, and only while it is still ahead.
+    expect(to123.getAttribute("href")).toBe(`/subway/station/128?after=${encodeURIComponent("njt:NY|1234")}`);
+    expect(toAce.getAttribute("href")).toBe(`/subway/station/A28?after=${encodeURIComponent("njt:NY|1234")}`);
+    // Only the transfer stop carries transfer choices, and only while it is still ahead.
     expect(screen.getAllByRole("link", { name: /Transfer to/ })).toHaveLength(2);
     njt.unmount();
 
@@ -680,14 +680,14 @@ describe("interactive component contract", () => {
     render(<SubwayStopList tripId="mta:numbered:trip:127" />);
     const toNjt = await screen.findByRole("link", { name: /Transfer to NJT at New York Penn Station/ });
     const toAceFrom123 = screen.getByRole("link", { name: /Transfer to A\/C\/E at New York Penn Station/ });
-    expect(toNjt.getAttribute("href")).toBe(`/interchange/penn/njt?after=${encodeURIComponent("123|mta:numbered:trip:127")}`);
-    expect(toAceFrom123.getAttribute("href")).toBe(`/interchange/penn/ace?after=${encodeURIComponent("123|mta:numbered:trip:127")}`);
+    expect(toNjt.getAttribute("href")).toBe(`/station/NY?after=${encodeURIComponent("subway:128|mta:numbered:trip:127")}`);
+    expect(toAceFrom123.getAttribute("href")).toBe(`/subway/station/A28?after=${encodeURIComponent("subway:128|mta:numbered:trip:127")}`);
   });
 
   it("keeps the live transfer cutoff when opening more Subway trains", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
-    window.history.replaceState(null, "", `/interchange/penn/123?after=${encodeURIComponent("njt|1234")}`);
+    window.history.replaceState(null, "", `/subway/station/128?after=${encodeURIComponent("njt:NY|1234")}`);
 
     let originCalls = 0;
     let boardCalls = 0;
@@ -718,14 +718,14 @@ describe("interactive component contract", () => {
       })));
     }));
 
-    const main = render(<InterchangeBoard interchangeId="penn" nodeId="123" />);
+    const main = render(<TransferBoard choice={subwayBoardChoice("128")} />);
     const more = await screen.findByRole("link", { name: "Show more Uptown trains" });
-    expect(boardRequests[0]).toContain("/api/subway/departures/128?exact=true");
-    expect(more.getAttribute("href")).toBe(`/subway/station/${encodeURIComponent("128")}/Uptown?after=${encodeURIComponent("njt|1234")}`);
+    expect(boardRequests[0]).toContain("/api/subway/departures/128");
+    expect(more.getAttribute("href")).toBe(`/subway/station/${encodeURIComponent("128")}/Uptown?after=${encodeURIComponent("njt:NY|1234")}`);
     main.unmount();
 
-    window.history.replaceState(null, "", `/subway/station/128/Uptown?after=${encodeURIComponent("njt|1234")}`);
-    render(<InterchangeBoard interchangeId="penn" nodeId="123" direction="Uptown" />);
+    window.history.replaceState(null, "", `/subway/station/128/Uptown?after=${encodeURIComponent("njt:NY|1234")}`);
+    render(<TransferBoard choice={subwayBoardChoice("128")} direction="Uptown" />);
     expect(await screen.findByText("Still later")).toBeTruthy();
     await waitFor(() => expect(screen.queryByText("Too early")).toBeNull());
     expect(originCalls).toBe(2);
@@ -734,7 +734,7 @@ describe("interactive component contract", () => {
   it("starts a transfer board after the originating train's live arrival and follows it when it slips", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
-    window.history.replaceState(null, "", `/interchange/penn/njt?after=${encodeURIComponent("njt|1234")}`);
+    window.history.replaceState(null, "", `/station/NY?after=${encodeURIComponent("njt:NY|1234")}`);
 
     let arrivals = 0;
     const arrival = () => {
@@ -761,7 +761,7 @@ describe("interactive component contract", () => {
       })));
     }));
 
-    const view = render(<InterchangeBoard interchangeId="penn" nodeId="njt" />);
+    const view = render(<TransferBoard choice={njtBoardChoice("NY")} />);
 
     expect((await screen.findByRole("status")).textContent).toContain("when train 1234 arrives");
     // Strictly after the cutoff, and every one of them: nothing is judged
@@ -772,7 +772,7 @@ describe("interactive component contract", () => {
 
     // The cutoff follows the originating train rather than a copied timestamp.
     await vi.advanceTimersByTimeAsync(30_000);
-    view.rerender(<InterchangeBoard interchangeId="penn" nodeId="njt" />);
+    view.rerender(<TransferBoard choice={njtBoardChoice("NY")} />);
     await waitFor(() => expect(screen.queryByText("Catchable at first")).toBeNull());
     expect(screen.getByText("Still later")).toBeTruthy();
 
@@ -783,7 +783,7 @@ describe("interactive component contract", () => {
   it("keeps a transfer cutoff visible but flagged when the originating train stops updating", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
-    window.history.replaceState(null, "", `/interchange/penn/njt?after=${encodeURIComponent("njt|1234")}`);
+    window.history.replaceState(null, "", `/station/NY?after=${encodeURIComponent("njt:NY|1234")}`);
     let originCalls = 0;
     vi.stubGlobal("fetch", vi.fn((input: unknown) => {
       const url = String(input);
@@ -804,7 +804,7 @@ describe("interactive component contract", () => {
     }));
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    render(<InterchangeBoard interchangeId="penn" nodeId="njt" />);
+    render(<TransferBoard choice={njtBoardChoice("NY")} />);
 
     await waitFor(() => expect(screen.getByText("No live departures yet for that arrival time.")).toBeTruthy());
 
