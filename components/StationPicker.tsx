@@ -18,8 +18,8 @@ import {
 
 /**
  * Turns saved choices into the boards they open, dropping any this build no
- * longer recognises and collapses multiple provider identities that resolve to
- * one visible board (for example, the two MTA members of an Interchange).
+ * longer recognises, while keeping each provider-owned station board as its
+ * own destination.
  */
 function resolveChoices(choices: BoardChoice[]): BoardListing[] {
   const seen = new Set<string>();

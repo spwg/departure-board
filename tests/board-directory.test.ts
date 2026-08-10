@@ -4,7 +4,6 @@ import {
   boardListings,
   boardListingsByLetter,
   getBoardListing,
-  interchangeSiblings,
   nearbyBoardListings,
   NEARBY_MAX_DISTANCE_KM,
   nearestBoardListing,
@@ -14,27 +13,25 @@ import { stations } from "@/lib/stations";
 import { SUBWAY_STATIONS } from "@/lib/subway";
 
 describe("combined board directory", () => {
-  it("offers every NJT station and every Subway complex as one board choice each", () => {
-    const complexes = new Set(SUBWAY_STATIONS.map((station) => station.complexId));
+  it("offers every NJT station and every Subway provider station as one board choice each", () => {
     expect(boardListings.filter((listing) => listing.system === "NJT")).toHaveLength(stations.length);
-    // Interchanges expose explicit transfer nodes, so 14 St and Columbus
-    // Circle each add a second Subway target within one MTA complex.
-    expect(boardListings.filter((listing) => listing.system === "Subway")).toHaveLength(complexes.size + 2);
+    expect(boardListings.filter((listing) => listing.system === "Subway")).toHaveLength(SUBWAY_STATIONS.length);
 
-    // One entry per complex, not per platform: the members share a board.
     const timesSquare = boardListings.filter((listing) => listing.name === "Times Sq-42 St");
-    expect(timesSquare).toHaveLength(1);
-    expect(timesSquare[0]!.routes).toEqual(expect.arrayContaining(["1", "7", "A", "N", "S"]));
+    expect(timesSquare.length).toBeGreaterThan(1);
+    expect(timesSquare.some((listing) => listing.routes.includes("1"))).toBe(true);
+    expect(timesSquare.some((listing) => listing.routes.includes("7"))).toBe(true);
+    expect(timesSquare.some((listing) => listing.routes.includes("N"))).toBe(true);
   });
 
-  it("searches both systems in one ranked result set, including a complex's other names", () => {
+  it("searches both systems in one ranked result set, including provider station aliases", () => {
     expect(searchBoardListings("ny")[0]).toMatchObject({ name: "New York Penn Station", system: "NJT" });
     expect(searchBoardListings("times sq")[0]).toMatchObject({ name: "Times Sq-42 St", system: "Subway" });
-    // A rider who knows the place as World Trade Center still finds its board.
-    expect(searchBoardListings("world trade")[0]).toMatchObject({
-      name: "Park Place",
-      alsoKnownAs: expect.arrayContaining(["World Trade Center"]),
-    });
+    expect(searchBoardListings("world trade")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "Park Place", alsoKnownAs: expect.arrayContaining(["World Trade Center"]) }),
+      ]),
+    );
     expect(searchBoardListings("")).toEqual([]);
   });
 
@@ -55,39 +52,18 @@ describe("combined board directory", () => {
 
   it("resolves saved choices across both systems and both storage generations", () => {
     expect(getBoardListing(njtBoardChoice("AM"))?.href).toBe("/station/AM");
-    // A Subway complex member saved before it was folded under its complex's
-    // title still opens the board it always opened.
     expect(getBoardListing(subwayBoardChoice("R16"))?.href).toBe("/subway/station/R16");
     expect(getBoardListing(subwayBoardChoice("no-such-stop"))).toBeNull();
   });
 
-  it("presents an Interchange as one choice per transfer node", () => {
-    const penn = boardListings.filter((listing) => listing.interchangeId === "penn");
-    expect(penn.map((listing) => [listing.system, listing.href])).toEqual([
-      ["NJT", "/interchange/penn/njt"],
-      ["Subway", "/interchange/penn/123"],
-      ["Subway", "/interchange/penn/ace"],
-    ]);
-    // The provider identities remain distinct: 128 is the numbered node and
-    // A28 is the A/C/E node.
-    expect(getBoardListing(njtBoardChoice("NY"))?.href).toBe("/interchange/penn/njt");
-    expect(getBoardListing(subwayBoardChoice("128"))?.href).toBe("/interchange/penn/123");
-    expect(getBoardListing(subwayBoardChoice("A28"))?.href).toBe("/interchange/penn/ace");
-    expect(penn[1]!.routes).toEqual(["1", "2", "3"]);
-    expect(penn[2]!.routes).toEqual(["A", "C", "E"]);
-
-    // Standing at Penn offers both systems rather than letting a few metres
-    // of coordinate difference decide.
-    const nearest = nearestBoardListing(40.7505, -73.9934);
-    expect(interchangeSiblings(nearest.listing)).toEqual(penn);
-    // A station outside any Interchange is its own only sibling.
-    const timesSquare = boardListings.find((listing) => listing.name === "Times Sq-42 St")!;
-    expect(interchangeSiblings(timesSquare)).toEqual([timesSquare]);
+  it("keeps Penn's provider station boards as direct destinations", () => {
+    expect(getBoardListing(njtBoardChoice("NY"))?.href).toBe("/station/NY");
+    expect(getBoardListing(subwayBoardChoice("128"))?.href).toBe("/subway/station/128");
+    expect(getBoardListing(subwayBoardChoice("A28"))?.href).toBe("/subway/station/A28");
   });
 
   it("compares both systems when choosing the nearest board", () => {
     const penn = nearestBoardListing(40.750569, -73.993519);
-    expect(penn.listing.interchangeId).toBe("penn");
     expect(penn.distanceKm).toBeLessThan(0.05);
 
     const unionSquare = nearestBoardListing(40.7359, -73.9906);
@@ -98,7 +74,6 @@ describe("combined board directory", () => {
     const nearby = nearbyBoardListings(40.750569, -73.993519);
 
     expect(nearby.length).toBeGreaterThan(0);
-    expect(nearby[0]!.listing.interchangeId).toBe("penn");
     expect(nearby.every(({ distanceKm }) => distanceKm <= NEARBY_MAX_DISTANCE_KM)).toBe(true);
     expect(nearby.map(({ distanceKm }) => distanceKm)).toEqual(
       [...nearby.map(({ distanceKm }) => distanceKm)].sort((a, b) => a - b),

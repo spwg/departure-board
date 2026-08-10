@@ -5,7 +5,7 @@ export type TransitSystem = "njt" | "subway";
  * A rider's selection of one provider's station board.
  *
  * `stationId` deliberately remains provider-native: NJT's two-character
- * station code is not interchangeable with an MTA station identifier.
+ * station code is not the same as an MTA station identifier.
  */
 export type BoardChoice = {
   system: TransitSystem;

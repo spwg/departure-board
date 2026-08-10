@@ -3,31 +3,23 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
-import { encodeTransferOrigin, type TransferOrigin } from "@/lib/transfers";
 import { FreshnessWarning } from "./FreshnessWarning";
 
 const REFRESH_MS = 30_000;
 
 /**
- * `after` is a transfer cutoff: show only trains leaving strictly after an
- * instant. The main board shows the next three trains per direction; a
- * direction page passes `limit={null}` to show the full filtered list. A
- * transfer origin stays attached to direction links so its live arrival can
- * continue moving after navigation.
+ * The main board shows the next three trains per direction; a direction page
+ * passes `limit={null}` to show the full list.
  */
 export function SubwayBoard({
   stationId,
-  after = null,
   direction,
   limit = 3,
-  transferOrigin = null,
   expandComplex = true,
 }: {
   stationId: string;
-  after?: number | null;
   direction?: string;
   limit?: number | null;
-  transferOrigin?: TransferOrigin | null;
   expandComplex?: boolean;
 }) {
   const [board, setBoard] = useState<Board | null>(null);
@@ -74,14 +66,10 @@ export function SubwayBoard({
     </div>
   ) : <p className="px-5 py-16 text-center text-muted">Loading live departures…</p>;
 
-  const visibleDepartures = board.departures.filter(
-    (departure) =>
-      after === null || Date.parse(departure.expectedTime) > after,
-  );
-  const groups = [...new Set(visibleDepartures.map((departure) => departure.direction))]
+  const groups = [...new Set(board.departures.map((departure) => departure.direction))]
     .filter((groupDirection) => direction === undefined || groupDirection === direction)
     .map((groupDirection) => {
-      const departures = visibleDepartures.filter((departure) => departure.direction === groupDirection);
+      const departures = board.departures.filter((departure) => departure.direction === groupDirection);
       return {
         direction: groupDirection,
         visibleDepartures: limit === null ? departures : departures.slice(0, limit),
@@ -95,9 +83,7 @@ export function SubwayBoard({
     {stale && <FreshnessWarning lastLiveAt={Date.parse(board.sourceTimestamp)} />}
     {groups.length === 0 ? (
       <p className="px-5 py-16 text-center text-muted">
-        {after === null
-          ? "No live departures available."
-          : "No live departures yet for that arrival time."}
+        No live departures available.
       </p>
     ) : visibleGroups.map((group) => (
       <DirectionSection
@@ -106,9 +92,7 @@ export function SubwayBoard({
         direction={group.direction}
         departures={group.visibleDepartures}
         now={now}
-        after={after}
         hasMore={group.hasMore}
-        transferOrigin={transferOrigin}
       />
     ))}
   </>;
@@ -139,17 +123,13 @@ function DirectionSection({
   direction,
   departures,
   now,
-  after,
   hasMore,
-  transferOrigin,
 }: {
   direction: string;
   stationId: string;
   departures: Board["departures"];
   now: number;
-  after: number | null;
   hasMore: boolean;
-  transferOrigin: TransferOrigin | null;
 }) {
   return (
     <section aria-labelledby={`subway-${direction}`}>
@@ -167,7 +147,7 @@ function DirectionSection({
       {hasMore && (
         <div className="border-t border-edge px-5 py-3">
           <Link
-            href={directionHref(stationId, direction, after, transferOrigin)}
+            href={directionHref(stationId, direction)}
             className="block rounded-lg px-3 py-2 text-center text-sm font-semibold text-blue-700 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:text-blue-300"
           >
             Show more {direction} trains
@@ -178,19 +158,8 @@ function DirectionSection({
   );
 }
 
-function directionHref(
-  stationId: string,
-  direction: string,
-  after: number | null,
-  transferOrigin: TransferOrigin | null,
-): string {
-  const href = `/subway/station/${encodeURIComponent(stationId)}/${encodeURIComponent(direction)}`;
-  const cutoff = transferOrigin
-    ? encodeTransferOrigin(transferOrigin)
-    : after === null
-      ? null
-      : String(after);
-  return cutoff === null ? href : `${href}?after=${encodeURIComponent(cutoff)}`;
+function directionHref(stationId: string, direction: string): string {
+  return `/subway/station/${encodeURIComponent(stationId)}/${encodeURIComponent(direction)}`;
 }
 
 /**

@@ -175,7 +175,6 @@ export function StopList({ train, from }: { train: string; from: string }) {
             stop={stop}
             color={color}
             here={Boolean(from) && stop.code === from.toUpperCase()}
-            train={stopList.trainNumber || train}
             first={index === 0}
             last={index === stopList.stops.length - 1}
             use24Hour={use24Hour}
@@ -190,7 +189,6 @@ function StopRow({
   stop,
   color,
   here,
-  train,
   first,
   last,
   use24Hour,
@@ -198,7 +196,6 @@ function StopRow({
   stop: Stop;
   color: string;
   here: boolean;
-  train: string;
   first: boolean;
   last: boolean;
   use24Hour: boolean;
@@ -264,7 +261,7 @@ function StopRow({
         )}
 
         {!stop.departed && !here && (
-          <TransferLinks system="njt" stationId={stop.code} trainRef={train} />
+          <TransferLinks system="njt" stationId={stop.code} />
         )}
       </div>
 

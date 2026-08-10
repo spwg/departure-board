@@ -8,24 +8,12 @@ This context presents time-sensitive public-transit departure information for a 
 A transit system's own named boarding location or station complex. Stations belonging to different systems remain distinct even when they occupy the same place or support a transfer between them.
 _Avoid_: Universal station, merged station
 
-**Interchange**:
-A rider-recognized transfer hub connecting two or more provider-owned boarding locations. It groups transfer choices but owns no live departure data and never becomes a merged feed.
-_Avoid_: Merged station, shared feed, system switcher
-
-**Transfer node**:
-One provider-owned boarding location or line group inside an Interchange, such as NJT, 1/2/3, or A/C/E at Penn. It opens one provider's departure board.
-_Avoid_: System view, universal station
-
 **Transfer option**:
-A permitted origin-to-target connection between two Transfer nodes. It describes navigation availability, not a guaranteed or recommended catchable connection.
+A permitted origin-to-target link between two provider-owned station boards. It describes navigation availability, not a guaranteed or recommended catchable connection.
 _Avoid_: Connection recommendation, itinerary
 
-**Transfer context**:
-The exact originating train and Transfer node carried into a target board so its live departures can begin after that train's arrival at the correct boarding location.
-_Avoid_: Copied timestamp, trip planner
-
 **System chip**:
-The NJT or Subway label shown on Home and Interchange items where both systems appear together. Color may reinforce the label but never replaces its text.
+The NJT or Subway label shown in the combined station picker. Color may reinforce the label but never replaces its text.
 _Avoid_: Color-only system indicator, per-row board label
 
 **Departure board**:
@@ -39,10 +27,6 @@ _Avoid_: Subway board, combined board
 **Subway departure board**:
 A departure board for NYC Subway service at one subway station or station complex, serving a rider who takes whichever train comes next.
 _Avoid_: Rail board, combined board
-
-**Interchange transfer board**:
-An Interchange node's departure board opened from one exact train at another node, with its starting-time filter preset to that train's expected arrival and no judgment about which transfers are catchable.
-_Avoid_: Transfer outlook, connection recommendation
 
 **Destination**:
 A transit system's own rider-facing label for where a train is headed, kept consistent with its station signs and train displays. When a live Subway trip cannot be joined reliably to its published headsign, the official name of its final remaining stop is the destination; destinations are never normalized into shared cross-system labels.
@@ -97,7 +81,7 @@ The home-page selection screen for both rail and subway departure boards. It ope
 _Avoid_: Default station, launch redirect
 
 **Nearby stations**:
-Provider-qualified board choices whose published coordinates are within two miles of the rider's current location, ordered closest first. Interchange views remain separate system-specific choices.
+Provider-qualified board choices whose published coordinates are within two miles of the rider's current location, ordered closest first.
 _Avoid_: Closest station only, merged station
 
 **Recent stations**:
@@ -109,7 +93,7 @@ The rider's locally saved system-specific station-board choices, kept together f
 _Avoid_: Recent stations, default stations
 
 **Station-picker provenance label**:
-The visible badge explaining why a board choice appears in the combined picker list: “fav” for a saved favorite and “nearby” for geolocation. Nearby choices also show their distance; when the nearest station belongs to an Interchange, each system-specific choice shares that provenance.
+The visible badge explaining why a board choice appears in the combined picker list: “fav” for a saved favorite and “nearby” for geolocation. Nearby choices also show their distance.
 _Avoid_: Unlabelled suggestions, recommended station
 
 ### Navigation language
@@ -118,8 +102,8 @@ _Avoid_: Unlabelled suggestions, recommended station
 An ordered sequence of links to parent pages, ending at the current page. It shows the rider's location in the board hierarchy; it is not a list of arbitrary categories.
 _Avoid_: Category path, navigation menu
 
-**Transfer node selector**:
-A visible control for choosing among peer Transfer nodes within one Interchange, such as NJT, 1/2/3, and A/C/E. Its choices are transfer targets, not nested breadcrumb levels.
+**Transfer links**:
+Visible links from an exact train's stop to other station boards. They open peer destinations directly, not nested breadcrumb levels.
 _Avoid_: System switcher, breadcrumb segment
 
 **Navigation drawer**:

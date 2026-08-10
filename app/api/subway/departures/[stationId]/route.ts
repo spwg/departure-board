@@ -1,9 +1,9 @@
 import { decodeSubwayBoard, fetchSubwayFeedsForStation, getSubwayStation, subwayMetadata } from "@/lib/subway";
 
 /**
- * A live board for one MTA station complex, or for the several provider
- * stations one Interchange view reaches, given as a comma-separated list.
- * Their identities stay separate in the response; only direction labels merge.
+ * A live board for one MTA station complex, given as a comma-separated list
+ * when the caller intentionally requests several complex members. Their
+ * identities stay separate in the response; only direction labels merge.
  */
 export async function GET(
   request: Request,

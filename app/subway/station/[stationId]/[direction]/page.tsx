@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { InterchangeBoard } from "@/components/InterchangeBoard";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
-import { SubwayBoard } from "@/components/SubwayBoard";
+import { StationTransferLinks } from "@/components/StationTransferLinks";
 import { SubwayStationShell } from "@/components/SubwayStationShell";
+import { TransferBoard } from "@/components/TransferBoard";
 import { subwayBoardChoice } from "@/lib/boardChoices";
-import { interchangeForStation } from "@/lib/interchanges";
-import { getSubwayStation, getSubwayStationRoutes } from "@/lib/subway";
-
-type SearchParams = Promise<{ after?: string | string[] }>;
+import { getSubwayStation } from "@/lib/subway";
+import { transferHref } from "@/lib/transfers";
 
 function stationIdsFromParam(value: string): string[] {
   return decodeURIComponent(value).split(",").filter(Boolean);
@@ -21,15 +19,8 @@ function getStationContext(stationId: string) {
   if (stations.length === 0 || stations.some((station) => !station)) return null;
 
   const station = stations[0]!;
-  const routes = getSubwayStationRoutes(stationIds);
+  const routes = [...new Set(stations.flatMap((current) => current!.routes))];
   return { station, stationIds, routes };
-}
-
-function parseAfter(value: string | string[] | undefined): number | null {
-  const raw = Array.isArray(value) ? value[0] : value;
-  if (!raw) return null;
-  const after = Number(raw);
-  return Number.isFinite(after) ? after : null;
 }
 
 export async function generateMetadata({
@@ -45,35 +36,28 @@ export async function generateMetadata({
 
 export default function SubwayDirectionPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ stationId: string; direction: string }>;
-  searchParams: SearchParams;
 }) {
   return (
     <Suspense fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
-      <SubwayDirectionContent params={params} searchParams={searchParams} />
+      <SubwayDirectionContent params={params} />
     </Suspense>
   );
 }
 
 async function SubwayDirectionContent({
   params,
-  searchParams,
 }: {
   params: Promise<{ stationId: string; direction: string }>;
-  searchParams: SearchParams;
 }) {
   const { stationId, direction: rawDirection } = await params;
   const context = getStationContext(stationId);
   if (!context) notFound();
 
   const direction = decodeURIComponent(rawDirection);
-  const query = await searchParams;
-  const after = parseAfter(query.after);
   const boardStationId = context.stationIds.join(",");
   const choice = subwayBoardChoice(context.stationIds[0]!);
-  const interchange = interchangeForStation("subway", context.stationIds[0]!);
 
   return (
     <SubwayStationShell
@@ -85,21 +69,14 @@ async function SubwayDirectionContent({
         { label: "Stations", href: "/" },
         {
           label: `${context.station.name} Subway`,
-          href: `/subway/station/${boardStationId}`,
+          href: transferHref(choice),
         },
       ]}
       breadcrumbCurrent={direction}
       breadcrumbSubtitle={null}
     >
-      {interchange ? (
-        <InterchangeBoard
-          interchangeId={interchange.interchange.id}
-          nodeId={interchange.node.id}
-          direction={direction}
-        />
-      ) : (
-        <SubwayBoard stationId={boardStationId} direction={direction} limit={null} after={after} />
-      )}
+      <StationTransferLinks system="subway" stationId={context.stationIds[0]!} />
+      <TransferBoard choice={{ ...choice, stationId: boardStationId }} direction={direction} />
       <RecentStationRecorder choice={choice} />
     </SubwayStationShell>
   );
