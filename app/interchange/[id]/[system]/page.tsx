@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -53,10 +54,11 @@ export default async function InterchangePage({
     ? njtBoardChoice(active.stationIds[0]!)
     : subwayBoardChoice(active.stationIds[0]!);
   const targets = transferTargets(interchange, active.id);
+  const boardShellStyle = { "--subway-header-offset": "8rem" } as CSSProperties;
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
-      <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
+      <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm" style={boardShellStyle}>
         <header className="sticky top-0 z-10 border-b border-edge bg-surface/85 backdrop-blur-md sm:static">
           <div className="flex items-center gap-1 px-2 py-2.5 sm:px-3">
             <Breadcrumbs

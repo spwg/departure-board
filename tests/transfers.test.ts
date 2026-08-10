@@ -12,9 +12,9 @@ describe("Interchange transfer nodes", () => {
     })).toBe("/interchange/14-st/l?after=ace%7Cmta%3Aace%3Atrip");
   });
 
-  it("keeps Columbus Circle's 1 and A/C/E boards distinct", () => {
+  it("keeps Columbus Circle's 1 and A/C/B/D boards distinct", () => {
     expect(transfersFromStop("subway", "A24")?.targets.map((target) => target.label)).toEqual(["1"]);
-    expect(transfersFromStop("subway", "125")?.targets.map((target) => target.label)).toEqual(["A/C/E"]);
+    expect(transfersFromStop("subway", "125")?.targets.map((target) => target.label)).toEqual(["A/C/B/D"]);
   });
 
   it("offers both same-system and cross-provider targets at Penn", () => {

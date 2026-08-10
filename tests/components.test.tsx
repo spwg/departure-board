@@ -691,6 +691,7 @@ describe("interactive component contract", () => {
 
     let originCalls = 0;
     let boardCalls = 0;
+    const boardRequests: string[] = [];
     vi.stubGlobal("fetch", vi.fn((input: unknown) => {
       const url = String(input);
       if (url.includes("/api/stops/")) {
@@ -703,6 +704,7 @@ describe("interactive component contract", () => {
       }
 
       boardCalls += 1;
+      boardRequests.push(url);
       const departures = boardCalls === 1
         ? [1, 2, 3, 4].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown ${minute}`, nextStop: "Times Sq-42 St", expectedTime: `2024-05-30T15:1${minute}:00.000Z` }))
         : [
@@ -718,6 +720,7 @@ describe("interactive component contract", () => {
 
     const main = render(<InterchangeBoard interchangeId="penn" nodeId="123" />);
     const more = await screen.findByRole("link", { name: "Show more Uptown trains" });
+    expect(boardRequests[0]).toContain("/api/subway/departures/128?exact=true");
     expect(more.getAttribute("href")).toBe(`/subway/station/${encodeURIComponent("128")}/Uptown?after=${encodeURIComponent("njt|1234")}`);
     main.unmount();
 

@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Breadcrumbs, type BreadcrumbParent } from "@/components/Breadcrumbs";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { SettingsButton } from "@/components/SettingsButton";
@@ -23,12 +24,14 @@ export function SubwayStationShell({
   breadcrumbSubtitle?: string | null;
   children: React.ReactNode;
 }) {
+  const boardShellStyle = { "--subway-header-offset": "4.625rem" } as CSSProperties;
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       {/* `overflow-clip` rather than `overflow-hidden`: both round off the
           card's corners, but only clip leaves the page as the scrollport, so
           the pinned header and direction headings inside actually pin. */}
-      <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
+      <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm" style={boardShellStyle}>
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
           <Breadcrumbs
             parents={breadcrumbParents}

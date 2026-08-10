@@ -61,6 +61,7 @@ export function InterchangeBoard({
           direction={direction}
           limit={direction === undefined ? 3 : null}
           transferOrigin={origin}
+          expandComplex={false}
         />
       )}
     </>

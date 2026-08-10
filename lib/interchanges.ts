@@ -75,7 +75,7 @@ export const INTERCHANGES: Interchange[] = [
     latitude: 40.7682,
     longitude: -73.9822,
     nodes: [
-      { id: "ace", label: "A/C/E", system: "subway", stationIds: ["A24"], routes: ["A", "C", "E"] },
+      { id: "ace", label: "A/C/B/D", system: "subway", stationIds: ["A24"], routes: ["A", "C", "B", "D"] },
       { id: "1", label: "1", system: "subway", stationIds: ["125"], routes: ["1"] },
     ],
     transfers: reciprocalTransfers(["ace", "1"]),
