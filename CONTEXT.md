@@ -9,8 +9,20 @@ A transit system's own named boarding location or station complex. Stations belo
 _Avoid_: Universal station, merged station
 
 **Interchange**:
-A rider-recognized connection among two or more system-owned stations. Its page presents one member system's departure board at a time, allows direct switching without merging their data, and keeps each member board's freshness and availability independent.
-_Avoid_: Merged station, shared feed
+A rider-recognized transfer hub connecting two or more provider-owned boarding locations. It groups transfer choices but owns no live departure data and never becomes a merged feed.
+_Avoid_: Merged station, shared feed, system switcher
+
+**Transfer node**:
+One provider-owned boarding location or line group inside an Interchange, such as NJT, 1/2/3, or A/C/E at Penn. It opens one provider's departure board.
+_Avoid_: System view, universal station
+
+**Transfer option**:
+A permitted origin-to-target connection between two Transfer nodes. It describes navigation availability, not a guaranteed or recommended catchable connection.
+_Avoid_: Connection recommendation, itinerary
+
+**Transfer context**:
+The exact originating train and Transfer node carried into a target board so its live departures can begin after that train's arrival at the correct boarding location.
+_Avoid_: Copied timestamp, trip planner
 
 **System chip**:
 The NJT or Subway label shown on Home and Interchange items where both systems appear together. Color may reinforce the label but never replaces its text.
@@ -29,7 +41,7 @@ A departure board for NYC Subway service at one subway station or station comple
 _Avoid_: Rail board, combined board
 
 **Interchange transfer board**:
-An Interchange member's departure board opened from one exact train on another member system, with its starting-time filter preset to that train's expected arrival and no judgment about which transfers are catchable. At Penn, the Subway view combines both MTA stations into shared Uptown and Downtown groups containing all later 1/2/3/A/C/E trains.
+An Interchange node's departure board opened from one exact train at another node, with its starting-time filter preset to that train's expected arrival and no judgment about which transfers are catchable.
 _Avoid_: Transfer outlook, connection recommendation
 
 **Destination**:
@@ -102,9 +114,9 @@ _Avoid_: Unlabelled suggestions, recommended station
 An ordered sequence of links to parent pages, ending at the current page. It shows the rider's location in the board hierarchy; it is not a list of arbitrary categories.
 _Avoid_: Category path, navigation menu
 
-**Sibling switcher**:
-A visible control for choosing among peer views within one Interchange, such as NJT and Subway. Its choices are parallel boards, not nested breadcrumb levels.
-_Avoid_: Nested system category, breadcrumb segment
+**Transfer node selector**:
+A visible control for choosing among peer Transfer nodes within one Interchange, such as NJT, 1/2/3, and A/C/E. Its choices are transfer targets, not nested breadcrumb levels.
+_Avoid_: System switcher, breadcrumb segment
 
 **Navigation drawer**:
 An edge-opening panel containing top-level destinations, with the board temporarily unavailable behind it while the panel is open on a phone.

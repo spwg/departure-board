@@ -19,8 +19,8 @@ export function Breadcrumbs({
   subtitle?: string | null;
 }) {
   return (
-    <nav aria-label="Breadcrumb" className="min-w-0 flex-1 overflow-x-auto">
-      <ol className="flex min-w-max items-center gap-1.5 whitespace-nowrap text-xs text-muted sm:text-sm">
+    <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
+      <ol className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted sm:text-sm">
         {parents.map((parent) => (
           <li key={`${parent.href}:${parent.label}`} className="flex shrink-0 items-center gap-1.5">
             <Link
@@ -32,7 +32,7 @@ export function Breadcrumbs({
             <span aria-hidden className="text-faint">›</span>
           </li>
         ))}
-        <li aria-current="page" className="min-w-0 max-w-[60vw] sm:max-w-md">
+        <li aria-current="page" className="min-w-0 basis-full sm:basis-auto sm:max-w-md">
           <h1 className="truncate text-base font-semibold tracking-tight text-text sm:text-lg">
             {current}
           </h1>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { InterchangeBoard } from "@/components/InterchangeBoard";
@@ -11,17 +11,18 @@ import { njtBoardChoice, subwayBoardChoice } from "@/lib/boardChoices";
 import {
   INTERCHANGES,
   getInterchange,
-  interchangeHref,
-  interchangeView,
+  getTransferNode,
+  transferTargets,
 } from "@/lib/interchanges";
+import { transferHref } from "@/lib/transfers";
 
 /**
- * The active system lives in the path rather than a query string so both views
- * of every Interchange prerender, the way the station shells do.
+ * The active transfer node lives in the path rather than a query string so
+ * every provider-owned board prerenders, the way the station shells do.
  */
 export function generateStaticParams() {
   return INTERCHANGES.flatMap((interchange) =>
-    interchange.views.map((view) => ({ id: interchange.id, system: view.system })),
+    interchange.nodes.map((node) => ({ id: interchange.id, system: node.id })),
   );
 }
 
@@ -29,18 +30,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id, system } = await params;
   const interchange = getInterchange(id);
   if (!interchange) return { title: "Interchange not found" };
-  return { title: `${interchange.name} ${interchangeView(interchange, system).label} departures` };
+  const node = getTransferNode(interchange, system);
+  return { title: node ? `${interchange.name} ${node.label} departures` : "Transfer node not found" };
 }
 
-/**
- * One Interchange, one system's board at a time.
- *
- * The switch changes which member system is showing; it never merges them.
- * Each board owns its own loading, retry, freshness and alert state, so an
- * MTA outage leaves the rail board alone and vice versa — which is only true
- * because exactly one of them is mounted at a time and neither shares state
- * with the other.
- */
+/** One Interchange, one provider-owned transfer node at a time. */
 export default async function InterchangePage({
   params,
 }: {
@@ -48,12 +42,17 @@ export default async function InterchangePage({
 }) {
   const { id, system } = await params;
   const interchange = getInterchange(id);
-  if (!interchange || !interchange.views.some((view) => view.system === system)) notFound();
+  // Keep the old provider-level Subway URL from becoming a misleading board.
+  // It used to combine several provider stations; the new model asks the
+  // rider to choose an explicit node instead.
+  if (interchange && system === "subway") redirect(`/interchange/${id}`);
+  const active = interchange ? getTransferNode(interchange, system) : undefined;
+  if (!interchange || !active) notFound();
 
-  const active = interchangeView(interchange, system);
   const choice = active.system === "njt"
     ? njtBoardChoice(active.stationIds[0]!)
     : subwayBoardChoice(active.stationIds[0]!);
+  const targets = transferTargets(interchange, active.id);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
@@ -66,35 +65,30 @@ export default async function InterchangePage({
                 { label: interchange.name, href: `/interchange/${interchange.id}` },
               ]}
               current={`${active.label} departures`}
+              subtitle={active.system === "subway" ? "Subway" : "NJ Transit rail"}
             />
             <SettingsButton />
             <FavoriteButton choice={choice} name={`${interchange.name} ${active.label}`} />
           </div>
 
-          {/* The System chip belongs here, on a mixed control, and never on the
-              single-system rows of the board below it. */}
-          <nav aria-label="Departure board system" className="flex gap-1 px-2 pb-2 sm:px-3">
-            {interchange.views.map((view) => (
-              <Link
-                key={view.system}
-                href={interchangeHref(interchange, view)}
-                aria-current={view.system === active.system ? "page" : undefined}
-                className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${
-                  view.system === active.system
-                    ? "bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
-                    : "text-muted hover:bg-bg hover:text-text"
-                }`}
-              >
-                {view.label}
-              </Link>
-            ))}
-          </nav>
+          {targets.length > 0 && (
+            <nav aria-label="Transfer options" className="flex items-center gap-1 overflow-x-auto px-2 pb-2 sm:px-3">
+              <span className="shrink-0 px-1 text-xs font-medium text-muted">Transfer to</span>
+              {targets.map((target) => (
+                <Link
+                  key={target.id}
+                  href={transferHref(interchange, target)}
+                  className="shrink-0 rounded-full border border-edge px-3 py-1 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                >
+                  {target.label}
+                </Link>
+              ))}
+            </nav>
+          )}
         </header>
 
-        {/* Keyed by system so switching remounts the board rather than showing
-            one system's departures under the other's heading. */}
-        <Suspense key={active.system} fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
-          <InterchangeBoard interchangeId={interchange.id} system={active.system} />
+        <Suspense key={active.id} fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
+          <InterchangeBoard interchangeId={interchange.id} nodeId={active.id} />
         </Suspense>
         <RecentStationRecorder choice={choice} />
       </div>

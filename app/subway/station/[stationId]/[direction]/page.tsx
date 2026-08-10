@@ -94,7 +94,7 @@ async function SubwayDirectionContent({
       {interchange ? (
         <InterchangeBoard
           interchangeId={interchange.interchange.id}
-          system="subway"
+          nodeId={interchange.node.id}
           direction={direction}
         />
       ) : (

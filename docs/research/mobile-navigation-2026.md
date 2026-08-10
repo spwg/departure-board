@@ -1,7 +1,7 @@
 # Mobile navigation brief (2026)
 
-_Research date: 2026-08-09. Sources are first-party guidance from W3C/WAI,
-MDN, web.dev, Apple, and Android/Material. “Inference” marks a recommendation
+_Research date: 2026-08-09. Sources are first-party web guidance from W3C/WAI,
+MDN, web.dev, and Apple. “Inference” marks a recommendation
 for this repository rather than a direct rule from a source._
 
 ## Short recommendation
@@ -62,17 +62,8 @@ operable, and preserve its meaning when text is enlarged.
 
 ### Drawers, menus, and discoverability
 
-Material’s official navigation guidance recommends drawers for **five or more
-top-level destinations**, two or more levels of navigation hierarchy, or quick
-movement between unrelated destinations. It describes standard drawers as
-unsuitable for mobile and modal drawers as the mobile form. See [Material
-navigation drawer](https://m2.material.io/components/navigation-drawer).
-
-Android’s current guidance recommends a bottom navigation bar for **three to
-five equal destinations** on compact windows, consistently across screens. See
-[Android NavigationBar](https://developer.android.com/develop/ui/compose/components/navigation-bar).
-_Inference_: that makes neither a drawer nor a bottom navigation bar an obvious
-fit for the current two-destination product surface.
+_Inference_: a conventional web navigation drawer is a future scalability
+option, not an obvious fit for the current two-destination product surface.
 
 WAI recommends familiar, consistent placement and visible labels where
 possible; menu items should adapt to larger text and zoom, have sufficient
@@ -144,7 +135,7 @@ as enabling near-instant return navigation without a network request. See
    conventional modal drawer with text labels, a scrim, large rows, focus
    management, and immediate open/close feedback.
 3. **A pie menu should be rejected as primary navigation.** No reviewed W3C,
-   MDN, web.dev, Apple, Android, or Material source recommends radial menus for
+   MDN, web.dev, or Apple source recommends radial menus for
    web navigation. _Inference_: radial sectors are a poor default for this app
    because they make labels, reading order, keyboard navigation, speech input,
    localization, and discoverability harder than a linear list. It could only

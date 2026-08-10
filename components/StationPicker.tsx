@@ -127,9 +127,9 @@ export function StationPicker() {
     };
 
     if (location.status === "found") {
-      // An Interchange is one place with a board per system, so nearby offers
-      // both views rather than letting a few metres of coordinate difference
-      // pick one for the rider.
+      // An Interchange is one place with several transfer nodes, so nearby
+      // offers every target rather than letting a few metres of coordinate
+      // difference pick one for the rider.
       for (const listing of interchangeSiblings(location.listing)) {
         add(listing, "nearby", { distanceKm: location.distanceKm });
       }

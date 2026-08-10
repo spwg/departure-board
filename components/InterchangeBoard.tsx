@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import type { StopsResponse } from "@/app/api/stops/[train]/route";
 import { formatClock } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
-import { getInterchange, interchangeView, type Interchange } from "@/lib/interchanges";
-import { parseTransferOrigin, type TransferOrigin } from "@/lib/transfers";
+import { getInterchange, getTransferNode, type Interchange, type TransferNode } from "@/lib/interchanges";
+import { parseTransferOrigin, transferOriginNode, type TransferOrigin } from "@/lib/transfers";
 import type { SubwayTrip } from "@/lib/subway";
 import { DepartureBoard } from "./DepartureBoard";
 import { SubwayBoard } from "./SubwayBoard";
@@ -21,8 +21,8 @@ type Cutoff =
   | { status: "unavailable" };
 
 /**
- * One Interchange view, optionally starting after an exact train's live
- * arrival here.
+ * One Interchange node board, optionally starting after an exact train's live
+ * arrival at the originating node.
  *
  * The cutoff follows that train rather than a timestamp copied when the rider
  * tapped through, so a delay moves it and already-departed trains do not
@@ -31,15 +31,15 @@ type Cutoff =
  */
 export function InterchangeBoard({
   interchangeId,
-  system,
+  nodeId,
   direction,
 }: {
   interchangeId: string;
-  system: string;
+  nodeId: string;
   direction?: string;
 }) {
   const interchange = getInterchange(interchangeId)!;
-  const view = interchangeView(interchange, system);
+  const node = getTransferNode(interchange, nodeId)!;
   const searchParams = useSearchParams();
   const origin = parseTransferOrigin(searchParams.get("after"));
   const cutoff = useTransferCutoff(interchange, origin);
@@ -47,16 +47,16 @@ export function InterchangeBoard({
   return (
     <>
       {cutoff.status !== "none" && (
-        <TransferNotice cutoff={cutoff} origin={origin} />
+        <TransferNotice cutoff={cutoff} origin={origin} interchange={interchange} />
       )}
-      {view.system === "njt" ? (
+      {node.system === "njt" ? (
         <DepartureBoard
-          code={view.stationIds[0]!}
+          code={node.stationIds[0]!}
           after={cutoff.status === "live" || cutoff.status === "stale" ? cutoff.at : null}
         />
       ) : (
         <SubwayBoard
-          stationId={view.stationIds.join(",")}
+          stationId={node.stationIds.join(",")}
           after={cutoff.status === "live" || cutoff.status === "stale" ? cutoff.at : null}
           direction={direction}
           limit={direction === undefined ? 3 : null}
@@ -67,10 +67,21 @@ export function InterchangeBoard({
   );
 }
 
-function TransferNotice({ cutoff, origin }: { cutoff: Cutoff; origin: TransferOrigin | null }) {
+function TransferNotice({
+  cutoff,
+  origin,
+  interchange,
+}: {
+  cutoff: Cutoff;
+  origin: TransferOrigin | null;
+  interchange: Interchange;
+}) {
   const { use24Hour } = useClockFormat();
   // An NJT train number is rider-facing; an MTA trip identity is not.
-  const train = origin?.system === "njt" ? `train ${origin.trainRef}` : "your train";
+  const originNode = transferOriginNode(interchange, origin);
+  const train = originNode?.system === "njt" && origin
+    ? `train ${origin.trainRef}`
+    : "your train";
 
   if (cutoff.status === "unavailable") {
     return (
@@ -100,7 +111,7 @@ function TransferNotice({ cutoff, origin }: { cutoff: Cutoff; origin: TransferOr
 function useTransferCutoff(interchange: Interchange, origin: TransferOrigin | null): Cutoff {
   const [cutoff, setCutoff] = useState<Cutoff>({ status: "none" });
   const known = useRef<number | null>(null);
-  const key = origin ? `${origin.system}|${origin.trainRef}` : "";
+  const key = origin ? `${origin.nodeId}|${origin.trainRef}` : "";
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const parsed = parseTransferOrigin(key);
@@ -109,9 +120,11 @@ function useTransferCutoff(interchange: Interchange, origin: TransferOrigin | nu
       return;
     }
     try {
-      const at = parsed.system === "njt"
-        ? await njtArrival(parsed.trainRef, interchange, signal)
-        : await subwayArrival(parsed.trainRef, interchange, signal);
+      const node = transferOriginNode(interchange, parsed);
+      if (!node) throw new Error("unknown transfer origin node");
+      const at = node.system === "njt"
+        ? await njtArrival(parsed.trainRef, node, signal)
+        : await subwayArrival(parsed.trainRef, node, signal);
       if (at === null) throw new Error("no live arrival");
       known.current = at;
       setCutoff({ status: "live", at });
@@ -140,26 +153,24 @@ function useTransferCutoff(interchange: Interchange, origin: TransferOrigin | nu
 
 async function njtArrival(
   train: string,
-  interchange: Interchange,
+  node: TransferNode,
   signal?: AbortSignal,
 ): Promise<number | null> {
   const response = await fetch(`/api/stops/${encodeURIComponent(train)}`, { signal, cache: "no-store" });
   if (!response.ok) throw new Error(String(response.status));
   const data: StopsResponse = await response.json();
-  const codes = interchange.views.find((view) => view.system === "njt")?.stationIds ?? [];
-  const stop = data.stopList.stops.find((candidate) => codes.includes(candidate.code));
+  const stop = data.stopList.stops.find((candidate) => node.stationIds.includes(candidate.code));
   return stop?.time ? Date.parse(stop.time) : null;
 }
 
 async function subwayArrival(
   tripId: string,
-  interchange: Interchange,
+  node: TransferNode,
   signal?: AbortSignal,
 ): Promise<number | null> {
   const response = await fetch(`/api/subway/trips/${encodeURIComponent(tripId)}`, { signal, cache: "no-store" });
   if (!response.ok) throw new Error(String(response.status));
   const trip: SubwayTrip = await response.json();
-  const ids = interchange.views.find((view) => view.system === "subway")?.stationIds ?? [];
-  const stop = trip.stops.find((candidate) => ids.includes(candidate.id));
+  const stop = trip.stops.find((candidate) => node.stationIds.includes(candidate.id));
   return stop?.time ? Date.parse(stop.time) : null;
 }

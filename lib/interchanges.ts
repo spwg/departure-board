@@ -1,32 +1,47 @@
 import type { TransitSystem } from "./boardChoices";
 
 /**
- * One system's view of an Interchange.
+ * One provider-owned boarding location inside an Interchange.
  *
- * `stationIds` is a list because a system may reach an Interchange through
- * more than one of its own stations: MTA publishes 34 St-Penn Station twice,
- * as two separate complexes, one for the 1/2/3 and one for the A/C/E.
+ * A node can be a provider station or a line group within a provider station.
+ * That distinction is important at places such as 14 St, where the A/C/E and
+ * L services are both Subway boards but are different transfer targets.
  */
-export type InterchangeView = {
+export type TransferNode = {
+  id: string;
+  label: string;
   system: TransitSystem;
-  /** The textual System chip, and the `system` URL value that selects it. */
-  label: "NJT" | "Subway";
   stationIds: string[];
+  routes: string[];
+};
+
+/** A permitted origin-to-target connection inside one Interchange. */
+export type TransferOption = {
+  from: string;
+  to: string;
 };
 
 /**
- * A rider-recognized connection among stations that remain their providers'
- * own. It controls navigation and presentation only — it owns no live data,
- * and merges none: each view loads, fails and ages on its own.
+ * A rider-recognized transfer hub among provider-owned stations and line
+ * groups. It owns navigation relationships only — never live data or a
+ * combined departure feed.
  */
 export type Interchange = {
   id: string;
   name: string;
   latitude: number;
   longitude: number;
-  /** Views in switch order; the first is the default when none is selected. */
-  views: InterchangeView[];
+  nodes: TransferNode[];
+  transfers: TransferOption[];
 };
+
+function reciprocalTransfers(nodeIds: string[]): TransferOption[] {
+  return nodeIds.flatMap((from) =>
+    nodeIds
+      .filter((to) => to !== from)
+      .map((to) => ({ from, to })),
+  );
+}
 
 export const INTERCHANGES: Interchange[] = [
   {
@@ -34,13 +49,36 @@ export const INTERCHANGES: Interchange[] = [
     name: "New York Penn Station",
     latitude: 40.750569,
     longitude: -73.993519,
-    views: [
-      { system: "njt", label: "NJT", stationIds: ["NY"] },
-      // The two MTA Penn stations stay separate identities upstream; the view
-      // presents them together because MTA publishes the same Uptown and
-      // Downtown labels for both.
-      { system: "subway", label: "Subway", stationIds: ["128", "A28"] },
+    nodes: [
+      { id: "njt", label: "NJT", system: "njt", stationIds: ["NY"], routes: [] },
+      { id: "123", label: "1/2/3", system: "subway", stationIds: ["128"], routes: ["1", "2", "3"] },
+      { id: "ace", label: "A/C/E", system: "subway", stationIds: ["A28"], routes: ["A", "C", "E"] },
     ],
+    // Reciprocal edges are explicit so a future hub can describe a
+    // one-direction-only connection without changing the model.
+    transfers: reciprocalTransfers(["njt", "123", "ace"]),
+  },
+  {
+    id: "14-st",
+    name: "14 St",
+    latitude: 40.740335,
+    longitude: -74.002134,
+    nodes: [
+      { id: "ace", label: "A/C/E", system: "subway", stationIds: ["A31"], routes: ["A", "C", "E"] },
+      { id: "l", label: "L", system: "subway", stationIds: ["L01"], routes: ["L"] },
+    ],
+    transfers: reciprocalTransfers(["ace", "l"]),
+  },
+  {
+    id: "columbus-circle",
+    name: "59 St-Columbus Circle",
+    latitude: 40.7682,
+    longitude: -73.9822,
+    nodes: [
+      { id: "ace", label: "A/C/E", system: "subway", stationIds: ["A24"], routes: ["A", "C", "E"] },
+      { id: "1", label: "1", system: "subway", stationIds: ["125"], routes: ["1"] },
+    ],
+    transfers: reciprocalTransfers(["ace", "1"]),
   },
 ];
 
@@ -48,32 +86,44 @@ export function getInterchange(id: string): Interchange | undefined {
   return INTERCHANGES.find((interchange) => interchange.id === id);
 }
 
-/** The view a `system` URL value selects, falling back to the first view. */
-export function interchangeView(
+export function getTransferNode(
   interchange: Interchange,
-  system: string | undefined,
-): InterchangeView {
-  return (
-    interchange.views.find((view) => view.system === system) ?? interchange.views[0]!
-  );
+  nodeId: string,
+): TransferNode | undefined {
+  return interchange.nodes.find((node) => node.id === nodeId);
 }
 
-/** The Interchange a provider station belongs to, if any. */
+export function transferTargets(
+  interchange: Interchange,
+  fromNodeId: string,
+): TransferNode[] {
+  const targetIds = interchange.transfers
+    .filter((transfer) => transfer.from === fromNodeId)
+    .map((transfer) => transfer.to);
+  return targetIds
+    .map((targetId) => getTransferNode(interchange, targetId))
+    .filter((node): node is TransferNode => node !== undefined);
+}
+
+/** The Interchange and exact node reached by a provider station identity. */
 export function interchangeForStation(
   system: TransitSystem,
   stationId: string,
-): { interchange: Interchange; view: InterchangeView } | null {
+): { interchange: Interchange; node: TransferNode } | null {
   for (const interchange of INTERCHANGES) {
-    for (const view of interchange.views) {
-      if (view.system === system && view.stationIds.includes(stationId)) {
-        return { interchange, view };
+    for (const node of interchange.nodes) {
+      if (node.system === system && node.stationIds.includes(stationId)) {
+        return { interchange, node };
       }
     }
   }
   return null;
 }
 
-/** The URL of one Interchange view. */
-export function interchangeHref(interchange: Interchange, view: InterchangeView): string {
-  return `/interchange/${interchange.id}/${view.system}`;
+/** The URL of one provider-owned Interchange node board. */
+export function interchangeHref(
+  interchange: Interchange,
+  node: TransferNode,
+): string {
+  return `/interchange/${interchange.id}/${node.id}`;
 }

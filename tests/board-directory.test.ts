@@ -15,9 +15,9 @@ describe("combined board directory", () => {
   it("offers every NJT station and every Subway complex as one board choice each", () => {
     const complexes = new Set(SUBWAY_STATIONS.map((station) => station.complexId));
     expect(boardListings.filter((listing) => listing.system === "NJT")).toHaveLength(stations.length);
-    // One short of the complex count: MTA publishes the two Penn complexes
-    // separately and the Interchange presents them as one Subway board.
-    expect(boardListings.filter((listing) => listing.system === "Subway")).toHaveLength(complexes.size - 1);
+    // Interchanges expose explicit transfer nodes, so 14 St and Columbus
+    // Circle each add a second Subway target within one MTA complex.
+    expect(boardListings.filter((listing) => listing.system === "Subway")).toHaveLength(complexes.size + 2);
 
     // One entry per complex, not per platform: the members share a board.
     const timesSquare = boardListings.filter((listing) => listing.name === "Times Sq-42 St");
@@ -59,18 +59,20 @@ describe("combined board directory", () => {
     expect(getBoardListing(subwayBoardChoice("no-such-stop"))).toBeNull();
   });
 
-  it("presents an Interchange as one choice per system, both opening the same page", () => {
+  it("presents an Interchange as one choice per transfer node", () => {
     const penn = boardListings.filter((listing) => listing.interchangeId === "penn");
     expect(penn.map((listing) => [listing.system, listing.href])).toEqual([
       ["NJT", "/interchange/penn/njt"],
-      ["Subway", "/interchange/penn/subway"],
+      ["Subway", "/interchange/penn/123"],
+      ["Subway", "/interchange/penn/ace"],
     ]);
-    // The Subway view reaches Penn through two distinct MTA stations; both
-    // resolve to it, and its routes are the union of theirs.
+    // The provider identities remain distinct: 128 is the numbered node and
+    // A28 is the A/C/E node.
     expect(getBoardListing(njtBoardChoice("NY"))?.href).toBe("/interchange/penn/njt");
-    expect(getBoardListing(subwayBoardChoice("128"))?.href).toBe("/interchange/penn/subway");
-    expect(getBoardListing(subwayBoardChoice("A28"))?.href).toBe("/interchange/penn/subway");
-    expect(penn[1]!.routes).toEqual(expect.arrayContaining(["1", "2", "3", "A", "C", "E"]));
+    expect(getBoardListing(subwayBoardChoice("128"))?.href).toBe("/interchange/penn/123");
+    expect(getBoardListing(subwayBoardChoice("A28"))?.href).toBe("/interchange/penn/ace");
+    expect(penn[1]!.routes).toEqual(["1", "2", "3"]);
+    expect(penn[2]!.routes).toEqual(["A", "C", "E"]);
 
     // Standing at Penn offers both systems rather than letting a few metres
     // of coordinate difference decide.
