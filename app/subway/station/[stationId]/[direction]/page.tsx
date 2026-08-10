@@ -10,7 +10,7 @@ import { interchangeForStation, type Interchange, type TransferNode } from "@/li
 import { getSubwayStation, getSubwayStationRoutes } from "@/lib/subway";
 import { parseTransferOrigin, transferHref } from "@/lib/transfers";
 
-type SearchParams = Promise<{ after?: string | string[] }>;
+type SearchParams = Promise<{ after?: string | string[]; board?: string | string[] }>;
 
 function stationIdsFromParam(value: string): string[] {
   return decodeURIComponent(value).split(",").filter(Boolean);
@@ -31,6 +31,11 @@ function parseAfter(value: string | string[] | undefined): number | null {
   if (!raw) return null;
   const after = Number(raw);
   return Number.isFinite(after) ? after : null;
+}
+
+function isInterchangeBoard(value: string | string[] | undefined): boolean {
+  const raw = Array.isArray(value) ? value[0] : value;
+  return raw === "interchange";
 }
 
 export function directionBoardParent({
@@ -100,7 +105,9 @@ async function SubwayDirectionContent({
   const after = parseAfter(query.after);
   const boardStationId = context.stationIds.join(",");
   const choice = subwayBoardChoice(context.stationIds[0]!);
-  const interchange = interchangeForStation("subway", context.stationIds[0]!);
+  const interchange = isInterchangeBoard(query.board)
+    ? interchangeForStation("subway", context.stationIds[0]!)
+    : null;
   const parent = directionBoardParent({
     stationName: context.station.name,
     boardStationId,

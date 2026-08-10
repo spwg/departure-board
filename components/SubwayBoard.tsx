@@ -13,7 +13,9 @@ const REFRESH_MS = 30_000;
  * instant. The main board shows the next three trains per direction; a
  * direction page passes `limit={null}` to show the full filtered list. A
  * transfer origin stays attached to direction links so its live arrival can
- * continue moving after navigation.
+ * continue moving after navigation. `boardContext` stays attached as well,
+ * because station membership alone cannot tell an ordinary station board from
+ * an interchange board for the same physical station.
  */
 export function SubwayBoard({
   stationId,
@@ -22,6 +24,7 @@ export function SubwayBoard({
   limit = 3,
   transferOrigin = null,
   expandComplex = true,
+  boardContext = "station",
 }: {
   stationId: string;
   after?: number | null;
@@ -29,6 +32,7 @@ export function SubwayBoard({
   limit?: number | null;
   transferOrigin?: TransferOrigin | null;
   expandComplex?: boolean;
+  boardContext?: BoardContext;
 }) {
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
@@ -109,6 +113,7 @@ export function SubwayBoard({
         after={after}
         hasMore={group.hasMore}
         transferOrigin={transferOrigin}
+        boardContext={boardContext}
       />
     ))}
   </>;
@@ -119,6 +124,8 @@ type DirectionGroup = {
   visibleDepartures: Board["departures"];
   hasMore: boolean;
 };
+
+export type BoardContext = "station" | "interchange";
 
 /** Keep the station board to the two directions a rider can scan at once. */
 function selectMainGroups(groups: DirectionGroup[]): DirectionGroup[] {
@@ -142,6 +149,7 @@ function DirectionSection({
   after,
   hasMore,
   transferOrigin,
+  boardContext,
 }: {
   direction: string;
   stationId: string;
@@ -150,6 +158,7 @@ function DirectionSection({
   after: number | null;
   hasMore: boolean;
   transferOrigin: TransferOrigin | null;
+  boardContext: BoardContext;
 }) {
   return (
     <section aria-labelledby={`subway-${direction}`}>
@@ -167,7 +176,7 @@ function DirectionSection({
       {hasMore && (
         <div className="border-t border-edge px-5 py-3">
           <Link
-            href={directionHref(stationId, direction, after, transferOrigin)}
+            href={directionHref(stationId, direction, after, transferOrigin, boardContext)}
             className="block rounded-lg px-3 py-2 text-center text-sm font-semibold text-blue-700 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:text-blue-300"
           >
             Show more {direction} trains
@@ -178,11 +187,12 @@ function DirectionSection({
   );
 }
 
-function directionHref(
+export function directionHref(
   stationId: string,
   direction: string,
   after: number | null,
   transferOrigin: TransferOrigin | null,
+  boardContext: BoardContext = "station",
 ): string {
   const href = `/subway/station/${encodeURIComponent(stationId)}/${encodeURIComponent(direction)}`;
   const cutoff = transferOrigin
@@ -190,7 +200,11 @@ function directionHref(
     : after === null
       ? null
       : String(after);
-  return cutoff === null ? href : `${href}?after=${encodeURIComponent(cutoff)}`;
+  const query = new URLSearchParams();
+  if (cutoff !== null) query.set("after", cutoff);
+  if (boardContext === "interchange") query.set("board", boardContext);
+  const encodedQuery = query.toString();
+  return encodedQuery === "" ? href : `${href}?${encodedQuery}`;
 }
 
 /**

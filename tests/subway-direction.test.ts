@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { directionBoardParent } from "@/app/subway/station/[stationId]/[direction]/page";
+import { directionHref } from "@/components/SubwayBoard";
 import { interchangeForStation } from "@/lib/interchanges";
 
 describe("Subway direction breadcrumbs", () => {
@@ -26,5 +27,24 @@ describe("Subway direction breadcrumbs", () => {
       label: "Times Sq-42 St Subway",
       href: "/subway/station/127",
     });
+  });
+
+  it("keeps an ordinary Penn Station board out of the interchange hierarchy", () => {
+    expect(directionBoardParent({
+      stationName: "34 St-Penn Station",
+      boardStationId: "128",
+      interchange: null,
+    })).toEqual({
+      label: "34 St-Penn Station Subway",
+      href: "/subway/station/128",
+    });
+  });
+
+  it("carries interchange context only for transfer-node direction links", () => {
+    expect(directionHref("128", "Uptown", null, null)).toBe("/subway/station/128/Uptown");
+    expect(directionHref("128", "Uptown", null, null, "interchange"))
+      .toBe("/subway/station/128/Uptown?board=interchange");
+    expect(directionHref("128", "Uptown", null, { nodeId: "njt", trainRef: "1234" }, "interchange"))
+      .toBe("/subway/station/128/Uptown?after=njt%7C1234&board=interchange");
   });
 });

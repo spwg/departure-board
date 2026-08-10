@@ -62,6 +62,7 @@ export function InterchangeBoard({
           limit={direction === undefined ? 3 : null}
           transferOrigin={origin}
           expandComplex={false}
+          boardContext="interchange"
         />
       )}
     </>

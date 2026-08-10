@@ -721,7 +721,7 @@ describe("interactive component contract", () => {
     const main = render(<InterchangeBoard interchangeId="penn" nodeId="123" />);
     const more = await screen.findByRole("link", { name: "Show more Uptown trains" });
     expect(boardRequests[0]).toContain("/api/subway/departures/128?exact=true");
-    expect(more.getAttribute("href")).toBe(`/subway/station/${encodeURIComponent("128")}/Uptown?after=${encodeURIComponent("njt|1234")}`);
+    expect(more.getAttribute("href")).toBe(`/subway/station/${encodeURIComponent("128")}/Uptown?after=${encodeURIComponent("njt|1234")}&board=interchange`);
     main.unmount();
 
     window.history.replaceState(null, "", `/subway/station/128/Uptown?after=${encodeURIComponent("njt|1234")}`);
