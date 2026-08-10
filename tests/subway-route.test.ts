@@ -44,9 +44,26 @@ describe("Subway departures route contract", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(fetchSubwayFeedsForStation).toHaveBeenCalledWith(["R20"]);
+    expect(decodeSubwayBoard.mock.calls[0]?.[3]).toEqual({ expandComplex: true });
     const body = await response.json();
     expect(body.unavailableFeedFamilies).toEqual(["l"]);
     expect(body.departures[0]).toMatchObject({ route: "N", destination: "Astoria-Ditmars Blvd", nextStop: "49 St" });
+  });
+
+  it("passes an exact projection through for transfer-node boards", async () => {
+    getSubwayStation.mockReturnValue({ id: "A24" });
+    fetchSubwayFeedsForStation.mockResolvedValue({ feeds: [{ family: "bdfm", bytes: Uint8Array.of(1) }], unavailableFamilies: [] });
+    decodeSubwayBoard.mockReturnValue({
+      station: { id: "A24" },
+      departures: [],
+      sourceTimestamp: "2026-08-04T12:00:00.000Z",
+    });
+
+    const { GET } = await import("@/app/api/subway/departures/[stationId]/route");
+    const response = await GET(new Request("http://test/api/subway/departures/A24?exact=true"), context("A24"));
+
+    expect(response.status).toBe(200);
+    expect(decodeSubwayBoard.mock.calls[0]?.[3]).toEqual({ expandComplex: false });
   });
 
   it("reports an unavailable board only when no relevant feed family is usable", async () => {

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BoardMenu } from "@/components/BoardMenu";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { NearbyStations } from "@/components/NearbyStations";
 import { SettingsButton } from "@/components/SettingsButton";
@@ -234,17 +234,22 @@ describe("interactive component contract", () => {
     expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
   });
 
-  it("puts Home and Settings links behind the board menu", async () => {
-    render(<BoardMenu />);
+  it("renders a breadcrumb hierarchy with the current page as the heading", () => {
+    render(
+      <Breadcrumbs
+        parents={[
+          { label: "Stations", href: "/" },
+          { label: "New York Penn Station", href: "/interchange/penn" },
+        ]}
+        current="NJT departures"
+      />,
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
-    expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/");
-    const settings = await screen.findByRole("link", { name: "Settings" });
-    expect(settings.getAttribute("href")).toBe("/settings");
-    expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
-    expect(screen.queryByRole("navigation", { name: "Board navigation" })).toBeNull();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(breadcrumb).getByRole("link", { name: "Stations" }).getAttribute("href")).toBe("/");
+    expect(within(breadcrumb).getByRole("link", { name: "New York Penn Station" }).getAttribute("href")).toBe("/interchange/penn");
+    expect(within(breadcrumb).getByRole("heading", { name: "NJT departures" })).toBeTruthy();
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toBeTruthy();
   });
 
   it("renders a delayed departure with its timetable, train, line, and track", () => {
@@ -539,12 +544,12 @@ describe("interactive component contract", () => {
 
     render(<StationPicker />);
 
-    // Both favorite Penn choices resolve, each keeping the system the rider
-    // chose. Recent choices are deliberately not rendered on Home for now.
+    // Both favorite Penn choices resolve, each keeping the transfer node the
+    // rider chose. Recent choices are deliberately not rendered on Home.
     const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
     expect(within(favorites).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/interchange/penn/njt",
-      "/interchange/penn/subway",
+      "/interchange/penn/123",
     ]);
     expect(within(favorites).queryByText("fav")).toBeNull();
     expect(within(favorites).queryByText("recent")).toBeNull();
@@ -561,7 +566,7 @@ describe("interactive component contract", () => {
     expect(within(directory).getAllByRole("heading", { level: 3 }).length).toBeGreaterThan(1);
   });
 
-  it("presents an Interchange as one Penn choice per system, both opening the same page", () => {
+  it("presents an Interchange as one Penn choice per transfer node", () => {
     render(<StationPicker />);
     fireEvent.change(screen.getByRole("searchbox", { name: "Search stations" }), {
       target: { value: "New York Penn" },
@@ -572,13 +577,14 @@ describe("interactive component contract", () => {
       .filter((link) => link.textContent?.includes("New York Penn Station"));
     expect(penn.map((link) => link.getAttribute("href"))).toEqual([
       "/interchange/penn/njt",
-      "/interchange/penn/subway",
+      "/interchange/penn/123",
+      "/interchange/penn/ace",
     ]);
-    // The chip is textual on both, so the two are told apart without colour.
+    // The provider chip and route labels make the target choices explicit.
     expect(penn[0]!.textContent).toContain("NJT");
     expect(penn[1]!.textContent).toContain("Subway");
-    // The Subway view reaches Penn through both MTA stations.
-    expect(penn[1]!.textContent).toContain("1 · 2 · 3 · A · C · E");
+    expect(penn[1]!.textContent).toContain("1 · 2 · 3");
+    expect(penn[2]!.textContent).toContain("A · C · E");
   });
 
   it("keeps an Interchange's two systems independent when one of them fails", async () => {
@@ -640,7 +646,7 @@ describe("interactive component contract", () => {
     }
   });
 
-  it("offers both directions of a Penn transfer from an upcoming stop", async () => {
+  it("offers Penn's explicit transfer targets from an upcoming stop", async () => {
     const njtStops: StopListData = {
       ...stopList,
       stops: [
@@ -654,10 +660,12 @@ describe("interactive component contract", () => {
         : Promise.resolve(new Response(JSON.stringify({ stopList: njtStops, fixtures: false })))));
 
     const njt = render(<StopList train="1234" from="NB" />);
-    const toSubway = await screen.findByRole("link", { name: /Subway departures from New York Penn Station after this train arrives/ });
-    expect(toSubway.getAttribute("href")).toBe(`/interchange/penn/subway?after=${encodeURIComponent("njt|1234")}`);
-    // Only the Interchange stop carries one, and only while it is still ahead.
-    expect(screen.getAllByRole("link", { name: /departures from/ })).toHaveLength(1);
+    const to123 = await screen.findByRole("link", { name: /Transfer to 1\/2\/3 at New York Penn Station/ });
+    const toAce = screen.getByRole("link", { name: /Transfer to A\/C\/E at New York Penn Station/ });
+    expect(to123.getAttribute("href")).toBe(`/interchange/penn/123?after=${encodeURIComponent("njt|1234")}`);
+    expect(toAce.getAttribute("href")).toBe(`/interchange/penn/ace?after=${encodeURIComponent("njt|1234")}`);
+    // Only the Interchange stop carries transfer choices, and only while it is still ahead.
+    expect(screen.getAllByRole("link", { name: /Transfer to/ })).toHaveLength(2);
     njt.unmount();
 
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
@@ -670,17 +678,20 @@ describe("interactive component contract", () => {
     })))));
 
     render(<SubwayStopList tripId="mta:numbered:trip:127" />);
-    const toNjt = await screen.findByRole("link", { name: /NJT departures from New York Penn Station after this train arrives/ });
-    expect(toNjt.getAttribute("href")).toBe(`/interchange/penn/njt?after=${encodeURIComponent("subway|mta:numbered:trip:127")}`);
+    const toNjt = await screen.findByRole("link", { name: /Transfer to NJT at New York Penn Station/ });
+    const toAceFrom123 = screen.getByRole("link", { name: /Transfer to A\/C\/E at New York Penn Station/ });
+    expect(toNjt.getAttribute("href")).toBe(`/interchange/penn/njt?after=${encodeURIComponent("123|mta:numbered:trip:127")}`);
+    expect(toAceFrom123.getAttribute("href")).toBe(`/interchange/penn/ace?after=${encodeURIComponent("123|mta:numbered:trip:127")}`);
   });
 
   it("keeps the live transfer cutoff when opening more Subway trains", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
-    window.history.replaceState(null, "", `/interchange/penn/subway?after=${encodeURIComponent("njt|1234")}`);
+    window.history.replaceState(null, "", `/interchange/penn/123?after=${encodeURIComponent("njt|1234")}`);
 
     let originCalls = 0;
     let boardCalls = 0;
+    const boardRequests: string[] = [];
     vi.stubGlobal("fetch", vi.fn((input: unknown) => {
       const url = String(input);
       if (url.includes("/api/stops/")) {
@@ -693,6 +704,7 @@ describe("interactive component contract", () => {
       }
 
       boardCalls += 1;
+      boardRequests.push(url);
       const departures = boardCalls === 1
         ? [1, 2, 3, 4].map((minute) => ({ id: `up-${minute}`, route: "1", direction: "Uptown", destination: `Uptown ${minute}`, nextStop: "Times Sq-42 St", expectedTime: `2024-05-30T15:1${minute}:00.000Z` }))
         : [
@@ -700,19 +712,20 @@ describe("interactive component contract", () => {
           { id: "later", route: "1", direction: "Uptown", destination: "Still later", nextStop: "Times Sq-42 St", expectedTime: "2024-05-30T15:25:00.000Z" },
         ];
       return Promise.resolve(new Response(JSON.stringify({
-        station: { id: "128,A28", name: "34 St-Penn Station" },
+        station: { id: "128", name: "34 St-Penn Station" },
         sourceTimestamp: "2024-05-30T15:00:00.000Z",
         departures,
       })));
     }));
 
-    const main = render(<InterchangeBoard interchangeId="penn" system="subway" />);
+    const main = render(<InterchangeBoard interchangeId="penn" nodeId="123" />);
     const more = await screen.findByRole("link", { name: "Show more Uptown trains" });
-    expect(more.getAttribute("href")).toBe(`/subway/station/${encodeURIComponent("128,A28")}/Uptown?after=${encodeURIComponent("njt|1234")}`);
+    expect(boardRequests[0]).toContain("/api/subway/departures/128?exact=true");
+    expect(more.getAttribute("href")).toBe(`/subway/station/${encodeURIComponent("128")}/Uptown?after=${encodeURIComponent("njt|1234")}`);
     main.unmount();
 
-    window.history.replaceState(null, "", `/subway/station/128,A28/Uptown?after=${encodeURIComponent("njt|1234")}`);
-    render(<InterchangeBoard interchangeId="penn" system="subway" direction="Uptown" />);
+    window.history.replaceState(null, "", `/subway/station/128/Uptown?after=${encodeURIComponent("njt|1234")}`);
+    render(<InterchangeBoard interchangeId="penn" nodeId="123" direction="Uptown" />);
     expect(await screen.findByText("Still later")).toBeTruthy();
     await waitFor(() => expect(screen.queryByText("Too early")).toBeNull());
     expect(originCalls).toBe(2);
@@ -748,7 +761,7 @@ describe("interactive component contract", () => {
       })));
     }));
 
-    const view = render(<InterchangeBoard interchangeId="penn" system="njt" />);
+    const view = render(<InterchangeBoard interchangeId="penn" nodeId="njt" />);
 
     expect((await screen.findByRole("status")).textContent).toContain("when train 1234 arrives");
     // Strictly after the cutoff, and every one of them: nothing is judged
@@ -759,7 +772,7 @@ describe("interactive component contract", () => {
 
     // The cutoff follows the originating train rather than a copied timestamp.
     await vi.advanceTimersByTimeAsync(30_000);
-    view.rerender(<InterchangeBoard interchangeId="penn" system="njt" />);
+    view.rerender(<InterchangeBoard interchangeId="penn" nodeId="njt" />);
     await waitFor(() => expect(screen.queryByText("Catchable at first")).toBeNull());
     expect(screen.getByText("Still later")).toBeTruthy();
 
@@ -791,7 +804,7 @@ describe("interactive component contract", () => {
     }));
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    render(<InterchangeBoard interchangeId="penn" system="njt" />);
+    render(<InterchangeBoard interchangeId="penn" nodeId="njt" />);
 
     await waitFor(() => expect(screen.getByText("No live departures yet for that arrival time.")).toBeTruthy());
 

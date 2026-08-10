@@ -32,8 +32,9 @@ export type BoardListing = {
   routes: string[];
   latitude: number;
   longitude: number;
-  /** Set when this board is one system's view of an Interchange. */
+  /** Set when this board is one provider-owned node in an Interchange. */
   interchangeId?: string;
+  interchangeNodeId?: string;
 };
 
 /**
@@ -109,49 +110,64 @@ const ungrouped: BoardListing[] = [
 ];
 
 /**
- * Folds the boards an Interchange presents into one listing per system view.
+ * Replaces provider listings that belong to an Interchange with one listing
+ * per transfer node. A node is deliberately narrower than a provider system:
+ * at Penn, 1/2/3 and A/C/E are separate Subway choices.
  *
- * At Penn, MTA publishes 34 St-Penn Station as two separate complexes; the
- * rider recognises one place with a rail side and a subway side. So Home
- * offers exactly two Penn choices, and each opens the Interchange with that
- * system already active. The provider stations behind them stay distinct.
+ * At Penn, MTA publishes 34 St-Penn Station as separate provider stations and
+ * the rider recognises one place with several transfer targets. So Home offers
+ * one Penn choice per node, while the provider stations behind them stay
+ * distinct.
  */
 function applyInterchanges(listings: BoardListing[]): {
   listings: BoardListing[];
-  /** Where a folded-away listing's saved identities now resolve to. */
-  redirects: Map<BoardListing, BoardListing>;
+  /** Where provider identities folded into a node now resolve to. */
+  redirects: Map<string, BoardListing>;
 } {
   const folded: BoardListing[] = [];
-  const redirects = new Map<BoardListing, BoardListing>();
+  const foldedMembers = new Set<BoardListing>();
+  const redirects = new Map<string, BoardListing>();
 
   for (const interchange of INTERCHANGES) {
-    for (const view of interchange.views) {
+    for (const node of interchange.nodes) {
       const members = listings.filter((listing) =>
-        view.stationIds.some(
-          (stationId) => memberListing(listing, view.system, stationId),
+        node.stationIds.some(
+          (stationId) => memberListing(listing, node.system, stationId),
         ),
       );
       if (members.length === 0) continue;
+      const choice = node.system === "njt"
+        ? njtBoardChoice(node.stationIds[0]!)
+        : subwayBoardChoice(node.stationIds[0]!);
       const listing: BoardListing = {
-        choice: members[0]!.choice,
+        choice,
         name: interchange.name,
         alsoKnownAs: [
           ...new Set(members.flatMap((member) => [member.name, ...member.alsoKnownAs])),
         ].filter((name) => name !== interchange.name),
-        system: view.label,
-        href: interchangeHref(interchange, view),
-        routes: [...new Set(members.flatMap((member) => member.routes))],
+        system: node.system === "njt" ? "NJT" : "Subway",
+        href: interchangeHref(interchange, node),
+        routes: node.routes.length > 0
+          ? node.routes
+          : [...new Set(members.flatMap((member) => member.routes))],
         latitude: interchange.latitude,
         longitude: interchange.longitude,
         interchangeId: interchange.id,
+        interchangeNodeId: node.id,
       };
       folded.push(listing);
-      for (const member of members) redirects.set(member, listing);
+      for (const member of members) foldedMembers.add(member);
+      for (const stationId of node.stationIds) {
+        const nodeChoice = node.system === "njt"
+          ? njtBoardChoice(stationId)
+          : subwayBoardChoice(stationId);
+        redirects.set(boardChoiceKey(nodeChoice), listing);
+      }
     }
   }
 
   return {
-    listings: [...listings.filter((listing) => !redirects.has(listing)), ...folded],
+    listings: [...listings.filter((listing) => !foldedMembers.has(listing)), ...folded],
     redirects,
   };
 }
@@ -173,6 +189,10 @@ const interchanged = applyInterchanges(ungrouped);
 export const boardListings: BoardListing[] = [...interchanged.listings]
   .sort((a, b) => a.name.localeCompare(b.name) || a.system.localeCompare(b.system));
 
+/** Follows a provider identity to the node listing that replaced it. */
+const resolve = (choice: BoardChoice, listing: BoardListing) =>
+  interchanged.redirects.get(boardChoiceKey(choice)) ?? listing;
+
 const KM_PER_MILE = 1.609344;
 export const NEARBY_MAX_DISTANCE_KM = 2 * KM_PER_MILE;
 
@@ -181,20 +201,18 @@ export type NearbyBoardListing = {
   distanceKm: number;
 };
 
-/** Follows a listing an Interchange folded away to the view that replaced it. */
-const resolve = (listing: BoardListing) => interchanged.redirects.get(listing) ?? listing;
 
 /**
  * Every provider identity that resolves to a board: a listing's own choice,
  * every MTA member of its complex, and every station an Interchange folded in.
  */
 const byChoiceKey = new Map<string, BoardListing>([
-  ...[...subway.byMember].map(([key, listing]) => [key, resolve(listing)] as const),
-  ...ungrouped.map((listing) => [boardChoiceKey(listing.choice), resolve(listing)] as const),
+  ...[...subway.byMember].map(([key, listing]) => [key, interchanged.redirects.get(key) ?? listing] as const),
+  ...ungrouped.map((listing) => [boardChoiceKey(listing.choice), resolve(listing.choice, listing)] as const),
   ...boardListings.map((listing) => [boardChoiceKey(listing.choice), listing] as const),
 ]);
 
-/** The other system views of the same Interchange, this one included. */
+/** The other transfer nodes in the same Interchange, this one included. */
 export function interchangeSiblings(listing: BoardListing): BoardListing[] {
   if (!listing.interchangeId) return [listing];
   return boardListings.filter((candidate) => candidate.interchangeId === listing.interchangeId);

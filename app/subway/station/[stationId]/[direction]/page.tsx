@@ -81,11 +81,20 @@ async function SubwayDirectionContent({
       routes={context.routes}
       choice={choice}
       favoriteName={`${context.station.name} Subway`}
+      breadcrumbParents={[
+        { label: "Stations", href: "/" },
+        {
+          label: `${context.station.name} Subway`,
+          href: `/subway/station/${boardStationId}`,
+        },
+      ]}
+      breadcrumbCurrent={direction}
+      breadcrumbSubtitle={null}
     >
       {interchange ? (
         <InterchangeBoard
           interchangeId={interchange.interchange.id}
-          system="subway"
+          nodeId={interchange.node.id}
           direction={direction}
         />
       ) : (

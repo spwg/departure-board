@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { BoardMenu } from "@/components/BoardMenu";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
+import { SettingsButton } from "@/components/SettingsButton";
 import { njtBoardChoice } from "@/lib/boardChoices";
 import { getStation, stations } from "@/lib/stations";
 
@@ -47,12 +48,11 @@ export default async function StationPage({
           pinned header inside actually pins. */}
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-          <BoardMenu />
-
-          <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold tracking-tight sm:text-lg">
-            {station.name}
-          </h1>
-
+          <Breadcrumbs
+            parents={[{ label: "Stations", href: "/" }]}
+            current={station.name}
+          />
+          <SettingsButton />
           <FavoriteButton
             choice={njtBoardChoice(station.code)}
             name={station.name}

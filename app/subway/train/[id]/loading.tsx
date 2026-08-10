@@ -1,4 +1,5 @@
-import { BoardMenu } from "@/components/BoardMenu";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { SettingsButton } from "@/components/SettingsButton";
 
 /**
  * Also the Suspense boundary the page needs: the trip identity and the board
@@ -10,9 +11,8 @@ export default function Loading() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="flex items-center gap-1 border-b border-edge px-2 py-2.5 sm:px-3">
-          <BoardMenu />
-          <div className="mx-auto h-5 w-28 animate-pulse rounded bg-edge" />
-          <span aria-hidden className="h-10 w-10 shrink-0" />
+          <Breadcrumbs parents={[{ label: "Stations", href: "/" }]} current="This train" />
+          <SettingsButton />
         </header>
 
         <div className="flex items-center gap-3 border-b border-edge px-4 py-3 sm:px-5" aria-hidden>

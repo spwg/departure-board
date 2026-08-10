@@ -21,12 +21,14 @@ export function SubwayBoard({
   direction,
   limit = 3,
   transferOrigin = null,
+  expandComplex = true,
 }: {
   stationId: string;
   after?: number | null;
   direction?: string;
   limit?: number | null;
   transferOrigin?: TransferOrigin | null;
+  expandComplex?: boolean;
 }) {
   const [board, setBoard] = useState<Board | null>(null);
   const [failed, setFailed] = useState(false);
@@ -36,7 +38,8 @@ export function SubwayBoard({
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
-      const response = await fetch(`/api/subway/departures/${stationId}`, { cache: "no-store", signal });
+      const exactQuery = expandComplex ? "" : "?exact=true";
+      const response = await fetch(`/api/subway/departures/${stationId}${exactQuery}`, { cache: "no-store", signal });
       if (!response.ok) throw new Error(String(response.status));
       const next: Board = await response.json();
       setBoard(next);
@@ -50,7 +53,7 @@ export function SubwayBoard({
       if (loaded.current) setStale(true);
       else setFailed(true);
     }
-  }, [stationId]);
+  }, [expandComplex, stationId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -154,7 +157,7 @@ function DirectionSection({
         id={`subway-${direction}`}
         // Clears the station header, which is itself pinned on phones and
         // static from tablet up.
-        className="sticky top-15 z-9 border-y border-edge bg-bg px-5 py-2 text-sm font-semibold sm:top-0"
+        className="sticky top-[var(--subway-header-offset,4.625rem)] z-9 border-y border-edge bg-bg px-5 py-2 text-sm font-semibold sm:top-0"
       >
         {direction}
       </h2>

@@ -93,6 +93,47 @@ describe("MTA realtime board contract", () => {
     expect(board.departures.some((departure) => departure.id.includes("trip-3"))).toBe(false);
   });
 
+  it("can project exact provider stations without expanding their complex", () => {
+    const feed = transit_realtime.FeedMessage.encode({
+      header: { gtfsRealtimeVersion: "2.0", timestamp: 1_786_000_000 },
+      entity: [
+        {
+          id: "numbered",
+          tripUpdate: {
+            trip: { tripId: "numbered", routeId: "1" },
+            stopTimeUpdate: [
+              { stopId: "128N", departure: { time: 1_786_000_100 } },
+              { stopId: "101N", arrival: { time: 1_786_001_000 } },
+            ],
+          },
+        },
+        {
+          id: "other-member",
+          tripUpdate: {
+            trip: { tripId: "other-member", routeId: "A" },
+            stopTimeUpdate: [
+              { stopId: "A28N", departure: { time: 1_786_000_200 } },
+              { stopId: "A27N", arrival: { time: 1_786_001_000 } },
+            ],
+          },
+        },
+      ],
+    }).finish();
+    const metadata = {
+      stopNames: { "101": "Van Cortlandt Park-242 St", A27: "42 St-Port Authority Bus Terminal" },
+      stations: [
+        { id: "128", name: "34 St-Penn Station", complexId: "318", routes: ["1", "2", "3"], latitude: 0, longitude: 0, directions: { N: "Uptown", S: "Downtown" } },
+        { id: "A28", name: "34 St-Penn Station", complexId: "164", routes: ["A", "C", "E"], latitude: 0, longitude: 0, directions: { N: "Uptown", S: "Downtown" } },
+      ],
+    };
+
+    const board = decodeSubwayBoard([snapshot(feed)], ["128"], metadata, { expandComplex: false });
+
+    expect(board.station.memberIds).toEqual(["128"]);
+    expect(board.departures).toHaveLength(1);
+    expect(board.departures[0]).toMatchObject({ route: "1", stationId: "128" });
+  });
+
   it("rejects malformed protobuf and a missing source timestamp", () => {
     const metadata = { stopNames: {}, stations: [{ id: "128", name: "Penn", complexId: "318", routes: ["1"], latitude: 0, longitude: 0, directions: { N: "Uptown", S: "Downtown" } }] };
     expect(() => decodeSubwayBoard([snapshot(Uint8Array.of(255))], ["128"], metadata)).toThrow();

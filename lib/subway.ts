@@ -69,6 +69,11 @@ export type SubwayBoard = {
   unavailableFeedFamilies?: FeedFamily[];
 };
 
+export type SubwayBoardOptions = {
+  /** Keep a provider-owned transfer node separate from its MTA complex. */
+  expandComplex?: boolean;
+};
+
 export type SubwayMetadata = {
   stopNames: Record<string, string>;
   stations: SubwayStation[];
@@ -133,16 +138,23 @@ export function decodeSubwayBoard(
   feedSnapshots: SubwayFeedSnapshot[],
   stationIds: string[],
   metadata: SubwayMetadata,
+  options: SubwayBoardOptions = {},
 ): SubwayBoard {
   const selected = metadata.stations.find((station) => station.id === stationIds[0]);
   if (!selected) throw new Error(`Unknown Subway station: ${stationIds[0]}`);
+  const requestedMembers = options.expandComplex === false
+    ? stationIds.map((stationId) => metadata.stations.find((station) => station.id === stationId))
+    : stationIds.flatMap((stationId) => getSubwayStationMembers(stationId, metadata));
   const members = [
     ...new Map(
-      stationIds
-        .flatMap((stationId) => getSubwayStationMembers(stationId, metadata))
+      requestedMembers
+        .filter((member): member is SubwayStation => member !== undefined)
         .map((member) => [member.id, member]),
     ).values(),
   ];
+  if (options.expandComplex === false && members.length !== new Set(stationIds).size) {
+    throw new Error(`Unknown Subway station: ${stationIds.join(",")}`);
+  }
   const memberById = new Map(members.map((station) => [station.id, station]));
   const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: transit_realtime.FeedMessage.decode(bytes) }));
   const generated = feeds.map(({ feed }) => seconds(feed.header.timestamp));
