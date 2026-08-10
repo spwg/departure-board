@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import type { BreadcrumbParent } from "@/components/Breadcrumbs";
 import { InterchangeBoard } from "@/components/InterchangeBoard";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { SubwayBoard } from "@/components/SubwayBoard";
@@ -64,6 +65,30 @@ export function directionBoardParent({
   };
 }
 
+export function directionBreadcrumbParents({
+  stationName,
+  boardStationId,
+  interchange,
+  after,
+}: {
+  stationName: string;
+  boardStationId: string;
+  interchange: { interchange: Interchange; node: TransferNode } | null;
+  after?: string | string[];
+}): BreadcrumbParent[] {
+  const parents: BreadcrumbParent[] = [{ label: "Stations", href: "/" }];
+  if (interchange) {
+    parents.push({
+      label: interchange.interchange.name,
+      href: `/interchange/${interchange.interchange.id}`,
+    });
+  }
+  return [
+    ...parents,
+    directionBoardParent({ stationName, boardStationId, interchange, after }),
+  ];
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -108,12 +133,6 @@ async function SubwayDirectionContent({
   const interchange = isInterchangeBoard(query.board)
     ? interchangeForStation("subway", context.stationIds[0]!)
     : null;
-  const parent = directionBoardParent({
-    stationName: context.station.name,
-    boardStationId,
-    interchange,
-    after: query.after,
-  });
 
   return (
     <SubwayStationShell
@@ -121,10 +140,12 @@ async function SubwayDirectionContent({
       routes={context.routes}
       choice={choice}
       favoriteName={`${context.station.name} Subway`}
-      breadcrumbParents={[
-        { label: "Stations", href: "/" },
-        parent,
-      ]}
+      breadcrumbParents={directionBreadcrumbParents({
+        stationName: context.station.name,
+        boardStationId,
+        interchange,
+        after: query.after,
+      })}
       breadcrumbCurrent={direction}
       breadcrumbSubtitle={null}
     >
