@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { NearbyStations } from "@/components/NearbyStations";
 import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
@@ -467,30 +468,22 @@ describe("interactive component contract", () => {
     render(<ServiceWorkerRegistrar />); expect(register).toHaveBeenCalledWith("/sw.js");
   });
 
-  it("keeps the picker open, labels nearby stations, and ignores recent history", async () => {
+  it("shows saved boards as Favorites and leaves nearby boards to their own page", () => {
+    window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NY"]));
     window.localStorage.setItem(
       "departure-board:recent-stations",
       JSON.stringify(["AM", "AN", "AS", "AH", "AZ"]),
     );
-    Object.defineProperty(navigator, "geolocation", {
-      configurable: true,
-      value: {
-        getCurrentPosition: (onSuccess: PositionCallback) => onSuccess({
-          coords: { latitude: 40.7505, longitude: -73.9934 },
-        } as GeolocationPosition),
-      },
-    });
 
     render(<StationPicker />);
 
-    const stations = screen.getByRole("heading", { name: "Stations" }).closest("section")!;
-    expect(within(stations).getAllByRole("link").map((link) => link.textContent)).toEqual([
-      expect.stringContaining("New York Penn Station"),
-      expect.stringContaining("New York Penn Station"),
+    const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
+    expect(within(favorites).getAllByRole("link").map((link) => link.textContent)).toEqual([
       expect.stringContaining("New York Penn Station"),
     ]);
-    expect(within(stations).getAllByText("nearby")).toHaveLength(3);
-    expect(within(stations).queryByText("recent")).toBeNull();
+    expect(within(favorites).queryByText("fav")).toBeNull();
+    expect(within(favorites).queryByText("nearby")).toBeNull();
+    expect(screen.getByRole("link", { name: "Nearby" }).getAttribute("href")).toBe("/nearby");
     expect(screen.queryByRole("button", { name: "Clear recent stations" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
     expect(window.location.pathname).toBe("/");
@@ -507,11 +500,12 @@ describe("interactive component contract", () => {
     expect(screen.queryByRole("button", { name: "Filter stations" })).toBeNull();
 
     window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NY"]));
+    cleanup();
     render(<StationPicker />);
-    const stations = screen.getByRole("heading", { name: "Stations" }).closest("section")!;
-    expect(within(stations).getByText("New York Penn Station")).toBeTruthy();
-    expect(within(stations).getByText("NJT")).toBeTruthy();
-    expect(within(stations).getByText("fav")).toBeTruthy();
+    const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
+    expect(within(favorites).getByText("New York Penn Station")).toBeTruthy();
+    expect(within(favorites).getByText("NJT")).toBeTruthy();
+    expect(within(favorites).queryByText("fav")).toBeNull();
   });
 
   it("searches both systems from one box and tells repeated Subway names apart", () => {
@@ -552,13 +546,13 @@ describe("interactive component contract", () => {
 
     // Both favorite Penn choices resolve, each keeping the transfer node the
     // rider chose. Recent choices are deliberately not rendered on Home.
-    const stations = screen.getByRole("heading", { name: "Stations" }).closest("section")!;
-    expect(within(stations).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+    const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
+    expect(within(favorites).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/interchange/penn/njt",
       "/interchange/penn/123",
     ]);
-    expect(within(stations).getAllByText("fav")).toHaveLength(2);
-    expect(within(stations).queryByText("recent")).toBeNull();
+    expect(within(favorites).queryByText("fav")).toBeNull();
+    expect(within(favorites).queryByText("recent")).toBeNull();
   });
 
   it("browses one alphabetical directory covering both systems", () => {
@@ -817,23 +811,49 @@ describe("interactive component contract", () => {
     expect(screen.getByRole("status").textContent).toContain("when train 1234 arrives");
   });
 
-  it("offers the nearest board across both systems", async () => {
+  it("only requests location on Nearby and orders the nearby boards", async () => {
+    const getCurrentPosition = vi.fn((onSuccess: PositionCallback) => onSuccess({
+      coords: { latitude: 40.7359, longitude: -73.9906 },
+    } as GeolocationPosition));
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
       value: {
-        // Union Square: the closest board here belongs to MTA, not NJT.
-        getCurrentPosition: (onSuccess: PositionCallback) => onSuccess({
-          coords: { latitude: 40.7359, longitude: -73.9906 },
-        } as GeolocationPosition),
+        getCurrentPosition,
       },
     });
 
     render(<StationPicker />);
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    cleanup();
 
-    const stations = (await screen.findByRole("heading", { name: "Stations" })).closest("section")!;
-    expect(within(stations).getByText("Subway")).toBeTruthy();
-    expect(within(stations).getByRole("link").getAttribute("href")).toMatch(/^\/subway\/station\//);
-    expect(within(stations).getByText(/Nearby ·/)).toBeTruthy();
+    render(<NearbyStations />);
+    expect(await screen.findByRole("heading", { name: "Nearby" })).toBeTruthy();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+
+    const nearby = screen.getByRole("heading", { name: "Closest first" }).closest("section")!;
+    expect(within(nearby).getAllByText("Subway").length).toBeGreaterThan(0);
+    expect(within(nearby).getAllByRole("link")[0]!.getAttribute("href")).toMatch(/^\/subway\/station\//);
+    expect(within(nearby).getAllByText(/right here|mi away/).length).toBeGreaterThan(0);
+    expect(within(nearby).queryByText("Atlantic City Rail Terminal")).toBeNull();
+  });
+
+  it("explains when the browser denies Nearby location access", async () => {
+    Object.defineProperty(navigator, "geolocation", {
+      configurable: true,
+      value: {
+        getCurrentPosition: (_onSuccess: PositionCallback, onError: PositionErrorCallback) => onError({
+          code: 1,
+          message: "User denied Geolocation",
+        } as GeolocationPositionError),
+      },
+    });
+
+    render(<NearbyStations />);
+
+    const error = await screen.findByRole("alert");
+    expect(error.textContent).toContain("Location access was denied");
+    expect(error.textContent).toContain("Allow location access");
+    expect(screen.queryByText("Finding nearby stations…")).toBeNull();
   });
 
   it("ignores and clears watch state left over from before watches were retired", () => {
@@ -848,24 +868,15 @@ describe("interactive component contract", () => {
     expect(window.localStorage.getItem("departure-board:watches")).toBeNull();
   });
 
-  it("keeps the full directory collapsed and shows nearby boards without recent history", async () => {
+  it("hides empty Favorites and keeps the full directory collapsed", () => {
     window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["NY"]));
-    Object.defineProperty(navigator, "geolocation", {
-      configurable: true,
-      value: {
-        getCurrentPosition: (onSuccess: PositionCallback) => onSuccess({
-          coords: { latitude: 40.7505, longitude: -73.9934 },
-        } as GeolocationPosition),
-      },
-    });
 
     render(<StationPicker />);
 
-    const stations = (await screen.findByRole("heading", { name: "Stations" })).closest("section")!;
-    expect(within(stations).getAllByRole("link").filter((link) => link.textContent?.includes("New York Penn Station"))).toHaveLength(3);
-    expect(within(stations).getAllByText("nearby")).toHaveLength(3);
-    expect(within(stations).queryByText("recent")).toBeNull();
-    expect(within(stations).queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Favorites" })).toBeNull();
+    expect(screen.queryByText(/No favorites yet/)).toBeNull();
+    expect(screen.queryByText("recent")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
     const directory = screen.getByText("Browse all stations").closest("details")!;
     expect(directory.open).toBe(false);
 

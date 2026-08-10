@@ -193,6 +193,15 @@ export const boardListings: BoardListing[] = [...interchanged.listings]
 const resolve = (choice: BoardChoice, listing: BoardListing) =>
   interchanged.redirects.get(boardChoiceKey(choice)) ?? listing;
 
+const KM_PER_MILE = 1.609344;
+export const NEARBY_MAX_DISTANCE_KM = 2 * KM_PER_MILE;
+
+export type NearbyBoardListing = {
+  listing: BoardListing;
+  distanceKm: number;
+};
+
+
 /**
  * Every provider identity that resolves to a board: a listing's own choice,
  * every MTA member of its complex, and every station an Interchange folded in.
@@ -275,6 +284,25 @@ export function nearestBoardListing(
     }
   }
   return { listing: best, distanceKm: bestDistance };
+}
+
+/** Board choices within the nearby radius, ordered closest first. */
+export function nearbyBoardListings(
+  latitude: number,
+  longitude: number,
+  maxDistanceKm = NEARBY_MAX_DISTANCE_KM,
+): NearbyBoardListing[] {
+  return boardListings
+    .map((listing) => ({
+      listing,
+      distanceKm: distanceKm(latitude, longitude, listing.latitude, listing.longitude),
+    }))
+    .filter(({ distanceKm: distance }) => distance <= maxDistanceKm)
+    .sort((a, b) =>
+      a.distanceKm - b.distanceKm ||
+      a.listing.name.localeCompare(b.listing.name) ||
+      a.listing.system.localeCompare(b.listing.system),
+    );
 }
 
 /** The full directory grouped by first character, for alphabetical browsing. */

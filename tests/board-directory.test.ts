@@ -5,6 +5,8 @@ import {
   boardListingsByLetter,
   getBoardListing,
   interchangeSiblings,
+  nearbyBoardListings,
+  NEARBY_MAX_DISTANCE_KM,
   nearestBoardListing,
   searchBoardListings,
 } from "@/lib/boardDirectory";
@@ -90,6 +92,18 @@ describe("combined board directory", () => {
 
     const unionSquare = nearestBoardListing(40.7359, -73.9906);
     expect(unionSquare.listing.system).toBe("Subway");
+  });
+
+  it("orders nearby boards by distance and caps the result at two miles", () => {
+    const nearby = nearbyBoardListings(40.750569, -73.993519);
+
+    expect(nearby.length).toBeGreaterThan(0);
+    expect(nearby[0]!.listing.interchangeId).toBe("penn");
+    expect(nearby.every(({ distanceKm }) => distanceKm <= NEARBY_MAX_DISTANCE_KM)).toBe(true);
+    expect(nearby.map(({ distanceKm }) => distanceKm)).toEqual(
+      [...nearby.map(({ distanceKm }) => distanceKm)].sort((a, b) => a - b),
+    );
+    expect(nearby.some(({ listing }) => listing.name === "Atlantic City Rail Terminal")).toBe(false);
   });
 
   it("groups the whole directory alphabetically without dropping a listing", () => {

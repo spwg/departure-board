@@ -1,33 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
+import {
+  BoardListingList,
+  type BoardListingListItem,
+} from "@/components/BoardListingList";
 import { SettingsButton } from "@/components/SettingsButton";
 import { useFavorites } from "@/lib/favorites";
 import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
 import {
   boardListingsByLetter,
   getBoardListing,
-  interchangeSiblings,
-  nearestBoardListing,
   searchBoardListings,
   type BoardListing,
 } from "@/lib/boardDirectory";
-import { lineColor } from "@/lib/stations";
-import { subwayRouteColor } from "@/lib/subway";
-
-
-type LocationState =
-  | { status: "locating" | "unavailable" }
-  | { status: "found"; listing: BoardListing; distanceKm: number };
-
-type StationReason = "nearby" | "fav";
-
-type StationListItem = {
-  listing: BoardListing;
-  reasons: StationReason[];
-  nearbyDistanceKm?: number;
-};
 
 /**
  * Turns saved choices into the boards they open, dropping any this build no
@@ -48,99 +35,17 @@ function resolveChoices(choices: BoardChoice[]): BoardListing[] {
   return resolved;
 }
 
-const noopSubscribe = () => () => {};
-
-const KM_PER_MILE = 1.609344;
-
-function formatDistance(km: number): string {
-  const miles = km / KM_PER_MILE;
-  return miles < 0.1 ? "right here" : `${miles.toFixed(1)} mi away`;
-}
-
 export function StationPicker() {
   const { favorites, loaded: favoritesLoaded } = useFavorites();
-
-  // Derived rather than set from an effect, so there is no render-then-correct
-  // flicker and no synchronous state update on mount. Assumed available while
-  // server-rendering, which matches every current browser.
-  const geolocationAvailable = useSyncExternalStore(
-    noopSubscribe,
-    () => "geolocation" in navigator,
-    () => true,
-  );
-
-  const [located, setLocated] = useState<LocationState | null>(null);
   const [query, setQuery] = useState("");
   const [directoryOpen, setDirectoryOpen] = useState(false);
 
-  const location = useMemo<LocationState>(
-    () => located ?? (geolocationAvailable ? { status: "locating" } : { status: "unavailable" }),
-    [geolocationAvailable, located],
-  );
-
-  useEffect(() => {
-    if (!("geolocation" in navigator)) return;
-
-    let cancelled = false;
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (cancelled) return;
-        const { listing, distanceKm } = nearestBoardListing(
-          position.coords.latitude,
-          position.coords.longitude,
-        );
-        setLocated({ status: "found", listing, distanceKm });
-      },
-      () => {
-        // Denied or timed out — fall back to favourites and search rather
-        // than nagging.
-        if (!cancelled) setLocated({ status: "unavailable" });
-      },
-      { timeout: 8000, maximumAge: 5 * 60_000 },
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const results = useMemo(() => searchBoardListings(query, 40), [query]);
   const grouped = useMemo(() => boardListingsByLetter(), []);
-
-  const stationItems = useMemo(() => {
-    const items = new Map<string, StationListItem>();
-
-    const add = (
-      listing: BoardListing,
-      reason: StationReason,
-      options: { distanceKm?: number } = {},
-    ) => {
-      const key = boardChoiceKey(listing.choice);
-      const item = items.get(key) ?? {
-        listing,
-        reasons: [],
-      };
-      if (!item.reasons.includes(reason)) item.reasons.push(reason);
-      if (options.distanceKm !== undefined) item.nearbyDistanceKm = options.distanceKm;
-      items.set(key, item);
-    };
-
-    if (location.status === "found") {
-      // An Interchange is one place with several transfer nodes, so nearby
-      // offers every target rather than letting a few metres of coordinate
-      // difference pick one for the rider.
-      for (const listing of interchangeSiblings(location.listing)) {
-        add(listing, "nearby", { distanceKm: location.distanceKm });
-      }
-    }
-
-    if (favoritesLoaded) {
-      for (const listing of resolveChoices(favorites)) add(listing, "fav");
-    }
-
-    return [...items.values()];
-  }, [favorites, favoritesLoaded, location]);
+  const favoriteItems = useMemo<BoardListingListItem[]>(
+    () => resolveChoices(favorites).map((listing) => ({ listing })),
+    [favorites],
+  );
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
@@ -151,19 +56,20 @@ export function StationPicker() {
           </h1>
           <p className="mt-1 text-sm text-muted">NJ Transit rail and NYC Subway</p>
         </div>
-        <SettingsButton />
+        <div className="flex shrink-0 items-center gap-1">
+          <Link
+            href="/nearby"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          >
+            Nearby
+          </Link>
+          <SettingsButton />
+        </div>
       </div>
 
-      {(location.status === "locating" || stationItems.length > 0) && (
-        <Section title="Stations">
-          {location.status === "locating" && (
-            <p className="border-b border-edge px-4 py-3 text-sm text-muted">
-              Finding the nearest station…
-            </p>
-          )}
-          {stationItems.length > 0 && (
-            <StationList items={stationItems} />
-          )}
+      {favoritesLoaded && favoriteItems.length > 0 && (
+        <Section title="Favorites">
+          <BoardListingList items={favoriteItems} />
         </Section>
       )}
 
@@ -182,7 +88,7 @@ export function StationPicker() {
       {query ? (
         <Section title={`${results.length} result${results.length === 1 ? "" : "s"}`}>
           {results.length > 0 ? (
-            <StationList items={results.map((listing) => stationListItem(listing))} />
+            <BoardListingList items={results.map((listing) => ({ listing }))} />
           ) : (
             <p className="px-4 py-8 text-center text-sm text-muted">
               No stations match “{query}”.
@@ -212,7 +118,7 @@ export function StationPicker() {
                   <h3 className="sticky top-0 z-10 border-b border-edge bg-bg px-4 py-1.5 text-xs font-semibold text-muted">
                     {letter}
                   </h3>
-                  <StationList items={group.map((listing) => stationListItem(listing))} />
+                  <BoardListingList items={group.map((listing) => ({ listing }))} />
                 </div>
               ))}
             </div>
@@ -241,99 +147,5 @@ function Section({
         {children}
       </div>
     </section>
-  );
-}
-
-function subwayDetail(listing: BoardListing): string {
-  if (listing.system !== "Subway") return "";
-  const routes = listing.routes.join(" · ");
-  return listing.alsoKnownAs.length > 0
-    ? `${routes} — also ${listing.alsoKnownAs.join(", ")}`
-    : routes;
-}
-
-function stationListItem(listing: BoardListing): StationListItem {
-  return { listing, reasons: [] };
-}
-
-const reasonStyles: Record<StationReason, string> = {
-  nearby: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
-  fav: "bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200",
-};
-
-function StationList({ items }: { items: StationListItem[] }) {
-  return (
-    <ul className="divide-y divide-edge">
-      {items.map((item) => {
-        const { listing } = item;
-        const details = [
-          item.nearbyDistanceKm === undefined
-            ? ""
-            : `Nearby · ${formatDistance(item.nearbyDistanceKm)}`,
-          subwayDetail(listing),
-        ].filter(Boolean).join(" · ");
-
-        return (
-          <li key={boardChoiceKey(listing.choice)}>
-            <Link
-              href={listing.href}
-              className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{listing.name}</span>
-                {/* Dozens of Subway stations share a name, so the routes have to
-                    be readable rather than only coloured — the bullets beside
-                    them are decoration. The complex's other published names
-                    follow, for a rider who searched one of those instead. */}
-                {details && (
-                  <span className="mt-0.5 block truncate text-xs text-muted">
-                    {details}
-                  </span>
-                )}
-              </span>
-
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
-                {listing.system}
-              </span>
-
-              {item.reasons.length > 0 && (
-                <span className="flex shrink-0 items-center gap-1">
-                  {item.reasons.map((reason) => (
-                    <span
-                      key={reason}
-                      className={`rounded-full px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide ${reasonStyles[reason]}`}
-                    >
-                      {reason}
-                    </span>
-                  ))}
-                </span>
-              )}
-
-              {/* Provider-native symbols: MTA route bullets carry their letter,
-                  NJT line colours are a hint alongside the names above. */}
-              <span aria-hidden className="flex shrink-0 gap-1">
-                {listing.system === "Subway"
-                  ? listing.routes.slice(0, 4).map((route) => (
-                      <span
-                        key={route}
-                        className="grid h-4 w-4 place-items-center rounded-full text-[0.6rem] font-bold text-white"
-                        style={{ backgroundColor: subwayRouteColor(route) }}
-                      >
-                        {route}
-                      </span>
-                    ))
-                  : listing.routes.map((line) => (
-                      <span
-                        key={line}
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: lineColor(line) }}
-                      />
-                    ))}
-              </span>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
   );
 }
