@@ -6,8 +6,9 @@ import { RecentStationRecorder } from "@/components/RecentStationRecorder";
 import { SubwayBoard } from "@/components/SubwayBoard";
 import { SubwayStationShell } from "@/components/SubwayStationShell";
 import { subwayBoardChoice } from "@/lib/boardChoices";
-import { interchangeForStation } from "@/lib/interchanges";
+import { interchangeForStation, type Interchange, type TransferNode } from "@/lib/interchanges";
 import { getSubwayStation, getSubwayStationRoutes } from "@/lib/subway";
+import { parseTransferOrigin, transferHref } from "@/lib/transfers";
 
 type SearchParams = Promise<{ after?: string | string[] }>;
 
@@ -30,6 +31,32 @@ function parseAfter(value: string | string[] | undefined): number | null {
   if (!raw) return null;
   const after = Number(raw);
   return Number.isFinite(after) ? after : null;
+}
+
+export function directionBoardParent({
+  stationName,
+  boardStationId,
+  interchange,
+  after,
+}: {
+  stationName: string;
+  boardStationId: string;
+  interchange: { interchange: Interchange; node: TransferNode } | null;
+  after?: string | string[];
+}) {
+  if (!interchange) {
+    return {
+      label: `${stationName} Subway`,
+      href: `/subway/station/${boardStationId}`,
+    };
+  }
+
+  const rawAfter = Array.isArray(after) ? after[0] : after;
+  const origin = parseTransferOrigin(rawAfter ?? null);
+  return {
+    label: `${interchange.interchange.name} ${interchange.node.label}`,
+    href: transferHref(interchange.interchange, interchange.node, origin ?? undefined),
+  };
 }
 
 export async function generateMetadata({
@@ -74,6 +101,12 @@ async function SubwayDirectionContent({
   const boardStationId = context.stationIds.join(",");
   const choice = subwayBoardChoice(context.stationIds[0]!);
   const interchange = interchangeForStation("subway", context.stationIds[0]!);
+  const parent = directionBoardParent({
+    stationName: context.station.name,
+    boardStationId,
+    interchange,
+    after: query.after,
+  });
 
   return (
     <SubwayStationShell
@@ -83,10 +116,7 @@ async function SubwayDirectionContent({
       favoriteName={`${context.station.name} Subway`}
       breadcrumbParents={[
         { label: "Stations", href: "/" },
-        {
-          label: `${context.station.name} Subway`,
-          href: `/subway/station/${boardStationId}`,
-        },
+        parent,
       ]}
       breadcrumbCurrent={direction}
       breadcrumbSubtitle={null}
