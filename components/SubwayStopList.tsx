@@ -145,7 +145,7 @@ export function SubwayStopList({ tripId }: { tripId: string }) {
             />
             <span className="min-w-0 flex-1">
               <StopName id={stop.id} name={stop.name} />
-              <TransferLinks system="subway" stationId={stop.id} trainRef={tripId} />
+              <TransferLinks system="subway" stationId={stop.id} />
             </span>
             <span className="shrink-0 text-right text-sm tabular-nums text-muted sm:text-base">
               {stop.time ? (

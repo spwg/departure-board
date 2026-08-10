@@ -12,10 +12,6 @@ _Avoid_: Universal station, merged station
 A permitted origin-to-target link between two provider-owned station boards. It describes navigation availability, not a guaranteed or recommended catchable connection.
 _Avoid_: Connection recommendation, itinerary
 
-**Transfer context**:
-The exact originating train and Transfer node carried into a target board so its live departures can begin after that train's arrival at the correct boarding location.
-_Avoid_: Copied timestamp, trip planner
-
 **System chip**:
 The NJT or Subway label shown in the combined station picker. Color may reinforce the label but never replaces its text.
 _Avoid_: Color-only system indicator, per-row board label
@@ -107,7 +103,7 @@ An ordered sequence of links to parent pages, ending at the current page. It sho
 _Avoid_: Category path, navigation menu
 
 **Transfer links**:
-Visible links from an exact train's stop to other station boards. They are peer destinations, not nested breadcrumb levels.
+Visible links from an exact train's stop to other station boards. They open peer destinations directly, not nested breadcrumb levels.
 _Avoid_: System switcher, breadcrumb segment
 
 **Navigation drawer**:

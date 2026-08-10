@@ -6,13 +6,6 @@ import {
   type TransitSystem,
 } from "./boardChoices";
 
-/** The exact train and station that a transfer board follows. */
-export type TransferOrigin = {
-  system: TransitSystem;
-  stationId: string;
-  trainRef: string;
-};
-
 /** One station board that a rider can open from a departure's stop. */
 export type TransferTarget = {
   choice: BoardChoice;
@@ -49,38 +42,12 @@ const STATION_TRANSFERS: StationTransfer[] = [
   { from: subwayBoardChoice("125"), target: target(subwayBoardChoice("A24"), "59 St-Columbus Circle", "A/C/B/D") },
 ];
 
-const SEPARATOR = "|";
-
-export function encodeTransferOrigin(origin: TransferOrigin): string {
-  return `${origin.system}:${origin.stationId}${SEPARATOR}${origin.trainRef}`;
-}
-
-/** Reads the `after` parameter. Anything unrecognised is simply no cutoff. */
-export function parseTransferOrigin(value: string | null): TransferOrigin | null {
-  if (!value) return null;
-  const separator = value.indexOf(SEPARATOR);
-  if (separator === -1) return null;
-  const source = value.slice(0, separator);
-  const sourceSeparator = source.indexOf(":");
-  if (sourceSeparator === -1) return null;
-  const system = source.slice(0, sourceSeparator);
-  const stationId = source.slice(sourceSeparator + 1);
-  const trainRef = value.slice(separator + 1);
-  if ((system !== "njt" && system !== "subway") || !stationId || !trainRef) return null;
-  return { system, stationId, trainRef };
-}
-
-/** The URL of one station board, optionally starting after a train. */
-export function transferHref(
-  targetBoard: BoardChoice,
-  origin?: TransferOrigin,
-): string {
+/** The URL of one station board. */
+export function transferHref(targetBoard: BoardChoice): string {
   const base = targetBoard.system === "njt"
     ? `/station/${encodeURIComponent(targetBoard.stationId)}`
     : `/subway/station/${encodeURIComponent(targetBoard.stationId)}`;
-  return origin
-    ? `${base}?after=${encodeURIComponent(encodeTransferOrigin(origin))}`
-    : base;
+  return base;
 }
 
 /** The transfer targets available from one upcoming stop. */

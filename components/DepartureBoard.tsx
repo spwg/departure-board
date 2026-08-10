@@ -16,11 +16,8 @@ const TICK_MS = 15_000;
 /**
  * Polls the station endpoint for `code`. Until a first result it shows loading
  * or a retryable error; later failures retain the last board and mark it stale.
- *
- * `after` is a transfer cutoff: show only trains leaving strictly after an
- * instant. Nothing is judged catchable — every later departure is shown.
  */
-export function DepartureBoard({ code, after = null }: { code: string; after?: number | null }) {
+export function DepartureBoard({ code }: { code: string }) {
   const [departures, setDepartures] = useState<Departure[] | null>(null);
   const [fixtures, setFixtures] = useState(false);
   const [stale, setStale] = useState(false);
@@ -152,10 +149,6 @@ export function DepartureBoard({ code, after = null }: { code: string; after?: n
         )
         .map((departure) => departure.id),
     );
-    const visibleDepartures = departures.filter(
-      (departure) =>
-        after === null || Date.parse(departure.expectedTime) > after,
-    );
     content = (
       <>
         {(stale || fixtures) && (
@@ -170,21 +163,15 @@ export function DepartureBoard({ code, after = null }: { code: string; after?: n
             </p>
           )
         )}
-        {visibleDepartures.length === 0 ? (
-          <p className="px-5 py-16 text-center text-muted">
-            No live departures yet for that arrival time.
-          </p>
-        ) : (
-          // One chronological sequence, no direction headings: the station's
-          // own concourse board is flat and a rail rider scans it for the one
-          // train they already have in mind.
-          <DepartureList
-            departures={visibleDepartures}
-            now={now}
-            stationCode={code}
-            showViaSecaucus={showViaSecaucus}
-          />
-        )}
+        {/* One chronological sequence, no direction headings: the station's
+            own concourse board is flat and a rail rider scans it for the one
+            train they already have in mind. */}
+        <DepartureList
+          departures={departures}
+          now={now}
+          stationCode={code}
+          showViaSecaucus={showViaSecaucus}
+        />
       </>
     );
   }

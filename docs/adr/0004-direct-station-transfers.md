@@ -25,8 +25,7 @@ to 1 at Columbus Circle.
 
 - The station picker lists each provider-owned board directly.
 - Transfer configuration stores directed station-to-station links.
-- A transfer context carries the source system, station, and train identity so
-  the target board can filter after the source train's live arrival.
+- Destination boards remain independent provider-owned views.
 - Rail and Subway boards remain separate provider-owned feeds.
 - Breadcrumbs contain station pages and board details only; transfer links are
   actions between peer station destinations rather than breadcrumb levels.

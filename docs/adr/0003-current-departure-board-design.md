@@ -28,10 +28,8 @@ architectural rule.
   next stop, and countdown without a redundant clock time.
 - Departure rows on both systems open the exact train's remaining route.
   Destination filters are not part of either board.
-- A transfer link opens another station's board and preserves a live
-  originating-train cutoff when the rider switches boards or opens a full
-  Subway direction page. The product filters departures to those after that
-  cutoff but does not claim which transfers are catchable.
+- A transfer link opens another station's board directly. It does not combine
+  provider feeds or turn station navigation into trip planning.
 - Service status and freshness remain board-level context. They do not merge
   the two systems' data or replace departures with a combined operations list.
 
@@ -41,7 +39,7 @@ Showing every Subway train directly on the station board made the primary view
 long and difficult to scan. The overview/detail split preserves immediate
 comparison of the next useful options while keeping all later departures one
 tap away. It also gives multi-direction stations a bounded primary board and
-lets transfer cutoffs continue updating on the direction page. This explicitly
-reverses ADR-0001's rule that Subway direction groups are uncapped and have no
+keeps the full list one tap away. This explicitly reverses ADR-0001's rule that
+Subway direction groups are uncapped and have no
 “view all” step; the Rail list and the remaining rider-job distinctions survive
 because the current implementation still embodies them.

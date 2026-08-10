@@ -7,9 +7,7 @@ import { SubwayStationShell } from "@/components/SubwayStationShell";
 import { TransferBoard } from "@/components/TransferBoard";
 import { subwayBoardChoice } from "@/lib/boardChoices";
 import { getSubwayStation } from "@/lib/subway";
-import { parseTransferOrigin, transferHref } from "@/lib/transfers";
-
-type SearchParams = Promise<{ after?: string | string[] }>;
+import { transferHref } from "@/lib/transfers";
 
 function stationIdsFromParam(value: string): string[] {
   return decodeURIComponent(value).split(",").filter(Boolean);
@@ -38,34 +36,28 @@ export async function generateMetadata({
 
 export default function SubwayDirectionPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ stationId: string; direction: string }>;
-  searchParams: SearchParams;
 }) {
   return (
     <Suspense fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
-      <SubwayDirectionContent params={params} searchParams={searchParams} />
+      <SubwayDirectionContent params={params} />
     </Suspense>
   );
 }
 
 async function SubwayDirectionContent({
   params,
-  searchParams,
 }: {
   params: Promise<{ stationId: string; direction: string }>;
-  searchParams: SearchParams;
 }) {
   const { stationId, direction: rawDirection } = await params;
   const context = getStationContext(stationId);
   if (!context) notFound();
 
   const direction = decodeURIComponent(rawDirection);
-  const query = await searchParams;
   const boardStationId = context.stationIds.join(",");
   const choice = subwayBoardChoice(context.stationIds[0]!);
-  const origin = parseTransferOrigin(Array.isArray(query.after) ? query.after[0] ?? null : query.after ?? null);
 
   return (
     <SubwayStationShell
@@ -77,7 +69,7 @@ async function SubwayDirectionContent({
         { label: "Stations", href: "/" },
         {
           label: `${context.station.name} Subway`,
-          href: transferHref(choice, origin ?? undefined),
+          href: transferHref(choice),
         },
       ]}
       breadcrumbCurrent={direction}
