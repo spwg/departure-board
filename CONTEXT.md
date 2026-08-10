@@ -95,3 +95,21 @@ _Avoid_: Recent stations, default stations
 **Station-picker provenance label**:
 The visible badge explaining why a board choice appears in the combined picker list: “fav” for a saved favorite and “nearby” for geolocation. Nearby choices also show their distance; when the nearest station belongs to an Interchange, each system-specific choice shares that provenance.
 _Avoid_: Unlabelled suggestions, recommended station
+
+### Navigation language
+
+**Breadcrumb trail**:
+An ordered sequence of links to parent pages, ending at the current page. It shows the rider's location in the board hierarchy; it is not a list of arbitrary categories.
+_Avoid_: Category path, navigation menu
+
+**Sibling switcher**:
+A visible control for choosing among peer views within one Interchange, such as NJT and Subway. Its choices are parallel boards, not nested breadcrumb levels.
+_Avoid_: Nested system category, breadcrumb segment
+
+**Navigation drawer**:
+An edge-opening panel containing top-level destinations, with the board temporarily unavailable behind it while the panel is open on a phone.
+_Avoid_: Popover, context menu
+
+**Popover**:
+A small temporary panel anchored to a control, used for short contextual choices rather than the app's page hierarchy.
+_Avoid_: Navigation drawer, breadcrumb trail

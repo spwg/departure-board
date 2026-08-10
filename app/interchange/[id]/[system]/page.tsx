@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { BoardMenu } from "@/components/BoardMenu";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { InterchangeBoard } from "@/components/InterchangeBoard";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
+import { SettingsButton } from "@/components/SettingsButton";
 import { njtBoardChoice, subwayBoardChoice } from "@/lib/boardChoices";
 import {
   INTERCHANGES,
@@ -59,10 +60,14 @@ export default async function InterchangePage({
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 border-b border-edge bg-surface/85 backdrop-blur-md sm:static">
           <div className="flex items-center gap-1 px-2 py-2.5 sm:px-3">
-            <BoardMenu />
-            <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold tracking-tight sm:text-lg">
-              {interchange.name}
-            </h1>
+            <Breadcrumbs
+              parents={[
+                { label: "Stations", href: "/" },
+                { label: interchange.name, href: `/interchange/${interchange.id}` },
+              ]}
+              current={`${active.label} departures`}
+            />
+            <SettingsButton />
             <FavoriteButton choice={choice} name={`${interchange.name} ${active.label}`} />
           </div>
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BoardMenu } from "@/components/BoardMenu";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { SettingsButton } from "@/components/SettingsButton";
 import { SubwayStopList } from "@/components/SubwayStopList";
 import { parseSubwayDepartureId } from "@/lib/subway";
 
@@ -25,12 +26,11 @@ export default async function SubwayTrainPage({ params }: { params: Promise<{ id
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-          <BoardMenu />
-          <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold tracking-tight sm:text-lg">
-            This train
-          </h1>
-          {/* Balances the menu button so the title stays centred. */}
-          <span aria-hidden className="h-10 w-10 shrink-0" />
+          <Breadcrumbs
+            parents={[{ label: "Stations", href: "/" }]}
+            current="This train"
+          />
+          <SettingsButton />
         </header>
 
         <SubwayStopList tripId={tripId} />

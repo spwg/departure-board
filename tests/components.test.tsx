@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BoardMenu } from "@/components/BoardMenu";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { SettingsButton } from "@/components/SettingsButton";
 import { DepartureBoard } from "@/components/DepartureBoard";
@@ -233,17 +233,22 @@ describe("interactive component contract", () => {
     expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
   });
 
-  it("puts Home and Settings links behind the board menu", async () => {
-    render(<BoardMenu />);
+  it("renders a breadcrumb hierarchy with the current page as the heading", () => {
+    render(
+      <Breadcrumbs
+        parents={[
+          { label: "Stations", href: "/" },
+          { label: "New York Penn Station", href: "/interchange/penn" },
+        ]}
+        current="NJT departures"
+      />,
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
-    expect(screen.getByRole("link", { name: "Home" }).getAttribute("href")).toBe("/");
-    const settings = await screen.findByRole("link", { name: "Settings" });
-    expect(settings.getAttribute("href")).toBe("/settings");
-    expect(screen.queryByRole("dialog", { name: "Settings" })).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "Close menu" }));
-    expect(screen.queryByRole("navigation", { name: "Board navigation" })).toBeNull();
+    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
+    expect(within(breadcrumb).getByRole("link", { name: "Stations" }).getAttribute("href")).toBe("/");
+    expect(within(breadcrumb).getByRole("link", { name: "New York Penn Station" }).getAttribute("href")).toBe("/interchange/penn");
+    expect(within(breadcrumb).getByRole("heading", { name: "NJT departures" })).toBeTruthy();
+    expect(breadcrumb.querySelector('[aria-current="page"]')).toBeTruthy();
   });
 
   it("renders a delayed departure with its timetable, train, line, and track", () => {
