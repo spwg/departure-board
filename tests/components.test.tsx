@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { NearbyStations } from "@/components/NearbyStations";
 import { SettingsButton } from "@/components/SettingsButton";
+import { StationTransferLinks } from "@/components/StationTransferLinks";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
@@ -682,6 +683,14 @@ describe("interactive component contract", () => {
     const toAceFrom123 = screen.getByRole("link", { name: /Transfer to A\/C\/E at New York Penn Station/ });
     expect(toNjt.getAttribute("href")).toBe(`/station/NY?after=${encodeURIComponent("subway:128|mta:numbered:trip:127")}`);
     expect(toAceFrom123.getAttribute("href")).toBe(`/subway/station/A28?after=${encodeURIComponent("subway:128|mta:numbered:trip:127")}`);
+  });
+
+  it("labels station transfer links with their destination routes", () => {
+    render(<StationTransferLinks system="njt" stationId="NY" />);
+
+    expect(screen.getByRole("link", { name: "Transfer to 1/2/3 trains at New York Penn Station" }).textContent).toBe("1/2/3 trains");
+    expect(screen.getByRole("link", { name: "Transfer to A/C/E trains at New York Penn Station" }).textContent).toBe("A/C/E trains");
+    expect(screen.queryByText(/View/)).toBeNull();
   });
 
   it("keeps the live transfer cutoff when opening more Subway trains", async () => {
