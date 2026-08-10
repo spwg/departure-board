@@ -72,15 +72,17 @@ export default async function InterchangePage({
           </div>
 
           {targets.length > 0 && (
-            <nav aria-label="Transfer options" className="flex items-center gap-1 overflow-x-auto px-2 pb-2 sm:px-3">
-              <span className="shrink-0 px-1 text-xs font-medium text-muted">Transfer to</span>
+            <nav aria-label="Transfer options" className="flex items-center gap-2 overflow-x-auto border-t border-edge bg-bg px-2 py-2 sm:px-3">
+              <span className="shrink-0 px-1 text-sm font-medium text-text">Transfer to:</span>
               {targets.map((target) => (
                 <Link
                   key={target.id}
                   href={transferHref(interchange, target)}
-                  className="shrink-0 rounded-full border border-edge px-3 py-1 text-sm font-semibold text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                  aria-label={`Transfer to ${target.label} at ${interchange.name}`}
+                  className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 text-sm font-medium text-blue-800 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-100 hover:text-blue-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current active:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200 dark:hover:border-blue-700 dark:hover:bg-blue-900"
                 >
                   {target.label}
+                  <span aria-hidden>›</span>
                 </Link>
               ))}
             </nav>

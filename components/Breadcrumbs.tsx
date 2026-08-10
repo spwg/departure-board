@@ -7,7 +7,8 @@ export type BreadcrumbParent = {
 
 /**
  * Shows the current location without hiding the board behind a navigation
- * control. Parent pages stay links; the current page is the board heading.
+ * control. Parent pages stay links; the current page remains the semantic
+ * board heading while using the same compact scale as the breadcrumb.
  */
 export function Breadcrumbs({
   parents,
@@ -33,7 +34,7 @@ export function Breadcrumbs({
           </li>
         ))}
         <li aria-current="page" className="min-w-0 basis-full sm:basis-auto sm:max-w-md">
-          <h1 className="truncate text-base font-semibold tracking-tight text-text sm:text-lg">
+          <h1 className="truncate text-sm font-medium text-text">
             {current}
           </h1>
           {subtitle && <p className="truncate text-xs text-muted">{subtitle}</p>}
