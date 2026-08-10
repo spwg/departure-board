@@ -1,35 +1,48 @@
 # departure-board
 
-A pure NJ Transit rail departure board — just your trains, destinations, tracks, and status. No Amtrak, no bus/light rail, no station alerts, no announcements.
+A web-based departure board for NJ Transit rail and NYC Subway. Search or
+browse stations, find nearby stations, save local favorites, and view live
+departure information in a focused station view. The site is not a trip
+planner and does not provide Amtrak, bus, or light-rail boards.
 
-Tap a departure for its **stops**: every station that train calls at, with the estimated time at each.
-
-Built with Next.js (App Router), TypeScript, and Tailwind CSS. Installable as a home-screen app on iPhone/Android/iPad.
+Built with Next.js (App Router), TypeScript, and Tailwind CSS. The site uses
+provider-native data for each transit system and keeps their boards separate.
 
 ## Development
+
+Requires Node.js 24, matching the version used by CI.
 
 ```bash
 npm install
 cp .env.example .env.local
-npm run dev
+npm run dev:fixtures
 ```
 
-Requires NJ Transit RailData API credentials from
+`npm run dev:fixtures` starts a UI-only local run using built-in NJ Transit
+fixture data. It does not need NJ Transit credentials and is the quickest way
+to work on the site locally. `NJT_USE_FIXTURES=true` forces fixture mode even
+when credentials are present.
+
+For live NJ Transit data, register for RailData API credentials at
 [developer.njtransit.com/registration](https://developer.njtransit.com/registration).
-Copy `.env.example` to `.env.local` and fill in:
+These are the API credentials emailed during registration, not a
+njtransit.com website login.
 
-```
+Copy `.env.example` to `.env.local` and set:
+
+```text
 NJT_API_USERNAME=
 NJT_API_PASSWORD=
+NJT_USE_FIXTURES=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+# Leave unset for production RailData; npm run dev:njt-test supplies this.
+# NJT_API_BASE_URL=https://testraildata.njtransit.com/api
 ```
 
-Without them the app serves stand-in departure and stop data, so it still runs.
-
-> **Host:** requests go to `https://raildata.njtransit.com/api`. NJ Transit's
-> developer portal documents `raildata.njt.gov`, but that name currently has no
-> A record and cannot be reached; `njtransit.com` is what actually serves
-> traffic, and what NJ Transit's own DepartureVision site calls. Set
-> `NJT_API_BASE_URL` to switch once the `.gov` host comes up.
+The Redis variables are required when NJ Transit credentials are configured;
+they provide shared token storage and locking. The Subway integration uses
+official MTA GTFS-Realtime feeds and does not require project credentials.
 
 ## NJ Transit test backend
 
@@ -42,50 +55,84 @@ npm run dev:njt-test
 
 This starts the same app with
 `NJT_API_BASE_URL=https://testraildata.njtransit.com/api`. It still reads
-`NJT_API_USERNAME` and `NJT_API_PASSWORD` from your ignored `.env.local`; do
-not commit credentials. Start a fresh dev server after changing environment
-variables. Verify it with `curl http://127.0.0.1:3000/api/departures/NY` — a
-successful live response has `"fixtures":false`.
+`NJT_API_USERNAME`, `NJT_API_PASSWORD`, and the Upstash variables from your
+ignored `.env.local`; do not commit credentials. Start a fresh dev server after
+changing environment variables. Verify it with:
 
-The test backend has its own data and may return imperfect or stale labels.
-Use it to exercise the integration and error states, not to validate current
+```bash
+curl http://127.0.0.1:3000/api/departures/NY
+```
+
+A successful live response has `"fixtures":false`.
+
+The test backend has its own data and may return imperfect or stale labels. Use
+it to exercise the integration and error states, not to validate current
 operational train information.
 
-## A note on the API token
+## NJ Transit API token
 
-NJ Transit allows only **10 `getToken` calls per day**, so the token has to be
-reused across requests rather than fetched per request. The token is stored in
-Upstash Redis, with an atomic lock ensuring that simultaneous cache misses
-cannot mint several tokens. Next's Data Cache sits in front to avoid a Redis
-read on every board refresh. The token is replaced only when NJ Transit reports
-that it has gone bad.
+NJ Transit allows only **10 `getToken` calls per day**, so the token is reused
+across requests rather than fetched per request. The token is stored in Upstash
+Redis, with an atomic lock ensuring that simultaneous cache misses cannot mint
+several tokens. Next's Data Cache sits in front to avoid a Redis read on every
+board refresh. The token is replaced only when NJ Transit reports that it has
+gone bad.
 
 Create a **Free** Upstash Redis database and set
-`UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` in Vercel. The free tier
-requires no payment card and includes 500,000 commands per month. Normal token
-usage costs only a handful of commands per day because Redis is contacted only
-on a Data Cache miss or token invalidation. Do not enable auto-upgrade or switch
-the database to a paid plan.
+`UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in local development and
+in the deployed application's environment. Avoid putting credentials in
+tracked files or exposing them through client-side environment variables.
 
-Departure data is cached separately, in a plain in-process map, because
-throwing across a `use cache` boundary loses the error type the token-refresh
-path depends on. Its limit (40,000/day) is loose enough that per-instance
-caching is fine.
+Departure and stop data are cached briefly per server instance to stay well
+below NJ Transit's 40,000-per-day data-call limit. The browser also labels
+cached fallback data as stale rather than presenting it as live.
 
-Stops are a second data call, `getTrainStopList`, cached the same way and
-against the same 40,000/day limit. It has to be its own request: NJ Transit's
-API manual notes that `getTrainSchedule19Rec` — the board's endpoint — returns
-DepartureVision's data "but without train stop list information". Its `TIME`
-field is an *estimated* arrival, not a timetable time, and comes back empty for
-stops far enough down the line, which is why the stops view shows a dash there
-rather than treating it as an error.
+## Data sources and limitations
+
+- NJ Transit rail departures and remaining-stop data come from the NJ Transit
+  RailData API.
+- NYC Subway departures and remaining-route data come from official MTA
+  GTFS-Realtime feeds.
+- NJ Transit service notices come from the official Rail Advisories RSS feed.
+- Realtime information may be delayed, incomplete, stale, or inaccurate. Verify
+  critical travel details with NJ Transit or the MTA before traveling.
+- This site is not affiliated with, endorsed by, or licensed by NJ Transit.
+
+## Deployment
+
+The app is designed to deploy as a Next.js application, including on Vercel.
+Set the following in the deployment environment for live NJ Transit data:
+
+- `NJT_API_USERNAME`
+- `NJT_API_PASSWORD`
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+Do not commit `.env.local` or expose any of these values through a
+`NEXT_PUBLIC_` variable.
 
 ## Scripts
 
 - `npm run dev` — start the local dev server
-- `npm test` — verify concurrent token cache misses mint exactly one NJT token
-- `npm run build` — production build
+- `npm run dev:fixtures` — start a local UI run with forced NJ Transit fixtures
+- `npm run dev:njt-test` — start the local server against NJ Transit's test backend
+- `npm test` — run the Node token-store tests and Vitest tests
+- `npm run test:node` — run the Node token-store tests
+- `npm run test:unit` — run the Vitest unit and component tests once
+- `npm run test:watch` — run Vitest in watch mode
+- `npm run lint` — run ESLint
+- `npm run typecheck` — generate Next route types and run TypeScript checks
+- `npm run build` — create a production build
 - `npm run start` — serve a production build
-- `npm run lint` — ESLint
-- `npm run build-stations` — regenerate `lib/stations.json` from NJ Transit's station data (only needs to be re-run if the station list changes)
-- `npm run build-icons` — regenerate the app icons from one SVG source (needs `sharp`, which is not a dependency: `npm i -D sharp` first)
+- `npm run build-stations` — regenerate the NJ Transit station directory
+- `npm run build-subway-stops <stops.txt> <output.json>` — generate Subway stop-name metadata
+- `npm run build-subway-stations <stations.csv> <output.json>` — generate Subway station metadata
+- `npm run build-subway-headsigns <trips.txt> <output.json>` — generate Subway headsign metadata
+- `npm run build-icons` — regenerate app icons; requires `sharp` as a local development dependency
+
+The repository's GitHub Actions workflow runs lint, typecheck, tests, and a
+production build for pull requests and pushes to `main`.
+
+## License
+
+This project is released under the [MIT License](LICENSE).
