@@ -5,6 +5,7 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { NearbyStations } from "@/components/NearbyStations";
 import { SettingsButton } from "@/components/SettingsButton";
 import { StationTransferLinks } from "@/components/StationTransferLinks";
+import { TransferLinks } from "@/components/TransferLinks";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
@@ -687,9 +688,20 @@ describe("interactive component contract", () => {
   it("labels station transfer links with their destination routes", () => {
     render(<StationTransferLinks system="njt" stationId="NY" />);
 
-    expect(screen.getByRole("link", { name: "Transfer to 1/2/3 trains at New York Penn Station" }).textContent).toBe("1/2/3 trains");
-    expect(screen.getByRole("link", { name: "Transfer to A/C/E trains at New York Penn Station" }).textContent).toBe("A/C/E trains");
+    const to123 = screen.getByRole("link", { name: "Transfer to 1/2/3 trains at New York Penn Station" });
+    const toAce = screen.getByRole("link", { name: "Transfer to A/C/E trains at New York Penn Station" });
+    expect([...to123.querySelectorAll("[aria-hidden=\"true\"] > span")].map((icon) => icon.textContent)).toEqual(["1", "2", "3"]);
+    expect([...toAce.querySelectorAll("[aria-hidden=\"true\"] > span")].map((icon) => icon.textContent)).toEqual(["A", "C", "E"]);
+    expect(to123.textContent).toContain("trains");
+    expect(toAce.textContent).toContain("trains");
     expect(screen.queryByText(/View/)).toBeNull();
+  });
+
+  it("uses route bullets for exact-train Subway transfer links", () => {
+    render(<TransferLinks system="subway" stationId="A24" />);
+
+    const link = screen.getByRole("link", { name: "Transfer to 1 at 59 St-Columbus Circle" });
+    expect([...link.querySelectorAll("[aria-hidden=\"true\"] > span")].map((icon) => icon.textContent)).toEqual(["1"]);
   });
 
   it("only requests location on Nearby and orders the nearby boards", async () => {
