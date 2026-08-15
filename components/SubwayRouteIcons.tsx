@@ -1,6 +1,8 @@
 import { subwayRouteColor } from "@/lib/subway";
 
-const LIGHT_TEXT_ROUTES = new Set(["1", "2", "3", "B", "D", "F", "FX", "L", "M", "N", "Q", "R", "W"]);
+// MTA's yellow route bullets need dark lettering; the other route colors use
+// the provider's standard white lettering, including the red 1/2/3 and gray L.
+const LIGHT_TEXT_ROUTES = new Set(["N", "Q", "R", "W"]);
 
 /** Provider-native MTA route bullets for a visible route label. */
 export function SubwayRouteIcons({
