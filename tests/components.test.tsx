@@ -5,6 +5,7 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { NearbyStations } from "@/components/NearbyStations";
 import { SettingsButton } from "@/components/SettingsButton";
 import { StationTransferLinks } from "@/components/StationTransferLinks";
+import { SubwayRouteIcons } from "@/components/SubwayRouteIcons";
 import { TransferLinks } from "@/components/TransferLinks";
 import { DepartureBoard } from "@/components/DepartureBoard";
 import { DepartureRow } from "@/components/DepartureRow";
@@ -706,6 +707,12 @@ describe("interactive component contract", () => {
 
     const link = screen.getByRole("link", { name: "Transfer to 1 at 59 St-Columbus Circle" });
     expect([...link.querySelectorAll("[aria-hidden=\"true\"] > span")].map((icon) => icon.textContent)).toEqual(["1"]);
+  });
+
+  it("uses dark text on the light-gray L route bullet", () => {
+    render(<SubwayRouteIcons routes={["L"]} />);
+
+    expect(screen.getByText("L").getAttribute("style")).toContain("color: rgb(24, 24, 27)");
   });
 
   it("only requests location on Nearby and orders the nearby boards", async () => {
