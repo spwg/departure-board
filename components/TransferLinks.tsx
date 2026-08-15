@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { TransitSystem } from "@/lib/boardChoices";
 import { transferHref, transfersFromStop } from "@/lib/transfers";
+import { SubwayRouteIcons } from "./SubwayRouteIcons";
 
 /**
  * The connection affordance on one upcoming stop of an exact train.
@@ -25,9 +26,14 @@ export function TransferLinks({
           key={`${target.choice.system}:${target.choice.stationId}`}
           href={transferHref(target.choice)}
           aria-label={`Transfer to ${target.label} at ${target.stationName}`}
-          className="rounded-full border border-edge px-2 py-0.5 text-xs font-medium text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          className="inline-flex items-center gap-1 rounded-full border border-edge px-2 py-0.5 text-xs font-medium text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
         >
-          Transfer to {target.label}
+          <span>Transfer to</span>
+          {target.choice.system === "subway" ? (
+            <SubwayRouteIcons routes={target.label.split("/")} />
+          ) : (
+            <span>{target.label}</span>
+          )}
         </Link>
       ))}
     </div>
