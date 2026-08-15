@@ -15,7 +15,7 @@ export function SubwayRouteIcons({
       {routes.map((route) => (
         <span
           key={route}
-          className={`grid min-w-4 place-items-center rounded-full px-1 font-bold leading-none ${size === "md" ? "h-6 text-xs" : "h-5 text-[0.65rem]"}`}
+          className={`grid place-items-center rounded-full font-bold leading-none ${size === "md" ? "h-6 w-6 text-xs" : "h-5 w-5 text-[0.65rem]"}`}
           style={{
             backgroundColor: subwayRouteColor(route),
             color: LIGHT_TEXT_ROUTES.has(route) ? "#18181b" : "#ffffff",

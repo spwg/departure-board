@@ -690,8 +690,12 @@ describe("interactive component contract", () => {
 
     const to123 = screen.getByRole("link", { name: "Transfer to 1/2/3 trains at New York Penn Station" });
     const toAce = screen.getByRole("link", { name: "Transfer to A/C/E trains at New York Penn Station" });
-    expect([...to123.querySelectorAll("[aria-hidden=\"true\"] > span")].map((icon) => icon.textContent)).toEqual(["1", "2", "3"]);
-    expect([...toAce.querySelectorAll("[aria-hidden=\"true\"] > span")].map((icon) => icon.textContent)).toEqual(["A", "C", "E"]);
+    const to123Icons = [...to123.querySelectorAll("[aria-hidden=\"true\"] > span")];
+    const toAceIcons = [...toAce.querySelectorAll("[aria-hidden=\"true\"] > span")];
+    expect(to123Icons.map((icon) => icon.textContent)).toEqual(["1", "2", "3"]);
+    expect(toAceIcons.map((icon) => icon.textContent)).toEqual(["A", "C", "E"]);
+    expect(to123Icons.every((icon) => icon.classList.contains("h-6") && icon.classList.contains("w-6"))).toBe(true);
+    expect(toAceIcons.every((icon) => icon.classList.contains("h-6") && icon.classList.contains("w-6"))).toBe(true);
     expect(to123.textContent).toContain("trains");
     expect(toAce.textContent).toContain("trains");
     expect(screen.queryByText(/View/)).toBeNull();
