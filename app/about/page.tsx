@@ -7,6 +7,11 @@ export const metadata: Metadata = {
 
 /** Explains the source and limits of the departure information shown in the app. */
 export default function AboutPage() {
+  const commit = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7);
+  const branch = process.env.VERCEL_GIT_COMMIT_REF;
+  const deploymentId = process.env.VERCEL_DEPLOYMENT_ID;
+  const environment = process.env.VERCEL_ENV ?? "local";
+
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
       <Link
@@ -59,6 +64,36 @@ export default function AboutPage() {
           </a>
         </div>
       </article>
+
+      <section
+        aria-labelledby="app-version-title"
+        className="mt-4 rounded-xl border border-edge bg-surface p-5 sm:p-7"
+      >
+        <h2 id="app-version-title" className="text-lg font-semibold tracking-tight">
+          App version
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          Use these details to confirm which deployment is serving this page.
+        </p>
+        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-[9rem_1fr]">
+          <dt className="text-muted">Environment</dt>
+          <dd className="font-medium text-text">{environment}</dd>
+          <dt className="text-muted">Commit</dt>
+          <dd className="font-mono text-text">{commit ?? "Unavailable"}</dd>
+          {branch && (
+            <>
+              <dt className="text-muted">Branch</dt>
+              <dd className="font-mono text-text">{branch}</dd>
+            </>
+          )}
+          {deploymentId && (
+            <>
+              <dt className="text-muted">Deployment</dt>
+              <dd className="break-all font-mono text-text">{deploymentId}</dd>
+            </>
+          )}
+        </dl>
+      </section>
     </main>
   );
 }
