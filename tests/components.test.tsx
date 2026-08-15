@@ -709,9 +709,11 @@ describe("interactive component contract", () => {
     expect([...link.querySelectorAll("[aria-hidden=\"true\"] > span")].map((icon) => icon.textContent)).toEqual(["1"]);
   });
 
-  it("uses dark text on the light-gray L route bullet", () => {
-    render(<SubwayRouteIcons routes={["L"]} />);
+  it("uses dark text on light route bullets", () => {
+    render(<SubwayRouteIcons routes={["1", "B", "L"]} />);
 
+    expect(screen.getByText("1").getAttribute("style")).toContain("color: rgb(24, 24, 27)");
+    expect(screen.getByText("B").getAttribute("style")).toContain("color: rgb(24, 24, 27)");
     expect(screen.getByText("L").getAttribute("style")).toContain("color: rgb(24, 24, 27)");
   });
 

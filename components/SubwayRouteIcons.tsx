@@ -1,6 +1,6 @@
 import { subwayRouteColor } from "@/lib/subway";
 
-const LIGHT_TEXT_ROUTES = new Set(["L", "N", "Q", "R", "W"]);
+const LIGHT_TEXT_ROUTES = new Set(["1", "2", "3", "B", "D", "F", "FX", "L", "M", "N", "Q", "R", "W"]);
 
 /** Provider-native MTA route bullets for a visible route label. */
 export function SubwayRouteIcons({
