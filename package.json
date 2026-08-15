@@ -16,6 +16,7 @@
     "build-stations": "node scripts/build-stations.mjs",
     "build-subway-stops": "node scripts/build-subway-stops.mjs",
     "build-subway-stations": "node scripts/build-subway-stations.mjs",
+    "build-subway-transfers": "node scripts/build-subway-transfers.mjs",
     "build-subway-headsigns": "node scripts/build-subway-headsigns.mjs",
     "build-icons": "node scripts/build-icons.mjs",
     "test:watch": "vitest"

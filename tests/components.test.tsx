@@ -702,6 +702,19 @@ describe("interactive component contract", () => {
     expect(screen.queryByText(/View/)).toBeNull();
   });
 
+  it("shows Times Sq's other station boards from the 1/2/3 board", () => {
+    render(<StationTransferLinks system="subway" stationId="127" />);
+
+    expect(screen.getByRole("link", { name: "Transfer to 7 trains at Times Sq-42 St" }).getAttribute("href"))
+      .toBe("/subway/station/725");
+    expect(screen.getByRole("link", { name: "Transfer to S trains at Times Sq-42 St" }).getAttribute("href"))
+      .toBe("/subway/station/902");
+    expect(screen.getByRole("link", { name: "Transfer to A/C/E trains at 42 St-Port Authority Bus Terminal" }).getAttribute("href"))
+      .toBe("/subway/station/A27");
+    expect(screen.getByRole("link", { name: "Transfer to N/Q/R/W trains at Times Sq-42 St" }).getAttribute("href"))
+      .toBe("/subway/station/R16");
+  });
+
   it("uses route bullets for exact-train Subway transfer links", () => {
     render(<TransferLinks system="subway" stationId="A24" />);
 
