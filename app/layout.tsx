@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import "./globals.css";
@@ -55,6 +56,7 @@ export default function RootLayout({
         {children}
         <RetiredWatchStateCleanup />
         <ServiceWorkerRegistrar />
+        <Analytics />
       </body>
     </html>
   );
