@@ -6,7 +6,7 @@ import {
   getOrCreateStoredToken,
   invalidateStoredToken,
 } from "./njtTokenStore";
-import type { RawVehicle } from "./platformSightings";
+import type { RawVehicle } from "./trainPositions";
 import type { RawStopList } from "./stops";
 
 
@@ -250,7 +250,7 @@ export async function fetchStopList(trainId: string): Promise<RawStopList> {
 /**
  * Position records for every active train: one call covers the whole system.
  *
- * Used only for New York Penn sighted tracks. Its `ICS_TRACK_CKT` is the
+ * Used only for New York Penn train positions. Its `ICS_TRACK_CKT` is the
  * signal track circuit a train occupies, which is how a train standing on a
  * platform can be placed before its track is posted.
  */

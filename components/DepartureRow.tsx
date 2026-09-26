@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatClock, type Departure } from "@/lib/departures";
+import { formatClock, type Departure, type TrainPosition } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
 import { lineColor, lineName } from "@/lib/stations";
 
@@ -82,6 +82,7 @@ export function DepartureRow({
               </>
             )}
           </div>
+          {departure.position && <PositionLine position={departure.position} />}
         </div>
 
         <div className="shrink-0 text-right">
@@ -116,7 +117,7 @@ export function DepartureRow({
         </div>
 
         {/* Track is what you actually run for, so it gets its own anchor. */}
-        <TrackChip track={departure.track} sightedTrack={departure.sightedTrack} />
+        <TrackChip track={departure.track} historyTrack={departure.position?.historyTrack} />
 
         <span className="sr-only">See stops</span>
       </Link>
@@ -125,19 +126,35 @@ export function DepartureRow({
 }
 
 /**
- * A posted track is a solid chip. A sighted track — the platform the train is
- * already standing on before NJT posts it — is outlined and captioned, so it
- * never reads as the official assignment.
+ * The train's live position, straight from the vehicle feed. Worded as a place
+ * rather than a track so it never reads as NJT's assignment: "At Penn" only
+ * when the reported coordinates are inside the station.
+ */
+function PositionLine({ position }: { position: TrainPosition }) {
+  return (
+    <div className={`mt-0.5 flex min-w-0 items-center gap-1 text-xs ${position.atPenn ? "text-ok" : "text-muted"}`}>
+      <span className="shrink-0 font-semibold">{position.atPenn ? "At Penn" : "Position"}</span>
+      <span aria-hidden className="text-faint">·</span>
+      <span className="shrink-0">signal</span>
+      <span className="truncate font-mono">{position.circuit}</span>
+    </div>
+  );
+}
+
+/**
+ * A posted track is a solid chip. A history track — the platform the train's
+ * current signal circuit has always led to in position history — is outlined
+ * and captioned, so it never reads as the official assignment.
  */
 function TrackChip({
   track,
-  sightedTrack,
+  historyTrack,
 }: {
   track: string;
-  sightedTrack?: string;
+  historyTrack?: string;
 }) {
-  const sighted = !track && Boolean(sightedTrack);
-  const shown = track || sightedTrack || "";
+  const onPlatform = !track && Boolean(historyTrack);
+  const shown = track || historyTrack || "";
   // Most labels are a number or a single letter. "Single" is a real NJT
   // platform label, so it needs a wider chip instead of being clipped.
   const namedTrack = shown.length > 2;
@@ -146,15 +163,15 @@ function TrackChip({
     : "w-11 text-lg sm:h-12 sm:w-12 sm:text-xl";
   const style = track
     ? "bg-track text-track-fg"
-    : sighted
+    : onPlatform
       ? "border-2 border-ok text-ok"
       : "border border-dashed border-edge-strong text-text";
   const label = track
     ? namedTrack
       ? `${track} track`
       : `Track ${track}`
-    : sighted
-      ? `Train already on track ${sightedTrack}, not yet announced`
+    : onPlatform
+      ? `Train on the circuit for track ${historyTrack}, not yet announced`
       : "Track not yet assigned";
 
   const chip = (
@@ -166,7 +183,7 @@ function TrackChip({
     </div>
   );
 
-  if (!sighted) return chip;
+  if (!onPlatform) return chip;
   // The caption hangs below the chip, outside the layout, so this row's track
   // column stays aligned with every other row's.
   return (

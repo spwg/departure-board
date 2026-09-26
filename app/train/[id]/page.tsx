@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PositionHistoryButton } from "@/components/PositionHistoryButton";
 import { SettingsButton } from "@/components/SettingsButton";
 import { StopList } from "@/components/StopList";
 import {
@@ -49,6 +50,7 @@ export default async function TrainPage({
               current={`Train ${train}`}
             />
             <TrainServiceStatusButton train={train} from={origin?.code ?? ""} />
+            <PositionHistoryButton train={train} from={origin?.code ?? ""} />
             <SettingsButton />
           </header>
 
