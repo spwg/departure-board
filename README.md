@@ -69,6 +69,16 @@ The test backend has its own data and may return imperfect or stale labels. Use
 it to exercise the integration and error states, not to validate current
 operational train information.
 
+## New York Penn sighted tracks
+
+The New York Penn board can show a track before NJ Transit posts it when the
+train is already standing on its platform. It reads each train's signal
+circuit from RailData's `getVehicleData` and learns which circuits are platform
+tracks from trains whose tracks have been posted, storing the counts in the
+same Upstash Redis database as the token. Nothing is sighted until a circuit
+has been seen with the same track at least five times. See
+`docs/adr/0005-penn-sighted-tracks.md`.
+
 ## NJ Transit API token
 
 NJ Transit allows only **10 `getToken` calls per day**, so the token is reused

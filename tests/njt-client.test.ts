@@ -30,6 +30,15 @@ describe("NJT client contract", () => {
     const { fetchDepartures, usingFixtures } = await import("@/lib/njtClient");
     expect(usingFixtures()).toBe(true); expect((await fetchDepartures("NY")).length).toBeGreaterThan(4); expect(fetchMock).not.toHaveBeenCalled();
   });
+  it("requests vehicle positions with the shared token and tolerates a non-list reply", async () => {
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_API_BASE_URL = "https://api.example";
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ UserToken: "token" }))).mockResolvedValueOnce(new Response(JSON.stringify([{ ID: "6647", ICS_TRACK_CKT: "X" }]))).mockResolvedValueOnce(new Response(""));
+    vi.stubGlobal("fetch", fetchMock);
+    const { fetchVehicleData } = await import("@/lib/njtClient");
+    expect(await fetchVehicleData()).toEqual([{ ID: "6647", ICS_TRACK_CKT: "X" }]);
+    expect(fetchMock.mock.calls[1][0]).toBe("https://api.example/TrainData/getVehicleData");
+    expect(await fetchVehicleData()).toEqual([]);
+  });
   it("authenticates and sends a multipart schedule request when configured", async () => {
     process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_API_BASE_URL = "https://api.example/";
     const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ UserToken: "token" }))).mockResolvedValueOnce(new Response(JSON.stringify({ ITEMS: [{ TRAIN_ID: "1" }] })));

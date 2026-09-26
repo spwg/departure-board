@@ -44,6 +44,10 @@ _Avoid_: Following station, upcoming stops, skipped stops
 The upcoming stops for one exact train, beginning at its current or next stop and ending at its live destination. Passed stops and their times are not part of the remaining route.
 _Avoid_: Trip history, full timetable
 
+**Sighted track**:
+The New York Penn platform an NJ TRANSIT train is already standing on before NJ TRANSIT posts its track, read from the train's reported signal circuit. It is shown only while no track is posted, always marked as distinct from the posted track, and never a guess from history.
+_Avoid_: Predicted track, early track, posted track
+
 **Service banner**:
 A contextual board warning linking to an official alert from the board's transit system that affects the current station or one of its routes or lines. It includes active disruptions and planned service advisories.
 _Avoid_: Alert feed, global announcement

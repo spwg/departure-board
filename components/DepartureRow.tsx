@@ -35,9 +35,6 @@ export function DepartureRow({
   const cancelled = departure.status === "cancelled";
   const boarding = departure.status === "boarding";
   const delayed = departure.delayMinutes >= 1;
-  // Most labels are a number or a single letter. "Single" is a real NJT
-  // platform label, so it needs a wider chip instead of being clipped.
-  const namedTrack = departure.track.length > 2;
 
   return (
     <li className={`relative flex items-center ${cancelled ? "opacity-55" : ""}`}>
@@ -119,29 +116,65 @@ export function DepartureRow({
         </div>
 
         {/* Track is what you actually run for, so it gets its own anchor. */}
-        <div
-          className={`flex h-11 shrink-0 items-center justify-center rounded-xl font-bold ${
-            namedTrack
-              ? "min-w-16 px-2 text-sm sm:h-12 sm:min-w-20 sm:text-base"
-              : "w-11 text-lg sm:h-12 sm:w-12 sm:text-xl"
-          } ${
-            departure.track
-              ? "bg-track text-track-fg"
-              : "border border-dashed border-edge-strong text-text"
-          }`}
-          aria-label={
-            departure.track
-              ? namedTrack
-                ? `${departure.track} track`
-                : `Track ${departure.track}`
-              : "Track not yet assigned"
-          }
-        >
-          {departure.track || "–"}
-        </div>
+        <TrackChip track={departure.track} sightedTrack={departure.sightedTrack} />
 
         <span className="sr-only">See stops</span>
       </Link>
     </li>
+  );
+}
+
+/**
+ * A posted track is a solid chip. A sighted track — the platform the train is
+ * already standing on before NJT posts it — is outlined and captioned, so it
+ * never reads as the official assignment.
+ */
+function TrackChip({
+  track,
+  sightedTrack,
+}: {
+  track: string;
+  sightedTrack?: string;
+}) {
+  const sighted = !track && Boolean(sightedTrack);
+  const shown = track || sightedTrack || "";
+  // Most labels are a number or a single letter. "Single" is a real NJT
+  // platform label, so it needs a wider chip instead of being clipped.
+  const namedTrack = shown.length > 2;
+  const size = namedTrack
+    ? "min-w-16 px-2 text-sm sm:h-12 sm:min-w-20 sm:text-base"
+    : "w-11 text-lg sm:h-12 sm:w-12 sm:text-xl";
+  const style = track
+    ? "bg-track text-track-fg"
+    : sighted
+      ? "border-2 border-ok text-ok"
+      : "border border-dashed border-edge-strong text-text";
+  const label = track
+    ? namedTrack
+      ? `${track} track`
+      : `Track ${track}`
+    : sighted
+      ? `Train already on track ${sightedTrack}, not yet announced`
+      : "Track not yet assigned";
+
+  const chip = (
+    <div
+      className={`flex h-11 shrink-0 items-center justify-center rounded-xl font-bold ${size} ${style}`}
+      aria-label={label}
+    >
+      {shown || "–"}
+    </div>
+  );
+
+  if (!sighted) return chip;
+  // The caption hangs below the chip, outside the layout, so this row's track
+  // column stays aligned with every other row's.
+  return (
+    <div className="relative shrink-0">
+      {chip}
+      <span aria-hidden className="absolute right-0 top-full mt-1 whitespace-nowrap text-[0.625rem] font-semibold uppercase leading-none tracking-wide text-ok">
+        On platform
+      </span>
+    </div>
   );
 }

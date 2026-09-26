@@ -4,9 +4,11 @@ import {
   InvalidTokenError,
   TOKEN_TAG,
   fetchDepartures,
+  fetchVehicleData,
   invalidateToken,
   usingFixtures,
 } from "@/lib/njtClient";
+import { SIGHTING_STATION, addSightedTracks } from "@/lib/pennSightings";
 import { getStation } from "@/lib/stations";
 
 
@@ -51,7 +53,12 @@ async function getDepartures(stationCode: string): Promise<Departure[]> {
   };
 
   const items = await withFreshToken(() => fetchDepartures(stationCode));
-  const departures = normalizeDepartures(items);
+  let departures = normalizeDepartures(items);
+  if (stationCode === SIGHTING_STATION) {
+    departures = await addSightedTracks(departures, () =>
+      withFreshToken(fetchVehicleData),
+    );
+  }
   cache.set(stationCode, { at: now, departures });
   return departures;
 }

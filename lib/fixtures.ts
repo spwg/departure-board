@@ -1,5 +1,6 @@
 import { NJT_TIME_ZONE, type RawDeparture } from "./departures";
 import { getStation } from "./stations";
+import type { CircuitTable, RawVehicle } from "./platformSightings";
 import type { RawStop, RawStopList } from "./stops";
 
 
@@ -232,4 +233,30 @@ export function fixtureStopList(trainId: string): RawStopList {
     TRANSFERAT: template.destination === "Bay Head" ? "Long Branch" : "",
     STOPS: stops,
   };
+}
+
+/**
+ * Stand-in getVehicleData records for New York Penn. The circuit names are
+ * made up — the real ones are learned from live data — and chosen so the
+ * fixture board shows one sighted track (#6647 on track 9), one posted train
+ * standing on its own platform, and one train on an approach circuit that
+ * names no platform.
+ */
+export function fixtureVehicles(): RawVehicle[] {
+  return [
+    { ID: "3861", ICS_TRACK_CKT: "FIXTURE-PLATFORM-5" },
+    { ID: "3247", ICS_TRACK_CKT: "FIXTURE-PLATFORM-7" },
+    { ID: "6647", ICS_TRACK_CKT: "FIXTURE-PLATFORM-9" },
+    { ID: "3863", ICS_TRACK_CKT: "FIXTURE-APPROACH" },
+  ];
+}
+
+/** A learned circuit table matching `fixtureVehicles`. */
+export function fixtureCircuitTable(): CircuitTable {
+  return new Map([
+    ["FIXTURE-PLATFORM-5", new Map([["5", 14]])],
+    ["FIXTURE-PLATFORM-7", new Map([["7", 9]])],
+    ["FIXTURE-PLATFORM-9", new Map([["9", 21]])],
+    ["FIXTURE-APPROACH", new Map([["3", 6], ["4", 5]])],
+  ]);
 }

@@ -48,6 +48,11 @@ export type Departure = {
   lineCode: string;
   /** Track as NJT reports it. Empty until one is assigned. */
   track: string;
+  /**
+   * The New York Penn platform this train is already standing on, set only
+   * while `track` is still empty. See lib/platformSightings.
+   */
+  sightedTrack?: string;
   status: DepartureStatus;
   /** NJT's own wording, e.g. "in 13 Min" — shown verbatim when useful. */
   statusText: string;

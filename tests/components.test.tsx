@@ -360,6 +360,22 @@ describe("interactive component contract", () => {
     expect(marker.textContent).toBe("–");
   });
 
+  it("shows a sighted track as an outlined, captioned platform rather than a posted track", () => {
+    render(<DepartureRow departure={{ ...departure, track: "", sightedTrack: "9" }} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
+
+    const marker = screen.getByLabelText("Train already on track 9, not yet announced");
+    expect(marker.textContent).toBe("9");
+    expect(marker.className).not.toContain("bg-track");
+    expect(screen.getByText("On platform")).toBeTruthy();
+  });
+
+  it("prefers a posted track over a sighted one", () => {
+    render(<DepartureRow departure={{ ...departure, track: "5", sightedTrack: "9" }} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
+
+    expect(screen.getByLabelText("Track 5").textContent).toBe("5");
+    expect(screen.queryByText("On platform")).toBeNull();
+  });
+
   it("keeps service notices off the rail board and the freshness warning on its own line", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
