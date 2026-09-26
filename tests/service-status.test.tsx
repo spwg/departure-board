@@ -1,6 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ServiceStatus } from "@/components/ServiceStatus";
+import {
+  ServiceStatus,
+  ServiceStatusButton,
+  ServiceStatusList,
+} from "@/components/ServiceStatus";
 import type { ServiceAdvisory } from "@/lib/serviceAdvisories";
 
 const disruption: ServiceAdvisory = {
@@ -19,60 +23,93 @@ const secondAdvisory: ServiceAdvisory = {
   url: "https://www.njtransit.com/node/planned-2", publishedAt: null,
 };
 
+function stubFeed(advisories: ServiceAdvisory[]) {
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(
+    new Response(JSON.stringify({
+      advisories,
+      authoritativeRevisions: Object.fromEntries(advisories.map((notice) => [notice.id, notice.revision])),
+    })),
+  )));
+}
+
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
   vi.unstubAllGlobals();
 });
 
-describe("service-status UI", () => {
-  it("collapses every notice into one counted summary line with official links and exact dismissal", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({
-        advisories: [disruption, firstAdvisory, secondAdvisory],
-        authoritativeRevisions: {
-          [disruption.id]: disruption.revision,
-          [firstAdvisory.id]: firstAdvisory.revision,
-          [secondAdvisory.id]: secondAdvisory.revision,
-        },
-      })),
-    ));
-    const { container } = render(<ServiceStatus stationCode="NY" />);
+describe("station service-status page", () => {
+  it("lists disruptions before advisories with official links and exact dismissal", async () => {
+    stubFeed([firstAdvisory, disruption, secondAdvisory]);
+    render(<ServiceStatusList stationCode="NY" />);
 
-    // A current disruption gets no line of its own, however it is marked: one
-    // summary states the counts, and nothing is readable until it is opened.
-    const summary = await screen.findByText("Service status — 1 disruption, 2 advisories");
-    expect(container.querySelectorAll("details")).toHaveLength(1);
-    expect((summary.closest("details") as HTMLDetailsElement).open).toBe(false);
+    const disruptions = await screen.findByRole("region", { name: "Disruptions" });
+    const advisories = screen.getByRole("region", { name: "Advisories" });
+    expect(disruptions.compareDocumentPosition(advisories) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(disruptions).getByRole("link").getAttribute("href")).toBe(disruption.url);
+    expect(within(advisories).getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
+      firstAdvisory.url,
+      secondAdvisory.url,
+    ]);
 
-    fireEvent.click(summary);
-    expect(await screen.findByText(disruption.text)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /northeast corridor line service is suspended/i }).getAttribute("href")).toBe(disruption.url);
-    expect(screen.getByRole("link", { name: /new york penn station staircase/i }).getAttribute("href")).toBe(firstAdvisory.url);
-
-    // Dismissing one notice leaves the unrelated ones alone, and the summary
-    // recounts what is left.
+    // Dismissing one notice leaves the unrelated ones alone.
     fireEvent.click(screen.getByRole("button", { name: `Dismiss service notice: ${disruption.text}` }));
     await waitFor(() => expect(screen.queryByText(disruption.text)).toBeNull());
-    expect(screen.getByText("Service status — 2 advisories")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Disruptions" })).toBeNull();
     expect(screen.getByText(firstAdvisory.text)).toBeTruthy();
     expect(screen.getByText(secondAdvisory.text)).toBeTruthy();
   });
 
-  it("brings a dismissed notice back once its transit system materially changes it", async () => {
+  it("says so when a station has no notices", async () => {
+    stubFeed([]);
+    render(<ServiceStatusList stationCode="NY" />);
+    expect(await screen.findByText("No service notices for this station.")).toBeTruthy();
+  });
+});
+
+describe("station service-status button", () => {
+  it("links to the station's status page and flags only current disruptions", async () => {
+    stubFeed([firstAdvisory, secondAdvisory]);
+    const { container } = render(<ServiceStatusButton stationCode="NP" />);
+    const button = screen.getByRole("link", { name: "Service status" });
+    expect(button.getAttribute("href")).toBe("/station/NP/status");
+    // Planned advisories are routine and never call for attention.
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    expect(container.querySelector("[data-testid=disruption-dot]")).toBeNull();
+
+    cleanup();
+    stubFeed([disruption, firstAdvisory]);
+    const rendered = render(<ServiceStatusButton stationCode="NP" />);
+    expect(await screen.findByRole("link", { name: "Service status: 1 disruption" })).toBeTruthy();
+    expect(rendered.container.querySelector("[data-testid=disruption-dot]")).toBeTruthy();
+  });
+
+  it("drops the dot once the disruption is dismissed, and restores it when the notice changes", async () => {
     window.localStorage.setItem(
       "departure-board:dismissed-service-banners",
       JSON.stringify({ [disruption.id]: disruption.revision }),
     );
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({
-        advisories: [{ ...disruption, revision: "reworded", text: "Northeast Corridor Line service has resumed with delays." }],
-        authoritativeRevisions: { [disruption.id]: "reworded" },
-      })),
-    ));
+    stubFeed([disruption]);
+    render(<ServiceStatusButton stationCode="NY" />);
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+    expect(screen.getByRole("link", { name: "Service status" })).toBeTruthy();
 
-    render(<ServiceStatus stationCode="NY" />);
+    cleanup();
+    stubFeed([{ ...disruption, revision: "reworded", text: "Northeast Corridor Line service has resumed with delays." }]);
+    render(<ServiceStatusButton stationCode="NY" />);
+    expect(await screen.findByRole("link", { name: "Service status: 1 disruption" })).toBeTruthy();
+  });
+});
 
-    expect(await screen.findByText("Service status — 1 disruption")).toBeTruthy();
+describe("train service-status summary", () => {
+  it("collapses a line's notices into one counted summary line", async () => {
+    stubFeed([disruption, firstAdvisory, secondAdvisory]);
+    const { container } = render(<ServiceStatus lineCode="NE" />);
+
+    const summary = await screen.findByText("Service status — 1 disruption, 2 advisories");
+    expect(container.querySelectorAll("details")).toHaveLength(1);
+    expect((summary.closest("details") as HTMLDetailsElement).open).toBe(false);
+    fireEvent.click(summary);
+    expect(screen.getByRole("link", { name: /service is suspended/i }).getAttribute("href")).toBe(disruption.url);
   });
 });

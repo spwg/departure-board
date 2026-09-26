@@ -57,11 +57,15 @@ A future or ongoing service change announced by a transit system that affects a 
 _Avoid_: Disruption, delay
 
 **Service-status summary**:
-The single collapsed line standing for every service notice relevant to a board. It displays their counts first and reveals the individual official notices and links on expansion. It is the only form in which service notices appear above departures.
+The single collapsed line standing for every service notice relevant to a train's remaining route. It displays their counts first and reveals the individual official notices and links on expansion.
 _Avoid_: Alert stack, full alert feed, expanded banner
 
+**Station service-status page**:
+A rail station's own page listing every official notice relevant to it, active disruptions before planned advisories. Notices never appear on the rail departure board itself, where trains come first; the board's header links to this page and marks the link with a dot only while an undismissed active disruption stands.
+_Avoid_: Board accordion, alert stack above departures
+
 **Active disruption**:
-A current service interruption relevant to the board, as distinct from a planned advisory. Providers mark currency, not consequence, so a disruption is counted and styled within the service-status summary rather than granted space above the departures.
+A current service interruption relevant to the board, as distinct from a planned advisory. Providers mark currency, not consequence, so a disruption earns only a dot on the station's service-status link and first place on that page, never space above the departures.
 _Avoid_: Service advisory, planned work, severe alert
 
 **Train-page service status**:
@@ -77,7 +81,7 @@ A non-dismissible banner stating that shown realtime departure data is no longer
 _Avoid_: Offline notice, data alert
 
 **Station picker**:
-The home-page selection screen for both rail and subway departure boards. It opens without redirecting and shows saved favorite board choices in one list, followed by search and the full directory. Nearby choices have their own page. Recent station history remains recorded locally but is not shown on Home for now.
+The home-page selection screen for both rail and subway departure boards. It opens without redirecting and shows saved favorite board choices in one list under the search box. Focusing search replaces Favorites with the full directory, busiest boards first, which each keystroke narrows to the best matches: whole-word matches before word-start, inside-word and typo-tolerant ones, and larger stations first among equals. Nearby choices have their own page. Recent station history remains recorded locally but is not shown on Home for now.
 _Avoid_: Default station, launch redirect
 
 **Nearby stations**:

@@ -11,6 +11,7 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { useFavorites } from "@/lib/favorites";
 import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
 import {
+  boardListingsByImportance,
   getBoardListing,
   searchBoardListings,
   type BoardListing,
@@ -42,9 +43,19 @@ export function StationPicker() {
   const router = useRouter();
   const { favorites, loaded: favoritesLoaded } = useFavorites();
   const [query, setQuery] = useState("");
+  // Focusing the search box means the rider is about to type, not reach for a
+  // favorite, so the station list replaces Favorites until they leave search.
+  const [searching, setSearching] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
-  const results = useMemo(() => searchBoardListings(query, SUGGESTION_LIMIT), [query]);
+  const hasQuery = query.trim() !== "";
+  const showResults = searching || hasQuery;
+  // Before anything is typed the whole directory shows, busiest boards first;
+  // each keystroke then narrows it to the best few matches.
+  const results = useMemo(
+    () => hasQuery ? searchBoardListings(query, SUGGESTION_LIMIT) : boardListingsByImportance,
+    [hasQuery, query],
+  );
   const favoriteItems = useMemo<BoardListingListItem[]>(
     () => resolveChoices(favorites).map((listing) => ({ listing })),
     [favorites],
@@ -53,9 +64,13 @@ export function StationPicker() {
   const resultLinks = () => [...(resultsRef.current?.querySelectorAll<HTMLAnchorElement>("a") ?? [])];
 
   function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter" && results[0]) {
+    if (event.key === "Enter" && hasQuery && results[0]) {
       event.preventDefault();
       router.push(results[0].href);
+    } else if (event.key === "Escape") {
+      setQuery("");
+      setSearching(false);
+      event.currentTarget.blur();
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       resultLinks()[0]?.focus();
@@ -88,7 +103,15 @@ export function StationPicker() {
         </div>
       </div>
 
-      <div className="mt-7">
+      <div
+        className="mt-7"
+        onFocus={() => setSearching(true)}
+        // Moving between the box and its results stays in search; focus
+        // leaving both ends it, unless a query is still showing results.
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setSearching(false);
+        }}
+      >
         <input
           id="station-search"
           type="search"
@@ -104,11 +127,14 @@ export function StationPicker() {
           enterKeyHint="go"
           className="block w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
         />
-        {query && (
+        {showResults && (
           <section
             id="station-search-results"
             aria-label="Search results"
-            aria-live="polite"
+            aria-live={hasQuery ? "polite" : "off"}
+            // A tap on a result must not blur the box first: some browsers
+            // give links no focus, so the list would close before the click.
+            onMouseDown={(event) => event.preventDefault()}
             className="mt-2 overflow-hidden rounded-xl border border-edge bg-surface"
           >
             {results.length > 0 ? (
@@ -124,9 +150,7 @@ export function StationPicker() {
         )}
       </div>
 
-      {/* Favorites stay put under the search box, so a saved board is always
-          one tap away whether or not a search is in progress. */}
-      {favoritesLoaded && favoriteItems.length > 0 && (
+      {!showResults && favoritesLoaded && favoriteItems.length > 0 && (
         <Section title="Favorites">
           <BoardListingList items={favoriteItems} />
         </Section>

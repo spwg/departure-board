@@ -360,47 +360,32 @@ describe("interactive component contract", () => {
     expect(marker.textContent).toBe("–");
   });
 
-  it("puts every service notice on one summary line and the freshness warning on its own", async () => {
+  it("keeps service notices off the rail board and the freshness warning on its own line", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2024-05-30T15:00:00.000Z");
-    const notice = (id: string, severity: "disruption" | "advisory") => ({
-      id, revision: `${id}-r`, severity, text: `${id} notice text`,
-      url: `https://www.njtransit.com/node/${id}`, publishedAt: null,
-    });
-    const advisories = [notice("a", "disruption"), notice("b", "disruption"), notice("c", "advisory")];
     let departureCalls = 0;
-    vi.stubGlobal("fetch", vi.fn((input: unknown) => {
-      if (String(input).includes("service-advisories")) {
-        return Promise.resolve(new Response(JSON.stringify({
-          advisories,
-          authoritativeRevisions: Object.fromEntries(advisories.map((a) => [a.id, a.revision])),
-        })));
-      }
+    const fetchMock = vi.fn<(input: unknown) => Promise<Response>>(() => {
       departureCalls += 1;
       return departureCalls === 1
         ? Promise.resolve(new Response(JSON.stringify({ departures: [departure], fixtures: false })))
         : Promise.reject(new Error("offline"));
-    }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const { container } = render(<DepartureBoard code="NY" />);
-    const summary = await screen.findByText("Service status — 2 disruptions, 1 advisory");
-    expect(container.querySelectorAll("details")).toHaveLength(1);
-    // Not one of the three, current or not, takes a line above the departures.
-    expect((summary.closest("details") as HTMLDetailsElement).open).toBe(false);
-    for (const advisory of advisories) {
-      expect(screen.getByText(advisory.text).closest("details")).toBe(summary.closest("details"));
-    }
+    render(<DepartureBoard code="NY" />);
+    expect(await screen.findByText("Trenton")).toBeTruthy();
+    // Notices have their own page, reached from the station header; the
+    // board itself neither fetches nor shows them.
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("service-advisories"))).toBe(false);
+    expect(screen.queryByText(/Service status/)).toBeNull();
 
-    // "This board may be wrong" is a different claim from "the railroad has
-    // news", so it keeps its own line rather than joining the summary.
+    // "This board may be wrong" is board context, so it still shows here.
     vi.setSystemTime("2024-05-30T15:02:00.000Z");
     fireEvent(document, new Event("visibilitychange"));
     const freshness = await screen.findByRole("status");
     expect(freshness.textContent).toContain("Data is no longer live — last updated 2 minutes ago");
-    expect(freshness.closest("details")).toBeNull();
     expect(within(freshness).queryByRole("button")).toBeNull();
-    expect(screen.getByText("Service status — 2 disruptions, 1 advisory")).toBeTruthy();
   });
 
   it("retains departures after any later failure, reports their age, and clears the warning on recovery", async () => {
@@ -567,11 +552,45 @@ describe("interactive component contract", () => {
     expect(suggestions[0]!.textContent).toContain("59 St-Columbus Circle");
     expect(suggestions.length).toBeLessThanOrEqual(8);
 
-    // Favorites stay one tap away while a search is in progress.
-    expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
+    // Searching replaces Favorites: a rider typing is not reaching for one.
+    expect(screen.queryByRole("heading", { name: "Favorites" })).toBeNull();
 
     fireEvent.keyDown(search, { key: "Enter" });
     expect(window.location.pathname).toBe(suggestions[0]!.getAttribute("href"));
+  });
+
+  it("swaps Favorites for the station list as soon as the search box is focused", () => {
+    window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NP"]));
+    render(<StationPicker />);
+    const search = screen.getByRole("searchbox", { name: "Search stations" });
+    expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
+
+    // Focus alone lists stations, busiest first, in place of Favorites.
+    fireEvent.focus(search);
+    expect(screen.queryByRole("heading", { name: "Favorites" })).toBeNull();
+    const all = within(screen.getByRole("region", { name: "Search results" })).getAllByRole("link");
+    expect(all.length).toBeGreaterThan(100);
+    expect(all[0]!.textContent).toContain("Hoboken");
+    // Enter does nothing until there is a query to act on.
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(window.location.pathname).toBe("/");
+
+    // Each keystroke narrows the list.
+    fireEvent.change(search, { target: { value: "penn" } });
+    const penn = within(screen.getByRole("region", { name: "Search results" })).getAllByRole("link");
+    expect(penn.length).toBeLessThanOrEqual(8);
+    expect(penn[0]!.textContent).toContain("New York Penn Station");
+
+    // Escape leaves search and brings Favorites back.
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(screen.queryByRole("region", { name: "Search results" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
+
+    // So does focus leaving an empty box.
+    fireEvent.focus(search);
+    expect(screen.queryByRole("heading", { name: "Favorites" })).toBeNull();
+    fireEvent.blur(search, { relatedTarget: document.body });
+    expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
   });
 
   it("presents Penn's provider station boards as separate choices", () => {
@@ -591,8 +610,8 @@ describe("interactive component contract", () => {
     // The provider chip and route labels make the destination choices explicit.
     expect(penn[0]!.textContent).toContain("NJT");
     expect(penn[1]!.textContent).toContain("Subway");
-    expect(penn[1]!.textContent).toContain("1 · 2 · 3");
-    expect(penn[2]!.textContent).toContain("A · C · E");
+    expect(penn[1]!.textContent).toContain("1, 2, 3 trains");
+    expect(penn[2]!.textContent).toContain("A, C, E trains");
   });
 
   it("keeps two provider boards independent when one of them fails", async () => {

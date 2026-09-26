@@ -16,12 +16,8 @@ export function formatDistance(km: number): string {
   return miles < 0.1 ? "right here" : `${miles.toFixed(1)} mi away`;
 }
 
-function subwayDetail(listing: BoardListing): string {
-  if (listing.system !== "Subway") return "";
-  const routes = listing.routes.join(" · ");
-  return listing.alsoKnownAs.length > 0
-    ? `${routes} — also ${listing.alsoKnownAs.join(", ")}`
-    : routes;
+function aliases(listing: BoardListing): string {
+  return listing.alsoKnownAs.length > 0 ? `also ${listing.alsoKnownAs.join(", ")}` : "";
 }
 
 export function BoardListingList({ items }: { items: BoardListingListItem[] }) {
@@ -31,7 +27,7 @@ export function BoardListingList({ items }: { items: BoardListingListItem[] }) {
         const { listing } = item;
         const details = [
           item.distanceKm === undefined ? "" : formatDistance(item.distanceKm),
-          subwayDetail(listing),
+          aliases(listing),
         ].filter(Boolean).join(" · ");
 
         return (
@@ -42,10 +38,9 @@ export function BoardListingList({ items }: { items: BoardListingListItem[] }) {
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{listing.name}</span>
-                {/* Dozens of Subway stations share a name, so the routes have to
-                    be readable rather than only coloured — the bullets beside
-                    them are decoration. The complex's other published names
-                    follow, for a rider who searched one of those instead. */}
+                {/* Distance from the rider, then the complex's other published
+                    names, for a rider who searched one of those instead. The
+                    routes live only in the bullets on the right. */}
                 {details && (
                   <span className="mt-0.5 block truncate text-xs text-muted">
                     {details}
@@ -57,8 +52,10 @@ export function BoardListingList({ items }: { items: BoardListingListItem[] }) {
                 {listing.system}
               </span>
 
-              {/* Provider-native symbols: MTA route bullets carry their letter,
-                  NJT line colours are a hint alongside the names above. */}
+              {/* Provider-native symbols. Dozens of Subway stations share a
+                  name, so the MTA bullets carry their letters — that is what
+                  tells two "86 St" rows apart. NJT line colours
+                  are a hint; the station's own board names the lines. */}
               <span aria-hidden className="flex shrink-0 gap-1">
                 {listing.system === "Subway"
                   ? listing.routes.slice(0, 4).map((route) => (
@@ -78,6 +75,9 @@ export function BoardListingList({ items }: { items: BoardListingListItem[] }) {
                       />
                     ))}
               </span>
+              {listing.system === "Subway" && (
+                <span className="sr-only">{listing.routes.join(", ")} trains</span>
+              )}
             </Link>
           </li>
         );

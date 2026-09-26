@@ -13,7 +13,8 @@ export const STATION_HEADER_HEIGHT = "4rem";
 /**
  * One station's header: a way Home, the station's name with the routes that
  * serve it, and the station's own controls. `titleHref` links the name back to
- * the station's main board from one of its sub-pages.
+ * the station's main board from one of its sub-pages; `actions` adds a
+ * system's own controls ahead of Settings.
  */
 export function StationHeader({
   name,
@@ -21,12 +22,14 @@ export function StationHeader({
   routes,
   choice,
   favoriteName,
+  actions,
 }: {
   name: string;
   titleHref?: string;
   routes: React.ReactNode;
   choice: BoardChoice;
   favoriteName: string;
+  actions?: React.ReactNode;
 }) {
   return (
     <header
@@ -47,6 +50,7 @@ export function StationHeader({
         </h1>
         <div className="mt-0.5 flex min-w-0 items-center overflow-hidden">{routes}</div>
       </div>
+      {actions}
       <SettingsButton />
       <FavoriteButton choice={choice} name={favoriteName} />
     </header>
