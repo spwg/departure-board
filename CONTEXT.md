@@ -56,10 +56,6 @@ _Avoid_: Scraped alert page, third-party alert feed
 A future or ongoing service change announced by a transit system that affects a station or one of its routes or lines. It is distinct from an active disruption and is presented with lower-severity styling.
 _Avoid_: Disruption, delay
 
-**Service-status summary**:
-The single collapsed line standing for every service notice relevant to a train's remaining route. It displays their counts first and reveals the individual official notices and links on expansion.
-_Avoid_: Alert stack, full alert feed, expanded banner
-
 **Station service-status page**:
 A rail station's own page listing every official notice relevant to it, active disruptions before planned advisories. Notices never appear on the rail departure board itself, where trains come first; the board's header links to this page and marks the link with a dot only while an undismissed active disruption stands.
 _Avoid_: Board accordion, alert stack above departures
@@ -69,7 +65,7 @@ A current service interruption relevant to the board, as distinct from a planned
 _Avoid_: Service advisory, planned work, severe alert
 
 **Train-page service status**:
-Service banners on a train's remaining route that are relevant to that train's route or line only. Station-specific notices appear only on their station board.
+The official notices relevant to a train's line only, on a page of their own reached from the train page's header, in the same form as a station service-status page. Station-specific notices appear only on their station's status page, and nothing appears above the remaining route.
 _Avoid_: Unrelated station notices, all station alerts
 
 **Dismissed service banner**:

@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ServiceStatusButton, ServiceStatusList } from "@/components/ServiceStatus";
 import {
-  ServiceStatus,
-  ServiceStatusButton,
-  ServiceStatusList,
-} from "@/components/ServiceStatus";
+  TrainLineProvider,
+  TrainServiceStatusButton,
+  useReportTrainLine,
+} from "@/components/TrainServiceStatus";
 import type { ServiceAdvisory } from "@/lib/serviceAdvisories";
 
 const disruption: ServiceAdvisory = {
@@ -70,7 +71,7 @@ describe("station service-status page", () => {
 describe("station service-status button", () => {
   it("links to the station's status page and flags only current disruptions", async () => {
     stubFeed([firstAdvisory, secondAdvisory]);
-    const { container } = render(<ServiceStatusButton stationCode="NP" />);
+    const { container } = render(<ServiceStatusButton stationCode="NP" href="/station/NP/status" />);
     const button = screen.getByRole("link", { name: "Service status" });
     expect(button.getAttribute("href")).toBe("/station/NP/status");
     // Planned advisories are routine and never call for attention.
@@ -79,7 +80,7 @@ describe("station service-status button", () => {
 
     cleanup();
     stubFeed([disruption, firstAdvisory]);
-    const rendered = render(<ServiceStatusButton stationCode="NP" />);
+    const rendered = render(<ServiceStatusButton stationCode="NP" href="/station/NP/status" />);
     expect(await screen.findByRole("link", { name: "Service status: 1 disruption" })).toBeTruthy();
     expect(rendered.container.querySelector("[data-testid=disruption-dot]")).toBeTruthy();
   });
@@ -90,26 +91,53 @@ describe("station service-status button", () => {
       JSON.stringify({ [disruption.id]: disruption.revision }),
     );
     stubFeed([disruption]);
-    render(<ServiceStatusButton stationCode="NY" />);
+    render(<ServiceStatusButton stationCode="NY" href="/station/NY/status" />);
     await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
     expect(screen.getByRole("link", { name: "Service status" })).toBeTruthy();
 
     cleanup();
     stubFeed([{ ...disruption, revision: "reworded", text: "Northeast Corridor Line service has resumed with delays." }]);
-    render(<ServiceStatusButton stationCode="NY" />);
+    render(<ServiceStatusButton stationCode="NY" href="/station/NY/status" />);
     expect(await screen.findByRole("link", { name: "Service status: 1 disruption" })).toBeTruthy();
   });
 });
 
-describe("train service-status summary", () => {
-  it("collapses a line's notices into one counted summary line", async () => {
-    stubFeed([disruption, firstAdvisory, secondAdvisory]);
-    const { container } = render(<ServiceStatus lineCode="NE" />);
+function ReportLine({ lineCode }: { lineCode: string | null }) {
+  useReportTrainLine(lineCode);
+  return null;
+}
 
-    const summary = await screen.findByText("Service status — 1 disruption, 2 advisories");
-    expect(container.querySelectorAll("details")).toHaveLength(1);
-    expect((summary.closest("details") as HTMLDetailsElement).open).toBe(false);
-    fireEvent.click(summary);
-    expect(screen.getByRole("link", { name: /service is suspended/i }).getAttribute("href")).toBe(disruption.url);
+describe("train service status", () => {
+  it("links the train header to its line's status page once the line is known", async () => {
+    stubFeed([disruption]);
+    const { rerender } = render(
+      <TrainLineProvider>
+        <TrainServiceStatusButton train="7245" from="NY" />
+        <ReportLine lineCode={null} />
+      </TrainLineProvider>,
+    );
+    // No line yet, so nothing to link to and nothing fetched.
+    expect(screen.queryByRole("link")).toBeNull();
+
+    rerender(
+      <TrainLineProvider>
+        <TrainServiceStatusButton train="7245" from="NY" />
+        <ReportLine lineCode="NC" />
+      </TrainLineProvider>,
+    );
+    const button = await screen.findByRole("link", { name: "Service status: 1 disruption" });
+    expect(button.getAttribute("href")).toBe("/train/7245/status?line=NC&from=NY");
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toContain("line=NC");
+  });
+
+  it("lists a line's notices on the train's status page", async () => {
+    stubFeed([firstAdvisory]);
+    render(<ServiceStatusList lineCode="NE" />);
+    expect(await screen.findByRole("region", { name: "Advisories" })).toBeTruthy();
+
+    cleanup();
+    stubFeed([]);
+    render(<ServiceStatusList lineCode="NE" />);
+    expect(await screen.findByText("No service notices for this line.")).toBeTruthy();
   });
 });

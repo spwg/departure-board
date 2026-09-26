@@ -10,7 +10,7 @@ import { getStation, lineColor, lineName } from "@/lib/stations";
 import type { Stop, StopList as StopListData } from "@/lib/stops";
 import { FreshnessWarning } from "./FreshnessWarning";
 import { TransferLinks } from "./TransferLinks";
-import { ServiceStatus } from "./ServiceStatus";
+import { useReportTrainLine } from "./TrainServiceStatus";
 
 /**
  * Matches the board's cadence. There is no local tick alongside it the way the
@@ -28,6 +28,7 @@ export function StopList({ train, from }: { train: string; from: string }) {
   const [stale, setStale] = useState(false);
   const [lastLiveAt, setLastLiveAt] = useState<number | null>(null);
   const { use24Hour } = useClockFormat();
+  useReportTrainLine(stopList?.lineCode ?? null);
 
   // Held in a ref so the polling effect does not restart on every render.
   const loadedOnce = useRef(false);
@@ -130,7 +131,6 @@ export function StopList({ train, from }: { train: string; from: string }) {
 
   return (
     <>
-      <ServiceStatus lineCode={stopList.lineCode} />
       {(stale || fixtures) && (
         stale && lastLiveAt !== null ? (
           <FreshnessWarning lastLiveAt={lastLiveAt} />

@@ -15,16 +15,9 @@ type ServiceStatusResponse = {
   authoritativeRevisions: Record<string, string>;
 };
 
-/** "1 disruption, 2 advisories" — what the rider judges before opening. */
-function counts(disruptions: number, advisories: number): string {
-  const parts: string[] = [];
-  if (disruptions > 0) {
-    parts.push(`${disruptions} ${disruptions === 1 ? "disruption" : "disruptions"}`);
-  }
-  if (advisories > 0) {
-    parts.push(`${advisories} ${advisories === 1 ? "advisory" : "advisories"}`);
-  }
-  return parts.join(", ");
+/** "1 disruption", "2 disruptions". */
+function disruptionCount(count: number): string {
+  return `${count} ${count === 1 ? "disruption" : "disruptions"}`;
 }
 
 /**
@@ -103,57 +96,26 @@ export function useServiceStatus({
   };
 }
 
-/**
- * The one line official notices get above a train's remaining route, however
- * many there are and whatever they are marked.
- *
- * A provider marks whether a notice is current, not whether it matters — the
- * same flag covers a full suspension and one train running late — so nothing
- * here decides placement by severity. The counts sit on one line and the
- * notices themselves are one tap away.
- */
-export function ServiceStatus({ lineCode }: { lineCode: string }) {
-  const { disruptions, advisories, dismiss } = useServiceStatus({ lineCode });
-  if (!disruptions || !advisories) return null;
-  if (disruptions.length + advisories.length === 0) return null;
-
-  // A current notice is styled inside the summary rather than lifted out of it.
-  const urgent = disruptions.length > 0;
-  return (
-    <section aria-label="Service status" className="border-b border-edge">
-      <details className={urgent ? "bg-danger-soft text-danger" : "bg-warn-soft text-warn"}>
-        <summary className="cursor-pointer px-4 py-2 text-sm font-semibold sm:px-5">
-          Service status — {counts(disruptions.length, advisories.length)}
-        </summary>
-        <div className={`divide-y border-t ${urgent ? "divide-danger/20 border-danger/20" : "divide-warn/20 border-warn/20"}`}>
-          {[...disruptions, ...advisories].map((notice) => (
-            <Notice
-              key={notice.id}
-              notice={notice}
-              onDismiss={() => dismiss(notice)}
-            />
-          ))}
-        </div>
-      </details>
-    </section>
-  );
-}
+/** Which notices a status control covers: a station's, or one line's. */
+export type ServiceStatusScope =
+  | { stationCode: string; lineCode?: never }
+  | { lineCode: string; stationCode?: never };
 
 /**
- * A station's way to its service-status page. Planned advisories are routine
- * and never call for attention here; only a current disruption earns the red
- * dot, and dismissing it clears the dot.
+ * A station's or train's way to its service-status page. Planned advisories
+ * are routine and never call for attention here; only a current disruption
+ * earns the red dot, and dismissing it clears the dot.
  */
-export function ServiceStatusButton({ stationCode }: { stationCode: string }) {
-  const { disruptions } = useServiceStatus({ stationCode });
+export function ServiceStatusButton({ href, ...scope }: ServiceStatusScope & { href: string }) {
+  const { disruptions } = useServiceStatus(scope);
   const disrupted = (disruptions?.length ?? 0) > 0;
   const label = disrupted
-    ? `Service status: ${counts(disruptions!.length, 0)}`
+    ? `Service status: ${disruptionCount(disruptions!.length)}`
     : "Service status";
 
   return (
     <Link
-      href={`/station/${stationCode}/status`}
+      href={href}
       aria-label={label}
       title={label}
       className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
@@ -184,12 +146,12 @@ export function ServiceStatusButton({ stationCode }: { stationCode: string }) {
 }
 
 /**
- * Every official notice for one station, on a page of its own: current
- * disruptions first, then planned advisories, each linking to NJ TRANSIT's
- * original and dismissible one by one.
+ * Every official notice for one station or line, on a page of its own:
+ * current disruptions first, then planned advisories, each linking to
+ * NJ TRANSIT's original and dismissible one by one.
  */
-export function ServiceStatusList({ stationCode }: { stationCode: string }) {
-  const { failed, disruptions, advisories, dismiss } = useServiceStatus({ stationCode });
+export function ServiceStatusList(scope: ServiceStatusScope) {
+  const { failed, disruptions, advisories, dismiss } = useServiceStatus(scope);
 
   if (!disruptions || !advisories) {
     return (
@@ -201,7 +163,7 @@ export function ServiceStatusList({ stationCode }: { stationCode: string }) {
   if (disruptions.length + advisories.length === 0) {
     return (
       <p className="px-5 py-16 text-center text-muted">
-        No service notices for this station.
+        No service notices for this {scope.stationCode ? "station" : "line"}.
       </p>
     );
   }
