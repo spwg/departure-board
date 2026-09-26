@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { FavoriteButton } from "@/components/FavoriteButton";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
-import { SettingsButton } from "@/components/SettingsButton";
+import { StationHeader } from "@/components/StationHeader";
 import { StationTransferLinks } from "@/components/StationTransferLinks";
 import { TransferBoard } from "@/components/TransferBoard";
 import { njtBoardChoice } from "@/lib/boardChoices";
-import { getStation, stations } from "@/lib/stations";
+import { getStation, lineColor, lineName, stations } from "@/lib/stations";
 
 /**
  * There are only 167 stations, so prerendering every shell is cheap and makes
@@ -48,17 +46,12 @@ export default async function StationPage({
           corners, but only clip leaves the page as the scrollport, so the
           pinned header inside actually pins. */}
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
-        <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-          <Breadcrumbs
-            parents={[{ label: "Stations", href: "/" }]}
-            current={station.name}
-          />
-          <SettingsButton />
-          <FavoriteButton
-            choice={njtBoardChoice(station.code)}
-            name={station.name}
-          />
-        </header>
+        <StationHeader
+          name={station.name}
+          routes={<NjtLines lines={station.lines} />}
+          choice={njtBoardChoice(station.code)}
+          favoriteName={station.name}
+        />
 
         <StationTransferLinks system="njt" stationId={station.code} />
         <Suspense fallback={<p className="px-5 py-16 text-center text-muted">Loading live departures…</p>}>
@@ -69,5 +62,20 @@ export default async function StationPage({
         />
       </div>
     </main>
+  );
+}
+
+/** NJT's line colours with their names, as the rail map labels them. */
+function NjtLines({ lines }: { lines: string[] }) {
+  return (
+    // Inline items so a long list ends in an ellipsis rather than a cut word.
+    <ul className="min-w-0 truncate text-xs leading-5 text-muted">
+      {lines.map((line) => (
+        <li key={line} className="mr-2 inline">
+          <span aria-hidden className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: lineColor(line) }} />
+          {lineName(line)}
+        </li>
+      ))}
+    </ul>
   );
 }

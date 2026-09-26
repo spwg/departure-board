@@ -12,7 +12,7 @@ export function SettingsPage() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-          <Breadcrumbs parents={[{ label: "Stations", href: "/" }]} current="Settings" />
+          <Breadcrumbs parents={[{ label: "Home", href: "/" }]} current="Settings" />
         </header>
 
         <div className="space-y-6 p-4 sm:p-5">

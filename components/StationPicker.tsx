@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useRef, useState } from "react";
 import {
   BoardListingList,
   type BoardListingListItem,
@@ -10,7 +11,6 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { useFavorites } from "@/lib/favorites";
 import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
 import {
-  boardListingsByLetter,
   getBoardListing,
   searchBoardListings,
   type BoardListing,
@@ -35,17 +35,43 @@ function resolveChoices(choices: BoardChoice[]): BoardListing[] {
   return resolved;
 }
 
+/** How many autocomplete suggestions show at once. */
+const SUGGESTION_LIMIT = 8;
+
 export function StationPicker() {
+  const router = useRouter();
   const { favorites, loaded: favoritesLoaded } = useFavorites();
   const [query, setQuery] = useState("");
-  const [directoryOpen, setDirectoryOpen] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
-  const results = useMemo(() => searchBoardListings(query, 40), [query]);
-  const grouped = useMemo(() => boardListingsByLetter(), []);
+  const results = useMemo(() => searchBoardListings(query, SUGGESTION_LIMIT), [query]);
   const favoriteItems = useMemo<BoardListingListItem[]>(
     () => resolveChoices(favorites).map((listing) => ({ listing })),
     [favorites],
   );
+
+  const resultLinks = () => [...(resultsRef.current?.querySelectorAll<HTMLAnchorElement>("a") ?? [])];
+
+  function onSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter" && results[0]) {
+      event.preventDefault();
+      router.push(results[0].href);
+    } else if (event.key === "ArrowDown") {
+      event.preventDefault();
+      resultLinks()[0]?.focus();
+    }
+  }
+
+  // Arrow keys walk the suggestions and climb back into the search box.
+  function onResultsKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const links = resultLinks();
+    const index = links.indexOf(document.activeElement as HTMLAnchorElement);
+    const next = index + (event.key === "ArrowDown" ? 1 : -1);
+    if (next < 0) document.getElementById("station-search")?.focus();
+    else links[Math.min(next, links.length - 1)]?.focus();
+  }
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
@@ -57,75 +83,80 @@ export function StationPicker() {
           <p className="mt-1 text-sm text-muted">NJ Transit rail and NYC Subway</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Link
-            href="/nearby"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition-colors hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-          >
-            Nearby
-          </Link>
+          <NearbyButton />
           <SettingsButton />
         </div>
       </div>
 
+      <div className="mt-7">
+        <input
+          id="station-search"
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={onSearchKeyDown}
+          placeholder="Search stations"
+          aria-label="Search stations"
+          aria-controls="station-search-results"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="go"
+          className="block w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
+        />
+        {query && (
+          <section
+            id="station-search-results"
+            aria-label="Search results"
+            aria-live="polite"
+            className="mt-2 overflow-hidden rounded-xl border border-edge bg-surface"
+          >
+            {results.length > 0 ? (
+              <div ref={resultsRef} onKeyDown={onResultsKeyDown}>
+                <BoardListingList items={results.map((listing) => ({ listing }))} />
+              </div>
+            ) : (
+              <p className="px-4 py-6 text-center text-sm text-muted">
+                No stations match “{query}”.
+              </p>
+            )}
+          </section>
+        )}
+      </div>
+
+      {/* Favorites stay put under the search box, so a saved board is always
+          one tap away whether or not a search is in progress. */}
       {favoritesLoaded && favoriteItems.length > 0 && (
         <Section title="Favorites">
           <BoardListingList items={favoriteItems} />
         </Section>
       )}
-
-      <div className="mt-7">
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search stations"
-          aria-label="Search stations"
-          autoComplete="off"
-          className="block w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
-        />
-      </div>
-
-      {query ? (
-        <Section title={`${results.length} result${results.length === 1 ? "" : "s"}`}>
-          {results.length > 0 ? (
-            <BoardListingList items={results.map((listing) => ({ listing }))} />
-          ) : (
-            <p className="px-4 py-8 text-center text-sm text-muted">
-              No stations match “{query}”.
-            </p>
-          )}
-        </Section>
-      ) : (
-        <>
-          <details
-            className="group mt-7"
-            open={directoryOpen}
-            onToggle={(event) => setDirectoryOpen(event.currentTarget.open)}
-          >
-            <summary className="flex cursor-pointer list-none items-center justify-between rounded-xl border border-edge bg-surface px-4 py-3 text-sm font-medium transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current">
-              <span>Browse all stations</span>
-              <span className="flex items-center gap-2 text-xs text-muted">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </span>
-            </summary>
-            {/* Rendered flat: a card wrapper would trap sticky letter headers
-                in a non-scrolling container. */}
-            <div className="mt-2 border-t border-edge bg-surface">
-              {grouped.map(([letter, group]) => (
-                <div key={letter}>
-                  <h3 className="sticky top-0 z-10 border-b border-edge bg-bg px-4 py-1.5 text-xs font-semibold text-muted">
-                    {letter}
-                  </h3>
-                  <BoardListingList items={group.map((listing) => ({ listing }))} />
-                </div>
-              ))}
-            </div>
-          </details>
-        </>
-      )}
     </main>
+  );
+}
+
+/** Opens Nearby: a location pin, since the page is about where you are. */
+function NearbyButton() {
+  return (
+    <Link
+      href="/nearby"
+      aria-label="Nearby"
+      className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+        <circle cx="12" cy="9.5" r="2.5" />
+      </svg>
+    </Link>
   );
 }
 

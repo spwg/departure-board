@@ -27,7 +27,7 @@ export default async function SubwayTrainPage({ params }: { params: Promise<{ id
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
           <Breadcrumbs
-            parents={[{ label: "Stations", href: "/" }]}
+            parents={[{ label: "Home", href: "/" }]}
             current="This train"
           />
           <SettingsButton />

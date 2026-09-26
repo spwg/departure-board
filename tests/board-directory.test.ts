@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { njtBoardChoice, subwayBoardChoice } from "@/lib/boardChoices";
 import {
   boardListings,
-  boardListingsByLetter,
   getBoardListing,
   nearbyBoardListings,
   NEARBY_MAX_DISTANCE_KM,
@@ -81,9 +80,13 @@ describe("combined board directory", () => {
     expect(nearby.some(({ listing }) => listing.name === "Atlantic City Rail Terminal")).toBe(false);
   });
 
-  it("groups the whole directory alphabetically without dropping a listing", () => {
-    const grouped = boardListingsByLetter();
-    expect(grouped.flatMap(([, group]) => group)).toHaveLength(boardListings.length);
-    expect(grouped.map(([letter]) => letter)).toEqual([...grouped.map(([letter]) => letter)].sort());
+  it("tolerates word order and typos after exact matches", () => {
+    expect(searchBoardListings("columbus 59")[0]).toMatchObject({ name: "59 St-Columbus Circle", system: "Subway" });
+    expect(searchBoardListings("colombus circel")[0]).toMatchObject({ name: "59 St-Columbus Circle" });
+    expect(searchBoardListings("hoboekn")[0]).toMatchObject({ name: "Hoboken" });
+    // Exact matches still outrank fuzzy ones.
+    expect(searchBoardListings("newark")[0]!.name.toLowerCase()).toContain("newark");
+    // Short words must match exactly, so a two-letter query is not a free-for-all.
+    expect(searchBoardListings("zx")).toEqual([]);
   });
 });
