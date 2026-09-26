@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { SettingsButton } from "@/components/SettingsButton";
 import { StopList } from "@/components/StopList";
+import {
+  TrainLineProvider,
+  TrainServiceStatusButton,
+} from "@/components/TrainServiceStatus";
 import { isExcludedTrainId } from "@/lib/departures";
 import { getStation } from "@/lib/stations";
 
@@ -34,20 +38,23 @@ export default async function TrainPage({
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
-      <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
-        <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-          <Breadcrumbs
-            parents={[
-              { label: "Home", href: "/" },
-              ...(origin ? [{ label: origin.name, href: `/station/${origin.code}` }] : []),
-            ]}
-            current={`Train ${train}`}
-          />
-          <SettingsButton />
-        </header>
+      <TrainLineProvider>
+        <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
+          <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
+            <Breadcrumbs
+              parents={[
+                { label: "Home", href: "/" },
+                ...(origin ? [{ label: origin.name, href: `/station/${origin.code}` }] : []),
+              ]}
+              current={`Train ${train}`}
+            />
+            <TrainServiceStatusButton train={train} from={origin?.code ?? ""} />
+            <SettingsButton />
+          </header>
 
-        <StopList train={train} from={origin?.code ?? ""} />
-      </div>
+          <StopList train={train} from={origin?.code ?? ""} />
+        </div>
+      </TrainLineProvider>
     </main>
   );
 }

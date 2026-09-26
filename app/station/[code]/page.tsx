@@ -53,7 +53,7 @@ export default async function StationPage({
           routes={<NjtLines lines={station.lines} />}
           choice={njtBoardChoice(station.code)}
           favoriteName={station.name}
-          actions={<ServiceStatusButton stationCode={station.code} />}
+          actions={<ServiceStatusButton stationCode={station.code} href={`/station/${station.code}/status`} />}
         />
 
         <StationTransferLinks system="njt" stationId={station.code} />
