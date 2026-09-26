@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { NjtLines } from "@/components/NjtLines";
 import { RecentStationRecorder } from "@/components/RecentStationRecorder";
+import { ServiceStatusButton } from "@/components/ServiceStatus";
 import { StationHeader } from "@/components/StationHeader";
 import { StationTransferLinks } from "@/components/StationTransferLinks";
 import { TransferBoard } from "@/components/TransferBoard";
 import { njtBoardChoice } from "@/lib/boardChoices";
-import { getStation, lineColor, lineName, stations } from "@/lib/stations";
+import { getStation, stations } from "@/lib/stations";
 
 /**
  * There are only 167 stations, so prerendering every shell is cheap and makes
@@ -51,6 +53,7 @@ export default async function StationPage({
           routes={<NjtLines lines={station.lines} />}
           choice={njtBoardChoice(station.code)}
           favoriteName={station.name}
+          actions={<ServiceStatusButton stationCode={station.code} />}
         />
 
         <StationTransferLinks system="njt" stationId={station.code} />
@@ -62,20 +65,5 @@ export default async function StationPage({
         />
       </div>
     </main>
-  );
-}
-
-/** NJT's line colours with their names, as the rail map labels them. */
-function NjtLines({ lines }: { lines: string[] }) {
-  return (
-    // Inline items so a long list ends in an ellipsis rather than a cut word.
-    <ul className="min-w-0 truncate text-xs leading-5 text-muted">
-      {lines.map((line) => (
-        <li key={line} className="mr-2 inline">
-          <span aria-hidden className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: lineColor(line) }} />
-          {lineName(line)}
-        </li>
-      ))}
-    </ul>
   );
 }

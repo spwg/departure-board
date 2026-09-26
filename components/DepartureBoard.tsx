@@ -6,7 +6,6 @@ import { type Departure } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
 import { DepartureRow } from "./DepartureRow";
 import { FreshnessWarning } from "./FreshnessWarning";
-import { ServiceStatus } from "./ServiceStatus";
 
 
 const REFRESH_MS = 30_000;
@@ -176,12 +175,9 @@ export function DepartureBoard({ code }: { code: string }) {
     );
   }
 
-  return (
-    <>
-      <ServiceStatus stationCode={code} />
-      {content}
-    </>
-  );
+  // Service notices live on the station's own status page, reached from the
+  // header, so nothing stands between the rider and the trains.
+  return content;
 }
 
 function DepartureList({

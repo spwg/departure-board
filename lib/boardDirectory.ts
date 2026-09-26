@@ -125,38 +125,89 @@ function allowedTypos(token: string): number {
   return token.length < 8 ? 1 : 2;
 }
 
+/** How well one query word matches a station name's words; lower is better. */
+const WORD = 0;
+const PREFIX = 1;
+const INFIX = 2;
+const FUZZY = 3;
+
+type Match = {
+  /** The weakest query word's match: a name is only as good as its worst word. */
+  quality: number;
+  /** Typos spent across the fuzzy query words. */
+  typos: number;
+};
+
 /**
- * Lower is better; Infinity means the listing does not match at all.
+ * How `tokens` match one label, or null if some query word matches nothing.
  *
- * Exact matches rank first (provider id, then name-prefix, word-prefix and
- * containing matches). After those come fuzzy matches: every query word
- * starting some word of the name in any order ("columbus 59"), and then the
- * same with a few typos per word ("colombus circel").
+ * Each query word is graded against its best name word: the whole word
+ * ("penn" in "New York Penn Station"), then the start of a word ("penn" in
+ * "Pennsauken"), then inside a word ("field" in "Bloomfield"), then within a
+ * few typos of a word's start ("colombus"). Words may come in any order.
  */
-function score(listing: BoardListing, query: string): number {
-  if (listing.choice.stationId.toLowerCase() === query) return 0;
-  const tokens = query.split(" ");
-  let best = Infinity;
-  for (const label of [listing.name, ...listing.alsoKnownAs]) {
-    const name = normalizeStationName(label);
-    const words = name.split(" ");
-    if (name.startsWith(query)) best = Math.min(best, 1);
-    else if (words.some((word) => word.startsWith(query))) best = Math.min(best, 2);
-    else if (name.includes(query)) best = Math.min(best, 3);
-    else if (tokens.every((token) => words.some((word) => word.startsWith(token)))) best = Math.min(best, 4);
+function matchLabel(tokens: string[], label: string): Match | null {
+  const words = normalizeStationName(label).split(" ");
+  let quality = WORD;
+  let typos = 0;
+  for (const token of tokens) {
+    let best: number;
+    if (words.includes(token)) best = WORD;
+    else if (words.some((word) => word.startsWith(token))) best = PREFIX;
+    // Inside-word matches need a few letters, or "e" would match everything.
+    else if (token.length >= 3 && words.some((word) => word.includes(token))) best = INFIX;
     else {
-      let typos = 0;
-      for (const token of tokens) {
-        const distance = Math.min(...words.map((word) => prefixEditDistance(token, word)));
-        if (distance > allowedTypos(token)) { typos = Infinity; break; }
-        typos += distance;
-      }
-      // Fewer typos rank higher within the fuzzy tier.
-      if (typos !== Infinity) best = Math.min(best, 5 + typos);
+      const distance = Math.min(...words.map((word) => prefixEditDistance(token, word)));
+      if (distance > allowedTypos(token)) return null;
+      best = FUZZY;
+      typos += distance;
     }
+    quality = Math.max(quality, best);
   }
+  return { quality, typos };
+}
+
+/**
+ * Lower is better, compared element by element; null means no match.
+ *
+ * A provider id typed exactly ("NY") wins outright. Otherwise whole-word
+ * matches outrank word-start matches, which outrank inside-word and then
+ * typo-tolerant matches, so "penn" finds the Penn Stations before Pennsauken.
+ * Fewer typos rank higher, and a board's own name beats another name of its
+ * complex, so "world trade" puts World Trade Center above its neighbours. The
+ * caller breaks remaining ties by how many routes serve the board.
+ */
+function score(listing: BoardListing, tokens: string[], query: string): number[] | null {
+  if (listing.choice.stationId.toLowerCase() === query) return [-1, 0, 0];
+  let best: number[] | null = null;
+  [listing.name, ...listing.alsoKnownAs].forEach((label, index) => {
+    const match = matchLabel(tokens, label);
+    if (!match) return;
+    const candidate = [match.quality, match.typos, index === 0 ? 0 : 1];
+    if (!best || compareScores(candidate, best) < 0) best = candidate;
+  });
   return best;
 }
+
+function compareScores(a: number[], b: number[]): number {
+  for (let index = 0; index < a.length; index++) {
+    const difference = a[index]! - b[index]!;
+    if (difference) return difference;
+  }
+  return 0;
+}
+
+/** Larger stations first, then by name so the order is stable. */
+function byImportance(a: BoardListing, b: BoardListing): number {
+  return b.routes.length - a.routes.length ||
+    a.name.localeCompare(b.name) ||
+    a.system.localeCompare(b.system);
+}
+
+/**
+ * Every board, busiest first: what the picker lists before anything is typed.
+ */
+export const boardListingsByImportance: BoardListing[] = [...boardListings].sort(byImportance);
 
 /**
  * Board choices from both systems in one ranked result set, best match first
@@ -167,16 +218,12 @@ function score(listing: BoardListing, query: string): number {
 export function searchBoardListings(query: string, limit = 40): BoardListing[] {
   const q = normalizeStationName(query);
   if (!q) return [];
+  const tokens = [...new Set(q.split(" "))];
 
   return boardListings
-    .map((listing) => ({ listing, score: score(listing, q) }))
-    .filter((scored) => scored.score !== Infinity)
-    .sort((a, b) =>
-      a.score - b.score ||
-      b.listing.routes.length - a.listing.routes.length ||
-      a.listing.name.localeCompare(b.listing.name) ||
-      a.listing.system.localeCompare(b.listing.system),
-    )
+    .map((listing) => ({ listing, score: score(listing, tokens, q) }))
+    .filter((scored): scored is { listing: BoardListing; score: number[] } => scored.score !== null)
+    .sort((a, b) => compareScores(a.score, b.score) || byImportance(a.listing, b.listing))
     .slice(0, limit)
     .map((scored) => scored.listing);
 }
