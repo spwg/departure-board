@@ -38,7 +38,7 @@ export default async function TrainPage({
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
           <Breadcrumbs
             parents={[
-              { label: "Stations", href: "/" },
+              { label: "Home", href: "/" },
               ...(origin ? [{ label: origin.name, href: `/station/${origin.code}` }] : []),
             ]}
             current={`Train ${train}`}

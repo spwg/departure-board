@@ -37,7 +37,7 @@ A simultaneously visible subway-board section labeled with MTA's own station-dir
 _Avoid_: Inferred direction, shared cross-system direction, rail direction group
 
 **Next stop**:
-The first stop a subway departure makes after the board's station, shown as the rider's boarding cue in the same terms as the sign inside the train. A departure with no later stop is not a departure, so every row has one.
+The first stop a subway departure makes after the board's station. A departure with no later stop is not a departure, so every departure has one. It is not shown on board rows, where riders could not tell it from the train's live position; a rider reads it on the train's remaining route instead.
 _Avoid_: Following station, upcoming stops, skipped stops
 
 **Remaining route**:

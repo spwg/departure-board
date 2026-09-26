@@ -53,14 +53,14 @@ describe("interactive component contract", () => {
     expect(screen.getByText("5 min")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /filter destinations/i })).toBeNull();
 
-    // Every row carries its boarding cue, and nothing else: no clock time
-    // beside the countdown, and no direction restating the heading above it.
+    // Every row carries its destination and countdown, and nothing else: no
+    // ambiguous next stop, no clock time beside the countdown, and no
+    // direction restating the heading above it.
     const rows = screen.getAllByRole("listitem");
     expect(rows).toHaveLength(2);
-    expect(within(rows[0]!).getByText("Times Sq-42 St")).toBeTruthy();
-    expect(within(rows[1]!).getByText("14 St")).toBeTruthy();
     for (const row of rows) {
-      expect(within(row).getByText("Next stop")).toBeTruthy();
+      expect(within(row).queryByText("Next stop")).toBeNull();
+      expect(row.textContent).not.toMatch(/Times Sq-42 St|14 St/);
       expect(row.textContent).not.toMatch(/\d:\d\d/);
       expect(row.textContent).not.toMatch(/Uptown|Downtown/);
     }
@@ -515,19 +515,19 @@ describe("interactive component contract", () => {
     const search = screen.getByRole("searchbox", { name: "Search stations" });
 
     fireEvent.change(search, { target: { value: "newark" } });
-    const results = screen.getByRole("heading", { name: /results?$/ }).closest("section")!;
+    const results = screen.getByRole("region", { name: "Search results" });
     const links = within(results).getAllByRole("link");
     expect(links.some((link) => link.textContent?.includes("Newark Penn Station") && link.textContent?.includes("NJT"))).toBe(true);
 
     fireEvent.change(search, { target: { value: "times sq" } });
-    const timesSquare = within(screen.getByRole("heading", { name: /results?$/ }).closest("section")!).getAllByRole("link");
+    const timesSquare = within(screen.getByRole("region", { name: "Search results" })).getAllByRole("link");
     expect(timesSquare[0]!.textContent).toContain("Subway");
     expect(timesSquare[0]!.getAttribute("href")).toMatch(/^\/subway\/station\//);
 
     // Eight stations are called "86 St"; the routes on each row are what tells
     // a rider which one they mean, in text rather than only in colour.
     fireEvent.change(search, { target: { value: "86 St" } });
-    const eightySixth = within(screen.getByRole("heading", { name: /results?$/ }).closest("section")!)
+    const eightySixth = within(screen.getByRole("region", { name: "Search results" }))
       .getAllByRole("link")
       .filter((link) => link.textContent?.startsWith("86 St"));
     expect(eightySixth.length).toBeGreaterThan(3);
@@ -557,15 +557,21 @@ describe("interactive component contract", () => {
     expect(within(favorites).queryByText("recent")).toBeNull();
   });
 
-  it("browses one alphabetical directory covering both systems", () => {
+  it("autocompletes misspelled station names and opens the top match on Enter", () => {
+    window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NY"]));
     render(<StationPicker />);
+    const search = screen.getByRole("searchbox", { name: "Search stations" });
 
-    fireEvent.click(screen.getByText("Browse all stations"));
-    const directory = screen.getByText("Browse all stations").closest("details")!;
-    const links = within(directory).getAllByRole("link");
-    expect(links.some((link) => link.getAttribute("href")?.startsWith("/station/"))).toBe(true);
-    expect(links.some((link) => link.getAttribute("href")?.startsWith("/subway/station/"))).toBe(true);
-    expect(within(directory).getAllByRole("heading", { level: 3 }).length).toBeGreaterThan(1);
+    fireEvent.change(search, { target: { value: "colombus circel" } });
+    const suggestions = within(screen.getByRole("region", { name: "Search results" })).getAllByRole("link");
+    expect(suggestions[0]!.textContent).toContain("59 St-Columbus Circle");
+    expect(suggestions.length).toBeLessThanOrEqual(8);
+
+    // Favorites stay one tap away while a search is in progress.
+    expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
+
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(window.location.pathname).toBe(suggestions[0]!.getAttribute("href"));
   });
 
   it("presents Penn's provider station boards as separate choices", () => {
@@ -574,7 +580,7 @@ describe("interactive component contract", () => {
       target: { value: "Penn Station" },
     });
 
-    const penn = within(screen.getByRole("heading", { name: /results?$/ }).closest("section")!)
+    const penn = within(screen.getByRole("region", { name: "Search results" }))
       .getAllByRole("link")
       .filter((link) => ["/station/NY", "/subway/station/128", "/subway/station/A28"].includes(link.getAttribute("href") ?? ""));
     expect(penn.map((link) => link.getAttribute("href"))).toEqual([
@@ -787,7 +793,7 @@ describe("interactive component contract", () => {
     expect(window.localStorage.getItem("departure-board:watches")).toBeNull();
   });
 
-  it("hides empty Favorites and keeps the full directory collapsed", () => {
+  it("hides empty Favorites and offers no directory drop-down", () => {
     window.localStorage.setItem("departure-board:recent-stations", JSON.stringify(["NY"]));
 
     render(<StationPicker />);
@@ -796,10 +802,7 @@ describe("interactive component contract", () => {
     expect(screen.queryByText(/No favorites yet/)).toBeNull();
     expect(screen.queryByText("recent")).toBeNull();
     expect(screen.queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
-    const directory = screen.getByText("Browse all stations").closest("details")!;
-    expect(directory.open).toBe(false);
-
-    fireEvent.click(screen.getByText("Browse all stations"));
-    expect(directory.open).toBe(true);
+    expect(screen.queryByText("Browse all stations")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Search results" })).toBeNull();
   });
 });

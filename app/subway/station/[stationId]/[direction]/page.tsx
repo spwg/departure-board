@@ -65,15 +65,7 @@ async function SubwayDirectionContent({
       routes={context.routes}
       choice={choice}
       favoriteName={`${context.station.name} Subway`}
-      breadcrumbParents={[
-        { label: "Stations", href: "/" },
-        {
-          label: `${context.station.name} Subway`,
-          href: transferHref(choice),
-        },
-      ]}
-      breadcrumbCurrent={direction}
-      breadcrumbSubtitle={null}
+      stationHref={transferHref(choice)}
     >
       <StationTransferLinks system="subway" stationId={context.stationIds[0]!} />
       <TransferBoard choice={{ ...choice, stationId: boardStationId }} direction={direction} />

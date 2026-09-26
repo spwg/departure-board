@@ -137,7 +137,7 @@ function DirectionSection({
         id={`subway-${direction}`}
         // Clears the station header, which is itself pinned on phones and
         // static from tablet up.
-        className="sticky top-[var(--subway-header-offset,4.625rem)] z-9 border-y border-edge bg-bg px-5 py-2 text-sm font-semibold sm:top-0"
+        className="sticky top-[var(--subway-header-offset,4rem)] z-9 border-y border-edge bg-bg px-5 py-2 text-sm font-semibold sm:top-0"
       >
         {direction}
       </h2>
@@ -163,11 +163,12 @@ function directionHref(stationId: string, direction: string): string {
 }
 
 /**
- * One subway departure: route bullet, destination, next stop, countdown.
+ * One subway departure: route bullet, destination, countdown.
  *
  * No direction — the sticky heading above already says it — and no clock time,
- * which was the countdown's own instant printed a second way. The two facts a
- * boarding rider reads, destination and next stop, own all the flexible width.
+ * which was the countdown's own instant printed a second way. No next stop
+ * either: it read ambiguously as the train's live position or the line's next
+ * station, and the train's own page lists its remaining stops.
  */
 function SubwayRow({ departure, now }: { departure: Board["departures"][number]; now: number }) {
   const minutes = Math.max(0, Math.round((Date.parse(departure.expectedTime) - now) / 60_000));
@@ -179,14 +180,7 @@ function SubwayRow({ departure, now }: { departure: Board["departures"][number];
       className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
     >
       <span aria-label={`${departure.route} train`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-lg font-bold text-white" style={{ backgroundColor: subwayRouteColor(departure.route) }}>{departure.route}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-lg font-semibold">{departure.destination}</span>
-        <span className="mt-0.5 flex items-baseline gap-1.5 text-sm text-muted">
-          <span className="shrink-0">Next stop</span>
-          <span aria-hidden className="text-faint">·</span>
-          <span className="truncate">{departure.nextStop}</span>
-        </span>
-      </span>
+      <span className="min-w-0 flex-1 truncate text-lg font-semibold">{departure.destination}</span>
       <span className="shrink-0 text-lg font-semibold">{minutes === 0 ? "now" : `${minutes} min`}</span>
       <span className="sr-only">See remaining stops</span>
     </Link>
