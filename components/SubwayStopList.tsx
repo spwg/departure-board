@@ -126,10 +126,6 @@ export function SubwayStopList({ tripId }: { tripId: string }) {
         </span>
       </div>
 
-      <p className="border-b border-edge px-4 py-2 text-xs font-medium text-muted sm:px-5">
-        {trip.stops.length} {trip.stops.length === 1 ? "stop" : "stops"} remaining
-      </p>
-
       <ol className="py-1" aria-label="Remaining stops">
         {trip.stops.map((stop, index) => (
           <li key={`${stop.id}-${index}`} className="relative flex items-center gap-3 py-2.5 pl-4 pr-3 sm:pl-5">

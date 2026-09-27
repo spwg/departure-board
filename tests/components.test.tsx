@@ -131,7 +131,7 @@ describe("interactive component contract", () => {
     expect(row.getAttribute("href")).toBe(`/subway/train/${encodeURIComponent("mta:numbered:064150_1..N03R:127")}`);
   });
 
-  it("shows a Subway train's remaining stops, its live count, and an honest end of run", async () => {
+  it("shows a Subway train's remaining stops without a count header, and keeps them through a later failure", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime("2026-08-04T12:00:00.000Z");
     let calls = 0;
@@ -169,7 +169,7 @@ describe("interactive component contract", () => {
       expect.stringContaining("59 St-Columbus Circle"),
       expect.stringContaining("Van Cortlandt Park-242 St"),
     ]);
-    expect(screen.getByText("3 stops remaining")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/stops? remaining/);
     expect(document.body.textContent).not.toMatch(/Underway|hiding \d+ stops/);
     expect(within(stops[2]!).getByLabelText("No estimate yet")).toBeTruthy();
 
