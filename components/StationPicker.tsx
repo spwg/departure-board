@@ -1,18 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   BoardListingList,
   type BoardListingListItem,
 } from "@/components/BoardListingList";
 import { SettingsButton } from "@/components/SettingsButton";
+import { useCurrentLocation, type LocationState } from "@/lib/currentLocation";
 import { useFavorites } from "@/lib/favorites";
+import { useShowNearby } from "@/lib/nearbyPreference";
 import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
 import {
   boardListingsByImportance,
   getBoardListing,
+  nearbyBoardListings,
   searchBoardListings,
   type BoardListing,
 } from "@/lib/boardDirectory";
@@ -39,13 +42,23 @@ function resolveChoices(choices: BoardChoice[]): BoardListing[] {
 /** How many autocomplete suggestions show at once. */
 const SUGGESTION_LIMIT = 8;
 
+/** How many nearby boards Home lists before "Show more". */
+const NEARBY_PREVIEW = 5;
+
 export function StationPicker() {
   const router = useRouter();
   const { favorites, loaded: favoritesLoaded } = useFavorites();
+  const { showNearby } = useShowNearby();
+  const location = useCurrentLocation(showNearby);
   const [query, setQuery] = useState("");
+  // Search stays behind the header's magnifier: riders mostly want a
+  // favorite or a nearby board, which Home lists without any typing.
+  const [searchOpen, setSearchOpen] = useState(false);
   // Focusing the search box means the rider is about to type, not reach for a
-  // favorite, so the station list replaces Favorites until they leave search.
+  // listed board, so the station list replaces Home's lists until they leave.
   const [searching, setSearching] = useState(false);
+  const [nearbyExpanded, setNearbyExpanded] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
   const hasQuery = query.trim() !== "";
@@ -56,10 +69,42 @@ export function StationPicker() {
     () => hasQuery ? searchBoardListings(query, SUGGESTION_LIMIT) : boardListingsByImportance,
     [hasQuery, query],
   );
-  const favoriteItems = useMemo<BoardListingListItem[]>(
-    () => resolveChoices(favorites).map((listing) => ({ listing })),
-    [favorites],
+
+  const coordinates = location.state.status === "found" ? location.state.coordinates : null;
+  const nearby = useMemo(
+    () => coordinates ? nearbyBoardListings(coordinates.latitude, coordinates.longitude) : [],
+    [coordinates],
   );
+  // A favorite that is also nearby stays under Favorites, with its distance.
+  const favoriteListings = useMemo(() => resolveChoices(favorites), [favorites]);
+  const favoriteKeys = useMemo(
+    () => new Set(favoriteListings.map((listing) => boardChoiceKey(listing.choice))),
+    [favoriteListings],
+  );
+  const favoriteItems = useMemo<BoardListingListItem[]>(() => {
+    const distances = new Map(nearby.map((item) => [boardChoiceKey(item.listing.choice), item.distanceKm]));
+    return favoriteListings.map((listing) => ({
+      listing,
+      distanceKm: distances.get(boardChoiceKey(listing.choice)),
+    }));
+  }, [favoriteListings, nearby]);
+  const nearbyItems = useMemo<BoardListingListItem[]>(
+    () => nearby.filter((item) => !favoriteKeys.has(boardChoiceKey(item.listing.choice))),
+    [nearby, favoriteKeys],
+  );
+
+  function openSearch() {
+    // Rendered and focused within the tap itself: iOS only raises the
+    // keyboard for a focus that happens inside the rider's gesture.
+    flushSync(() => setSearchOpen(true));
+    searchRef.current?.focus();
+  }
+
+  function closeSearch() {
+    setQuery("");
+    setSearching(false);
+    setSearchOpen(false);
+  }
 
   const resultLinks = () => [...(resultsRef.current?.querySelectorAll<HTMLAnchorElement>("a") ?? [])];
 
@@ -68,9 +113,7 @@ export function StationPicker() {
       event.preventDefault();
       router.push(results[0].href);
     } else if (event.key === "Escape") {
-      setQuery("");
-      setSearching(false);
-      event.currentTarget.blur();
+      closeSearch();
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       resultLinks()[0]?.focus();
@@ -84,7 +127,7 @@ export function StationPicker() {
     const links = resultLinks();
     const index = links.indexOf(document.activeElement as HTMLAnchorElement);
     const next = index + (event.key === "ArrowDown" ? 1 : -1);
-    if (next < 0) document.getElementById("station-search")?.focus();
+    if (next < 0) searchRef.current?.focus();
     else links[Math.min(next, links.length - 1)]?.focus();
   }
 
@@ -98,73 +141,164 @@ export function StationPicker() {
           <p className="mt-1 text-sm text-muted">NJ Transit rail and NYC Subway</p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <NearbyButton />
+          <SearchButton onClick={openSearch} />
           <SettingsButton />
         </div>
       </div>
 
-      <div
-        className="mt-7"
-        onFocus={() => setSearching(true)}
-        // Moving between the box and its results stays in search; focus
-        // leaving both ends it, unless a query is still showing results.
-        onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) setSearching(false);
-        }}
-      >
-        <input
-          id="station-search"
-          type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={onSearchKeyDown}
-          placeholder="Search stations"
-          aria-label="Search stations"
-          aria-controls="station-search-results"
-          autoComplete="off"
-          autoCorrect="off"
-          spellCheck={false}
-          enterKeyHint="go"
-          className="block w-full rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
-        />
-        {showResults && (
-          <section
-            id="station-search-results"
-            aria-label="Search results"
-            aria-live={hasQuery ? "polite" : "off"}
-            // A tap on a result must not blur the box first: some browsers
-            // give links no focus, so the list would close before the click.
-            onMouseDown={(event) => event.preventDefault()}
-            className="mt-2 overflow-hidden rounded-xl border border-edge bg-surface"
-          >
-            {results.length > 0 ? (
-              <div ref={resultsRef} onKeyDown={onResultsKeyDown}>
-                <BoardListingList items={results.map((listing) => ({ listing }))} />
-              </div>
-            ) : (
-              <p className="px-4 py-6 text-center text-sm text-muted">
-                No stations match “{query}”.
-              </p>
-            )}
-          </section>
-        )}
-      </div>
+      {searchOpen && (
+        <div
+          className="mt-7"
+          onFocus={() => setSearching(true)}
+          // Moving between the box and its results stays in search; focus
+          // leaving both ends it, and an empty box folds back behind the
+          // magnifier.
+          onBlur={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget)) return;
+            setSearching(false);
+            if (!hasQuery) setSearchOpen(false);
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <input
+              ref={searchRef}
+              id="station-search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={onSearchKeyDown}
+              placeholder="Search stations"
+              aria-label="Search stations"
+              aria-controls="station-search-results"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="go"
+              className="block w-full min-w-0 flex-1 rounded-xl border border-edge bg-surface px-4 py-3 text-base outline-none placeholder:text-faint focus-visible:border-edge-strong focus-visible:ring-2 focus-visible:ring-edge-strong"
+            />
+            <button
+              type="button"
+              onClick={closeSearch}
+              className="shrink-0 rounded-lg px-2 py-2 text-sm font-medium text-muted transition-colors hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            >
+              Cancel
+            </button>
+          </div>
+          {showResults && (
+            <section
+              id="station-search-results"
+              aria-label="Search results"
+              aria-live={hasQuery ? "polite" : "off"}
+              // A tap on a result must not blur the box first: some browsers
+              // give links no focus, so the list would close before the click.
+              onMouseDown={(event) => event.preventDefault()}
+              className="mt-2 overflow-hidden rounded-xl border border-edge bg-surface"
+            >
+              {results.length > 0 ? (
+                <div ref={resultsRef} onKeyDown={onResultsKeyDown}>
+                  <BoardListingList items={results.map((listing) => ({ listing }))} />
+                </div>
+              ) : (
+                <p className="px-4 py-6 text-center text-sm text-muted">
+                  No stations match “{query}”.
+                </p>
+              )}
+            </section>
+          )}
+        </div>
+      )}
 
       {!showResults && favoritesLoaded && favoriteItems.length > 0 && (
         <Section title="Favorites">
           <BoardListingList items={favoriteItems} />
         </Section>
       )}
+
+      {!showResults && showNearby && (
+        <Section title="Nearby">
+          <NearbyContent
+            state={location.state}
+            items={nearbyExpanded ? nearbyItems : nearbyItems.slice(0, NEARBY_PREVIEW)}
+            hiddenCount={nearbyExpanded ? 0 : Math.max(nearbyItems.length - NEARBY_PREVIEW, 0)}
+            onLocate={location.locate}
+            onShowMore={() => setNearbyExpanded(true)}
+          />
+        </Section>
+      )}
     </main>
   );
 }
 
-/** Opens Nearby: a location pin, since the page is about where you are. */
-function NearbyButton() {
+/**
+ * The Nearby section's body. Until the browser allows location it is grayed
+ * out with one button, whether the rider has never been asked or said no.
+ */
+function NearbyContent({
+  state,
+  items,
+  hiddenCount,
+  onLocate,
+  onShowMore,
+}: {
+  state: LocationState;
+  items: BoardListingListItem[];
+  hiddenCount: number;
+  onLocate: () => void;
+  onShowMore: () => void;
+}) {
+  switch (state.status) {
+    case "checking":
+      // Blank for the moment it takes the browser to answer, so a phone that
+      // already allows location never flashes the grayed-out state first.
+      return <div aria-busy className="h-[3.25rem]" />;
+    case "locating":
+      return <p className="px-4 py-4 text-sm text-muted">Finding nearby stations…</p>;
+    case "off":
+    case "unavailable":
+      return (
+        <div className="flex items-center gap-3 bg-bg/60 px-4 py-3">
+          <p className="min-w-0 flex-1 text-sm text-faint">
+            {state.status === "off"
+              ? "Turn on location to see stations near you."
+              : "Couldn’t find your location."}
+          </p>
+          <button
+            type="button"
+            onClick={onLocate}
+            className="shrink-0 rounded-lg border border-edge bg-surface px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+          >
+            {state.status === "off" ? "Enable location" : "Try again"}
+          </button>
+        </div>
+      );
+    case "found":
+      if (items.length === 0) {
+        return <p className="px-4 py-4 text-sm text-muted">No other stations within 2 miles.</p>;
+      }
+      return (
+        <>
+          <BoardListingList items={items} />
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={onShowMore}
+              className="block w-full border-t border-edge px-4 py-3 text-left text-sm font-medium text-muted transition-colors hover:bg-bg hover:text-text focus-visible:bg-bg focus-visible:outline-none"
+            >
+              Show {hiddenCount} more
+            </button>
+          )}
+        </>
+      );
+  }
+}
+
+/** Opens search: riders rarely need it, so it waits behind this button. */
+function SearchButton({ onClick }: { onClick: () => void }) {
   return (
-    <Link
-      href="/nearby"
-      aria-label="Nearby"
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Search"
       className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-surface hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
     >
       <svg
@@ -177,10 +311,10 @@ function NearbyButton() {
         strokeLinejoin="round"
         aria-hidden
       >
-        <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
-        <circle cx="12" cy="9.5" r="2.5" />
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
       </svg>
-    </Link>
+    </button>
   );
 }
 

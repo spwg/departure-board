@@ -85,11 +85,11 @@ A non-dismissible banner stating that shown realtime departure data is no longer
 _Avoid_: Offline notice, data alert
 
 **Station picker**:
-The home-page selection screen for both rail and subway departure boards. It opens without redirecting and shows saved favorite board choices in one list under the search box. Focusing search replaces Favorites with the full directory, busiest boards first, which each keystroke narrows to the best matches: whole-word matches before word-start, inside-word and typo-tolerant ones, and larger stations first among equals. Nearby choices have their own page. Recent station history remains recorded locally but is not shown on Home for now.
+The home-page selection screen for both rail and subway departure boards. It opens without redirecting and lists the boards a rider most likely wants: saved favorites, then nearby stations. Search waits behind a magnifier in the header; opening it replaces both lists with the full directory, busiest boards first, which each keystroke narrows to the best matches: whole-word matches before word-start, inside-word and typo-tolerant ones, and larger stations first among equals. Recent station history remains recorded locally but is not shown on Home for now.
 _Avoid_: Default station, launch redirect
 
 **Nearby stations**:
-Provider-qualified board choices whose published coordinates are within two miles of the rider's current location, ordered closest first.
+Provider-qualified board choices whose published coordinates are within two miles of the rider's current location, ordered closest first. Home lists the closest five, with the rest behind "Show more", and a favorite that is nearby stays under Favorites with its distance. Home looks the location up unasked only when the browser already allows it; otherwise the section is grayed out with one button that asks, and a refusal leaves it grayed out. Riders can hide the section in Settings.
 _Avoid_: Closest station only, merged station
 
 **Recent stations**:
