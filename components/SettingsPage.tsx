@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageTitle } from "@/components/PageTitle";
+import { HomeButton } from "@/components/StationHeader";
 import { useClockFormat } from "@/lib/clockFormat";
 
 /** Full-page preferences so settings never compete with board overlays. */
@@ -12,7 +13,8 @@ export function SettingsPage() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-          <Breadcrumbs parents={[{ label: "Home", href: "/" }]} current="Settings" />
+          <HomeButton />
+          <PageTitle title="Settings" />
         </header>
 
         <div className="space-y-6 p-4 sm:p-5">

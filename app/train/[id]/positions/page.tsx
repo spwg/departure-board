@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageTitle } from "@/components/PageTitle";
+import { HomeButton } from "@/components/StationHeader";
 import { PositionHistory } from "@/components/PositionHistory";
 import { SettingsButton } from "@/components/SettingsButton";
 import { isExcludedTrainId } from "@/lib/departures";
 import { loadPositionHistory } from "@/lib/pennPositionStore";
-import { getStation } from "@/lib/stations";
 import { summarizeCircuit, type CircuitSummary, type PositionEvent } from "@/lib/trainPositions";
 
 export async function generateMetadata({
@@ -22,15 +22,10 @@ export async function generateMetadata({
  */
 export default async function TrainPositionsPage({
   params,
-  searchParams,
 }: PageProps<"/train/[id]/positions">) {
   const { id } = await params;
   const train = decodeURIComponent(id).trim();
   if (!train || isExcludedTrainId(train)) notFound();
-
-  const { from } = await searchParams;
-  const origin = typeof from === "string" ? getStation(from) : undefined;
-  const trainHref = `/train/${encodeURIComponent(train)}${origin ? `?from=${origin.code}` : ""}`;
 
   let history: { events: PositionEvent[]; circuits: CircuitSummary[] } | null = null;
   try {
@@ -47,14 +42,8 @@ export default async function TrainPositionsPage({
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-          <Breadcrumbs
-            parents={[
-              { label: "Home", href: "/" },
-              ...(origin ? [{ label: origin.name, href: `/station/${origin.code}` }] : []),
-              { label: `Train ${train}`, href: trainHref },
-            ]}
-            current="Penn track history"
-          />
+          <HomeButton />
+          <PageTitle title="Penn track history" subtitle={`Train ${train}`} />
           <SettingsButton />
         </header>
 

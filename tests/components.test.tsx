@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageTitle } from "@/components/PageTitle";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { NearbyStations } from "@/components/NearbyStations";
 import { SettingsButton } from "@/components/SettingsButton";
@@ -236,22 +236,13 @@ describe("interactive component contract", () => {
     expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/settings");
   });
 
-  it("renders a breadcrumb hierarchy with the current page as the heading", () => {
-    render(
-      <Breadcrumbs
-        parents={[
-          { label: "Stations", href: "/" },
-          { label: "New York Penn Station", href: "/station/NY" },
-        ]}
-        current="NJT departures"
-      />,
-    );
+  it("titles a page without a breadcrumb trail", () => {
+    render(<PageTitle title="Service status" subtitle="Train 7851 · Northeast Corridor Line" />);
 
-    const breadcrumb = screen.getByRole("navigation", { name: "Breadcrumb" });
-    expect(within(breadcrumb).getByRole("link", { name: "Stations" }).getAttribute("href")).toBe("/");
-    expect(within(breadcrumb).getByRole("link", { name: "New York Penn Station" }).getAttribute("href")).toBe("/station/NY");
-    expect(within(breadcrumb).getByRole("heading", { name: "NJT departures" })).toBeTruthy();
-    expect(breadcrumb.querySelector('[aria-current="page"]')).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Service status" })).toBeTruthy();
+    expect(screen.getByText("Train 7851 · Northeast Corridor Line")).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Breadcrumb" })).toBeNull();
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 
   it("renders a delayed departure with its timetable, train, line, and track", () => {
