@@ -49,8 +49,13 @@ export function useThemePreference() {
   return { theme, setTheme };
 }
 
-/** Applies a choice made in another tab, since only that tab ran setTheme. */
+/**
+ * Applies a choice made in another tab, since only that tab ran setTheme.
+ * Reconciles once on subscribe too: a change made between this tab's pre-paint
+ * script and hydration fired its storage event before anyone was listening.
+ */
 export function subscribeToOtherTabs(): () => void {
+  applyTheme(getSnapshot());
   const onStorage = (event: StorageEvent) => {
     if (event.key === THEME_STORAGE_KEY || event.key === null) applyTheme(getSnapshot());
   };

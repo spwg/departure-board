@@ -76,4 +76,29 @@ describe("theme override", () => {
     });
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
   });
+
+  it("picks up a theme chosen in another tab before this one hydrated", () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, "dark");
+    render(<ThemeSync />);
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("moves through Appearance with arrow keys, keeping only the checked option tabbable", () => {
+    render(<SettingsPage />);
+    const system = screen.getByRole("radio", { name: "System" });
+    const light = screen.getByRole("radio", { name: "Light" });
+    const dark = screen.getByRole("radio", { name: "Dark" });
+    expect([system.tabIndex, light.tabIndex, dark.tabIndex]).toEqual([0, -1, -1]);
+
+    fireEvent.keyDown(system, { key: "ArrowRight" });
+    expect(light.getAttribute("aria-checked")).toBe("true");
+    expect(document.activeElement).toBe(light);
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    expect([system.tabIndex, light.tabIndex, dark.tabIndex]).toEqual([-1, 0, -1]);
+
+    fireEvent.keyDown(light, { key: "ArrowLeft" });
+    fireEvent.keyDown(system, { key: "ArrowLeft" });
+    expect(dark.getAttribute("aria-checked")).toBe("true");
+    expect(document.activeElement).toBe(dark);
+  });
 });

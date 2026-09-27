@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { KeyboardEvent } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { PageTitle } from "@/components/PageTitle";
 import { HomeButton } from "@/components/StationHeader";
@@ -82,13 +83,31 @@ function SegmentedControl<T>({
   onChange: (value: T) => void;
   options: { label: string; value: T; example?: string }[];
 }) {
+  const selectedIndex = options.findIndex((option) => option.value === value);
+
+  // Standard radio-group keys: arrows move and select, and only the checked
+  // option is in the tab order.
+  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = options.length - 1;
+    const next =
+      event.key === "ArrowRight" || event.key === "ArrowDown" ? (index === last ? 0 : index + 1)
+      : event.key === "ArrowLeft" || event.key === "ArrowUp" ? (index === 0 ? last : index - 1)
+      : event.key === "Home" ? 0
+      : event.key === "End" ? last
+      : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
+    onChange(options[next].value);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus();
+  }
+
   return (
     <div
       role="radiogroup"
       aria-label={label}
       className="mt-4 grid auto-cols-fr grid-flow-col rounded-lg bg-bg p-1"
     >
-      {options.map((option) => {
+      {options.map((option, index) => {
         const selected = value === option.value;
         return (
           <button
@@ -96,7 +115,9 @@ function SegmentedControl<T>({
             type="button"
             role="radio"
             aria-checked={selected}
+            tabIndex={index === Math.max(selectedIndex, 0) ? 0 : -1}
             onClick={() => onChange(option.value)}
+            onKeyDown={(event) => onKeyDown(event, index)}
             className={`rounded-md px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${selected ? "bg-surface text-text shadow-sm" : "text-muted hover:text-text"}`}
           >
             <span className="block text-sm font-semibold">{option.label}</span>
