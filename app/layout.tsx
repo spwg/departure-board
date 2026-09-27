@@ -4,6 +4,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { RetiredWatchStateCleanup } from "@/components/RetiredWatchStateCleanup";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
+import { ThemeSync } from "@/components/ThemeSync";
+import { THEME_COLORS, themeScript } from "@/lib/theme";
 import "./globals.css";
 
 
@@ -38,8 +40,9 @@ export const viewport: Viewport = {
   // Keeps the board flush to the edges on notched phones.
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f4f4f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#09090b" },
+    // Follows the OS; a theme chosen in Settings overrides these (lib/theme.ts).
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
   ],
 };
 
@@ -52,11 +55,17 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      // The theme script sets data-theme before React hydrates.
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="flex min-h-full flex-col font-sans">
         {children}
         <RetiredWatchStateCleanup />
         <ServiceWorkerRegistrar />
+        <ThemeSync />
         <SpeedInsights />
         <Analytics />
       </body>

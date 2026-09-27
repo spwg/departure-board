@@ -3,8 +3,15 @@
 /*
  * A small semantic palette rather than raw greys everywhere, so light and dark
  * stay in step and the board can be restyled from one place.
+ *
+ * Dark follows the OS unless the rider picked a theme in Settings, which sets
+ * data-theme on <html> (lib/theme.ts). CSS has no way to share one block
+ * between the media query and the attribute, so the dark palette is written
+ * twice below: keep the two copies identical.
  */
 :root {
+  color-scheme: light;
+
   --bg: #f4f4f5;
   --surface: #ffffff;
   --surface-raised: #ffffff;
@@ -21,12 +28,20 @@
   --danger: #b91c1c;
   --danger-soft: #fee2e2;
 
+  --accent: #1e40af;
+  --accent-soft: #eff6ff;
+  --accent-soft-strong: #dbeafe;
+  --accent-edge: #bfdbfe;
+  --accent-edge-strong: #93c5fd;
+
   --track-bg: #18181b;
   --track-text: #fafafa;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
     --bg: #09090b;
     --surface: #121214;
     --surface-raised: #1a1a1d;
@@ -43,9 +58,44 @@
     --danger: #f87171;
     --danger-soft: #300c0c;
 
+    --accent: #bfdbfe;
+    --accent-soft: #172554;
+    --accent-soft-strong: #1e3a8a;
+    --accent-edge: #1e40af;
+    --accent-edge-strong: #1d4ed8;
+
     --track-bg: #fafafa;
     --track-text: #18181b;
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #09090b;
+  --surface: #121214;
+  --surface-raised: #1a1a1d;
+  --text: #fafafa;
+  --text-muted: #a1a1aa;
+  --text-faint: #71717a;
+  --border: #27272a;
+  --border-strong: #3f3f46;
+
+  --ok: #4ade80;
+  --ok-soft: #052e16;
+  --warn: #fbbf24;
+  --warn-soft: #2e1c04;
+  --danger: #f87171;
+  --danger-soft: #300c0c;
+
+  --accent: #bfdbfe;
+  --accent-soft: #172554;
+  --accent-soft-strong: #1e3a8a;
+  --accent-edge: #1e40af;
+  --accent-edge-strong: #1d4ed8;
+
+  --track-bg: #fafafa;
+  --track-text: #18181b;
 }
 
 @theme inline {
@@ -64,6 +114,12 @@
   --color-warn-soft: var(--warn-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-strong: var(--accent-soft-strong);
+  --color-accent-edge: var(--accent-edge);
+  --color-accent-edge-strong: var(--accent-edge-strong);
 
   --color-track: var(--track-bg);
   --color-track-fg: var(--track-text);

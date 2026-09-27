@@ -48,7 +48,7 @@ export function BoardListingList({ items }: { items: BoardListingListItem[] }) {
                 )}
               </span>
 
-              <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+              <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-semibold text-accent">
                 {listing.system}
               </span>
 

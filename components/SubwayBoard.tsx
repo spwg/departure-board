@@ -148,7 +148,7 @@ function DirectionSection({
         <div className="border-t border-edge px-5 py-3">
           <Link
             href={directionHref(stationId, direction)}
-            className="block rounded-lg px-3 py-2 text-center text-sm font-semibold text-blue-700 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:text-blue-300"
+            className="block rounded-lg px-3 py-2 text-center text-sm font-semibold text-accent transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
           >
             Show more {direction} trains
           </Link>

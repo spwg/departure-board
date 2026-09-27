@@ -5,10 +5,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageTitle } from "@/components/PageTitle";
 import { HomeButton } from "@/components/StationHeader";
 import { useClockFormat } from "@/lib/clockFormat";
+import { useThemePreference } from "@/lib/themePreference";
 
 /** Full-page preferences so settings never compete with board overlays. */
 export function SettingsPage() {
   const { use24Hour, setClockFormat } = useClockFormat();
+  const { theme, setTheme } = useThemePreference();
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
@@ -25,27 +27,33 @@ export function SettingsPage() {
               Choose how scheduled departure times are shown.
             </p>
 
-            <div role="radiogroup" aria-label="Time format" className="mt-4 grid grid-cols-2 rounded-lg bg-bg p-1">
-              {[
+            <SegmentedControl
+              label="Time format"
+              value={use24Hour}
+              onChange={setClockFormat}
+              options={[
                 { label: "12-hour", value: false, example: "7:05 PM" },
                 { label: "24-hour", value: true, example: "19:05" },
-              ].map((option) => {
-                const selected = use24Hour === option.value;
-                return (
-                  <button
-                    key={option.label}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => setClockFormat(option.value)}
-                    className={`rounded-md px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${selected ? "bg-surface text-text shadow-sm" : "text-muted hover:text-text"}`}
-                  >
-                    <span className="block text-sm font-semibold">{option.label}</span>
-                    <span className="mt-0.5 block text-sm tabular-nums text-muted">{option.example}</span>
-                  </button>
-                );
-              })}
-            </div>
+              ]}
+            />
+          </section>
+
+          <section aria-labelledby="appearance-title" className="rounded-xl border border-edge bg-surface-raised p-4">
+            <h2 id="appearance-title" className="text-base font-semibold">Appearance</h2>
+            <p className="mt-1 text-sm leading-5 text-muted">
+              Choose light or dark, or follow this device’s setting.
+            </p>
+
+            <SegmentedControl
+              label="Appearance"
+              value={theme}
+              onChange={setTheme}
+              options={[
+                { label: "System", value: "system" },
+                { label: "Light", value: "light" },
+                { label: "Dark", value: "dark" },
+              ]}
+            />
           </section>
 
           <section aria-labelledby="about-title" className="rounded-xl border border-edge bg-surface-raised p-4">
@@ -60,5 +68,44 @@ export function SettingsPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function SegmentedControl<T>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: { label: string; value: T; example?: string }[];
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="mt-4 grid auto-cols-fr grid-flow-col rounded-lg bg-bg p-1"
+    >
+      {options.map((option) => {
+        const selected = value === option.value;
+        return (
+          <button
+            key={option.label}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(option.value)}
+            className={`rounded-md px-3 py-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current ${selected ? "bg-surface text-text shadow-sm" : "text-muted hover:text-text"}`}
+          >
+            <span className="block text-sm font-semibold">{option.label}</span>
+            {option.example && (
+              <span className="mt-0.5 block text-sm tabular-nums text-muted">{option.example}</span>
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }
