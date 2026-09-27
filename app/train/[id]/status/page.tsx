@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { PageTitle } from "@/components/PageTitle";
+import { HomeButton } from "@/components/StationHeader";
 import { ServiceStatusList } from "@/components/ServiceStatus";
 import { SettingsButton } from "@/components/SettingsButton";
 import { isExcludedTrainId } from "@/lib/departures";
-import { getStation, LINE_NAMES, lineName } from "@/lib/stations";
+import { LINE_NAMES, lineName } from "@/lib/stations";
 
 export async function generateMetadata({
   params,
@@ -24,26 +25,16 @@ export default async function TrainServiceStatusPage({
 }: PageProps<"/train/[id]/status">) {
   const { id } = await params;
   const train = decodeURIComponent(id).trim();
-  const { line, from } = await searchParams;
+  const { line } = await searchParams;
   const lineCode = typeof line === "string" ? line.toUpperCase() : "";
   if (!train || isExcludedTrainId(train) || !(lineCode in LINE_NAMES)) notFound();
-
-  const origin = typeof from === "string" ? getStation(from) : undefined;
-  const trainHref = `/train/${encodeURIComponent(train)}${origin ? `?from=${origin.code}` : ""}`;
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-          <Breadcrumbs
-            parents={[
-              { label: "Home", href: "/" },
-              ...(origin ? [{ label: origin.name, href: `/station/${origin.code}` }] : []),
-              { label: `Train ${train}`, href: trainHref },
-            ]}
-            current="Service status"
-            subtitle={lineName(lineCode)}
-          />
+          <HomeButton />
+          <PageTitle title="Service status" subtitle={`Train ${train} · ${lineName(lineCode)}`} />
           <SettingsButton />
         </header>
 
