@@ -814,7 +814,7 @@ describe("interactive component contract", () => {
   });
 
   it("fills Nearby on Home without asking when the browser already allows location", async () => {
-    window.localStorage.setItem("departure-board:favorites", JSON.stringify(["subway:D17"]));
+    window.localStorage.setItem("departure-board:favorites", JSON.stringify(["subway:D17", "TR"]));
     const getCurrentPosition = stubGeolocation("granted", nearPenn);
 
     render(<StationPicker />);
@@ -830,7 +830,12 @@ describe("interactive component contract", () => {
 
     // A nearby favorite stays under Favorites, with its distance, and only there.
     const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
-    expect(within(favorites).getByText(/mi away|right here/)).toBeTruthy();
+    // A far-off favorite shows its distance too, though it is not nearby.
+    const favoriteLinks = within(favorites).getAllByRole("link");
+    expect(favoriteLinks.map((link) => link.textContent)).toEqual([
+      expect.stringMatching(/mi away|right here/),
+      expect.stringMatching(/Trenton.*\d+\.\d mi away/),
+    ]);
     expect(links.some((link) => link.getAttribute("href") === "/subway/station/D17")).toBe(false);
 
     fireEvent.click(within(nearby).getByRole("button", { name: /^Show \d+ more$/ }));
