@@ -16,6 +16,7 @@ import { StationPicker } from "@/components/StationPicker";
 import { StopList } from "@/components/StopList";
 import { SubwayBoard } from "@/components/SubwayBoard";
 import { SubwayStopList } from "@/components/SubwayStopList";
+import { SubwayTrainProvider, SubwayTrainTitle } from "@/components/SubwayTrainHeader";
 import { njtBoardChoice } from "@/lib/boardChoices";
 import type { Departure } from "@/lib/departures";
 import type { StopList as StopListData } from "@/lib/stops";
@@ -151,15 +152,22 @@ describe("interactive component contract", () => {
     }));
     vi.spyOn(console, "error").mockImplementation(() => {});
 
-    render(<SubwayStopList tripId="mta:numbered:trip:127" />);
+    render(
+      <SubwayTrainProvider>
+        <SubwayTrainTitle />
+        <SubwayStopList tripId="mta:numbered:trip:127" />
+      </SubwayTrainProvider>,
+    );
 
     expect(await screen.findByText("Couldn't load this train.")).toBeTruthy();
+    // A trip that never loaded still leaves the page a plain name.
+    expect(screen.getByRole("heading", { name: "Subway train" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     // The route's own identity, in MTA's terms; the internal trip id is never
     // rider-facing text.
     expect(await screen.findByLabelText("1 train")).toBeTruthy();
-    expect(screen.getByText("Van Cortlandt Park-242 St", { selector: "span.font-semibold" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Van Cortlandt Park-242 St" })).toBeTruthy();
     expect(screen.getByText("Uptown")).toBeTruthy();
     expect(document.body.textContent).not.toContain("mta:numbered:trip:127");
 

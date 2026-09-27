@@ -1,34 +1,66 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { lineColor, lineName } from "@/lib/stations";
 import { ServiceStatusButton } from "./ServiceStatus";
 
-type TrainLine = {
-  lineCode: string | null;
-  setLineCode: (lineCode: string | null) => void;
+type TrainRoute = { lineCode: string | null; destination: string | null };
+
+type TrainLine = TrainRoute & {
+  setRoute: (route: TrainRoute) => void;
 };
 
 const TrainLineContext = createContext<TrainLine | null>(null);
 
 /**
- * Shares a train's line, known only once its stops load, between the stop
- * list that learns it and the header control that needs it.
+ * Shares a train's line and destination, known only once its stops load,
+ * between the stop list that learns them and the header that shows them.
  */
 export function TrainLineProvider({ children }: { children: React.ReactNode }) {
-  const [lineCode, setLineCode] = useState<string | null>(null);
+  const [route, setRoute] = useState<TrainRoute>({ lineCode: null, destination: null });
   return (
-    <TrainLineContext.Provider value={{ lineCode, setLineCode }}>
+    <TrainLineContext.Provider value={{ ...route, setRoute }}>
       {children}
     </TrainLineContext.Provider>
   );
 }
 
-/** Reports the train's line to the page's header; a no-op outside a provider. */
-export function useReportTrainLine(lineCode: string | null) {
-  const setLineCode = useContext(TrainLineContext)?.setLineCode;
+/** Reports the train's route to the page's header; a no-op outside a provider. */
+export function useReportTrainLine(lineCode: string | null, destination: string | null = null) {
+  const setRoute = useContext(TrainLineContext)?.setRoute;
   useEffect(() => {
-    setLineCode?.(lineCode);
-  }, [lineCode, setLineCode]);
+    setRoute?.({ lineCode, destination });
+  }, [lineCode, destination, setRoute]);
+}
+
+/**
+ * The header's name for the train: its number, then its line and destination
+ * once the stops have loaded. The number is known from the URL, so the page is
+ * named from the first paint.
+ */
+export function TrainTitle({ train }: { train: string }) {
+  const route = useContext(TrainLineContext);
+  const lineCode = route?.lineCode;
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2.5 px-1">
+      {lineCode && (
+        <span
+          aria-hidden
+          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: lineColor(lineCode) }}
+        />
+      )}
+      <div className="min-w-0">
+        <h1 className="truncate text-base font-semibold leading-6">Train {train}</h1>
+        {lineCode && (
+          <p className="truncate text-sm text-muted">
+            {lineName(lineCode)}
+            {route.destination ? ` · to ${route.destination}` : ""}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /**

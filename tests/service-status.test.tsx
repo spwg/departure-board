@@ -4,6 +4,7 @@ import { ServiceStatusButton, ServiceStatusList } from "@/components/ServiceStat
 import {
   TrainLineProvider,
   TrainServiceStatusButton,
+  TrainTitle,
   useReportTrainLine,
 } from "@/components/TrainServiceStatus";
 import type { ServiceAdvisory } from "@/lib/serviceAdvisories";
@@ -102,10 +103,31 @@ describe("station service-status button", () => {
   });
 });
 
-function ReportLine({ lineCode }: { lineCode: string | null }) {
-  useReportTrainLine(lineCode);
+function ReportLine({ lineCode, destination = null }: { lineCode: string | null; destination?: string | null }) {
+  useReportTrainLine(lineCode, destination);
   return null;
 }
+
+describe("train title", () => {
+  it("names the train from the start and adds its line and destination once known", () => {
+    const { rerender } = render(
+      <TrainLineProvider>
+        <TrainTitle train="6931" />
+        <ReportLine lineCode={null} />
+      </TrainLineProvider>,
+    );
+    expect(screen.getByRole("heading", { name: "Train 6931" })).toBeTruthy();
+    expect(screen.queryByText(/Line/)).toBeNull();
+
+    rerender(
+      <TrainLineProvider>
+        <TrainTitle train="6931" />
+        <ReportLine lineCode="ME" destination="Dover" />
+      </TrainLineProvider>,
+    );
+    expect(screen.getByText("Morris & Essex Line · to Dover")).toBeTruthy();
+  });
+});
 
 describe("train service status", () => {
   it("links the train header to its line's status page once the line is known", async () => {
