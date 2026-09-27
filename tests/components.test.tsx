@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PageTitle } from "@/components/PageTitle";
 import { FavoriteButton } from "@/components/FavoriteButton";
-import { NearbyStations } from "@/components/NearbyStations";
 import { SettingsButton } from "@/components/SettingsButton";
 import { StationTransferLinks } from "@/components/StationTransferLinks";
 import { SubwayRouteIcons } from "@/components/SubwayRouteIcons";
@@ -24,10 +23,35 @@ import type { StopList as StopListData } from "@/lib/stops";
 const departure: Departure = { id: "1", destination: "Trenton", scheduledTime: "2024-05-30T15:00:00.000Z", expectedTime: "2024-05-30T15:05:00.000Z", trainNumber: "1234", line: "Northeast Corridor Line", lineCode: "NE", track: "5", status: "delayed", statusText: "5 Min Late", delayMinutes: 5 };
 const stopList: StopListData = { trainNumber: "1234", lineCode: "NE", destination: "Trenton", transferAt: "", stops: [{ code: "NY", name: "New York Penn Station", time: "2024-05-30T15:00:00.000Z", departed: false, pickupOnly: false, dropoffOnly: false }] };
 
+/** Home keeps search behind its magnifier; opening it focuses the box. */
+function openSearch() {
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+  return screen.getByRole("searchbox", { name: "Search stations" });
+}
+
+/** Stands in for a browser whose location permission is already decided. */
+function stubGeolocation(
+  permission: PermissionState | undefined,
+  getCurrentPosition: (onSuccess: PositionCallback, onError: PositionErrorCallback) => void,
+) {
+  const spy = vi.fn(getCurrentPosition);
+  Object.defineProperty(navigator, "geolocation", { configurable: true, value: { getCurrentPosition: spy } });
+  Object.defineProperty(navigator, "permissions", {
+    configurable: true,
+    value: permission ? { query: async () => ({ state: permission }) } : undefined,
+  });
+  return spy;
+}
+
+const nearPenn = (onSuccess: PositionCallback) => onSuccess({
+  coords: { latitude: 40.7359, longitude: -73.9906 },
+} as GeolocationPosition);
+
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
   Reflect.deleteProperty(navigator, "geolocation");
+  Reflect.deleteProperty(navigator, "permissions");
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.useRealTimers();
@@ -479,7 +503,7 @@ describe("interactive component contract", () => {
     render(<ServiceWorkerRegistrar />); expect(register).toHaveBeenCalledWith("/sw.js");
   });
 
-  it("shows saved boards as Favorites and leaves nearby boards to their own page", () => {
+  it("shows saved boards as Favorites and keeps search behind the magnifier", () => {
     window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NY"]));
     window.localStorage.setItem(
       "departure-board:recent-stations",
@@ -494,7 +518,8 @@ describe("interactive component contract", () => {
     ]);
     expect(within(favorites).queryByText("fav")).toBeNull();
     expect(within(favorites).queryByText("nearby")).toBeNull();
-    expect(screen.getByRole("link", { name: "Nearby" }).getAttribute("href")).toBe("/nearby");
+    expect(screen.queryByRole("link", { name: "Nearby" })).toBeNull();
+    expect(screen.queryByRole("searchbox")).toBeNull();
     expect(screen.queryByRole("button", { name: "Clear recent stations" })).toBeNull();
     expect(screen.queryByRole("button", { name: /Remove .*recent stations/ })).toBeNull();
     expect(window.location.pathname).toBe("/");
@@ -503,7 +528,7 @@ describe("interactive component contract", () => {
   it("qualifies Home choices with a textual system chip and removes the line filter", () => {
     render(<StationPicker />);
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search stations" }), {
+    fireEvent.change(openSearch(), {
       target: { value: "Aberdeen" },
     });
     expect(screen.getByText("Aberdeen-Matawan")).toBeTruthy();
@@ -521,7 +546,7 @@ describe("interactive component contract", () => {
 
   it("searches both systems from one box and tells repeated Subway names apart", () => {
     render(<StationPicker />);
-    const search = screen.getByRole("searchbox", { name: "Search stations" });
+    const search = openSearch();
 
     fireEvent.change(search, { target: { value: "newark" } });
     const results = screen.getByRole("region", { name: "Search results" });
@@ -569,7 +594,7 @@ describe("interactive component contract", () => {
   it("autocompletes misspelled station names and opens the top match on Enter", () => {
     window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NY"]));
     render(<StationPicker />);
-    const search = screen.getByRole("searchbox", { name: "Search stations" });
+    const search = openSearch();
 
     fireEvent.change(search, { target: { value: "colombus circel" } });
     const suggestions = within(screen.getByRole("region", { name: "Search results" })).getAllByRole("link");
@@ -586,11 +611,12 @@ describe("interactive component contract", () => {
   it("swaps Favorites for the station list as soon as the search box is focused", () => {
     window.localStorage.setItem("departure-board:favorites", JSON.stringify(["NP"]));
     render(<StationPicker />);
-    const search = screen.getByRole("searchbox", { name: "Search stations" });
     expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
 
-    // Focus alone lists stations, busiest first, in place of Favorites.
-    fireEvent.focus(search);
+    // Opening search focuses it, which alone lists stations, busiest first,
+    // in place of Favorites.
+    const search = openSearch();
+    expect(document.activeElement).toBe(search);
     expect(screen.queryByRole("heading", { name: "Favorites" })).toBeNull();
     const all = within(screen.getByRole("region", { name: "Search results" })).getAllByRole("link");
     expect(all.length).toBeGreaterThan(100);
@@ -605,21 +631,29 @@ describe("interactive component contract", () => {
     expect(penn.length).toBeLessThanOrEqual(8);
     expect(penn[0]!.textContent).toContain("New York Penn Station");
 
-    // Escape leaves search and brings Favorites back.
+    // Escape leaves search, folds the box away and brings Favorites back.
     fireEvent.keyDown(search, { key: "Escape" });
     expect(screen.queryByRole("region", { name: "Search results" })).toBeNull();
+    expect(screen.queryByRole("searchbox")).toBeNull();
     expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
 
     // So does focus leaving an empty box.
-    fireEvent.focus(search);
+    const reopened = openSearch();
     expect(screen.queryByRole("heading", { name: "Favorites" })).toBeNull();
-    fireEvent.blur(search, { relatedTarget: document.body });
+    fireEvent.blur(reopened, { relatedTarget: document.body });
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
+
+    // Cancel closes a box that still has a query in it.
+    fireEvent.change(openSearch(), { target: { value: "penn" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("searchbox")).toBeNull();
     expect(screen.getByRole("heading", { name: "Favorites" })).toBeTruthy();
   });
 
   it("presents Penn's provider station boards as separate choices", () => {
     render(<StationPicker />);
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search stations" }), {
+    fireEvent.change(openSearch(), {
       target: { value: "Penn Station" },
     });
 
@@ -779,49 +813,79 @@ describe("interactive component contract", () => {
     expect(screen.getByText("L").getAttribute("style")).toContain("color: rgb(255, 255, 255)");
   });
 
-  it("only requests location on Nearby and orders the nearby boards", async () => {
-    const getCurrentPosition = vi.fn((onSuccess: PositionCallback) => onSuccess({
-      coords: { latitude: 40.7359, longitude: -73.9906 },
-    } as GeolocationPosition));
-    Object.defineProperty(navigator, "geolocation", {
-      configurable: true,
-      value: {
-        getCurrentPosition,
-      },
-    });
+  it("fills Nearby on Home without asking when the browser already allows location", async () => {
+    window.localStorage.setItem("departure-board:favorites", JSON.stringify(["subway:D17"]));
+    const getCurrentPosition = stubGeolocation("granted", nearPenn);
 
     render(<StationPicker />);
-    expect(getCurrentPosition).not.toHaveBeenCalled();
-    cleanup();
 
-    render(<NearbyStations />);
-    expect(await screen.findByRole("heading", { name: "Nearby" })).toBeTruthy();
+    const nearby = (await screen.findByRole("heading", { name: "Nearby" })).closest("section")!;
+    await waitFor(() => expect(within(nearby).getAllByRole("link").length).toBeGreaterThan(0));
     expect(getCurrentPosition).toHaveBeenCalledTimes(1);
-
-    const nearby = screen.getByRole("heading", { name: "Closest first" }).closest("section")!;
-    expect(within(nearby).getAllByText("Subway").length).toBeGreaterThan(0);
-    expect(within(nearby).getAllByRole("link")[0]!.getAttribute("href")).toMatch(/^\/subway\/station\//);
-    expect(within(nearby).getAllByText(/right here|mi away/).length).toBeGreaterThan(0);
+    const links = within(nearby).getAllByRole("link");
+    expect(links.length).toBe(5);
+    expect(links[0]!.getAttribute("href")).toMatch(/^\/subway\/station\//);
+    expect(within(nearby).getAllByText(/right here|mi away/).length).toBe(5);
     expect(within(nearby).queryByText("Atlantic City Rail Terminal")).toBeNull();
+
+    // A nearby favorite stays under Favorites, with its distance, and only there.
+    const favorites = screen.getByRole("heading", { name: "Favorites" }).closest("section")!;
+    expect(within(favorites).getByText(/mi away|right here/)).toBeTruthy();
+    expect(links.some((link) => link.getAttribute("href") === "/subway/station/D17")).toBe(false);
+
+    fireEvent.click(within(nearby).getByRole("button", { name: /^Show \d+ more$/ }));
+    expect(within(nearby).getAllByRole("link").length).toBeGreaterThan(5);
+    expect(within(nearby).queryByRole("button", { name: /more/ })).toBeNull();
   });
 
-  it("explains when the browser denies Nearby location access", async () => {
-    Object.defineProperty(navigator, "geolocation", {
-      configurable: true,
-      value: {
-        getCurrentPosition: (_onSuccess: PositionCallback, onError: PositionErrorCallback) => onError({
-          code: 1,
-          message: "User denied Geolocation",
-        } as GeolocationPositionError),
-      },
-    });
+  it("grays Nearby out until the rider taps, whether never asked or denied", async () => {
+    const getCurrentPosition = stubGeolocation("prompt", (_onSuccess, onError) => onError({
+      code: 1,
+      message: "User denied Geolocation",
+    } as GeolocationPositionError));
 
-    render(<NearbyStations />);
+    render(<StationPicker />);
 
-    const error = await screen.findByRole("alert");
-    expect(error.textContent).toContain("Location access was denied");
-    expect(error.textContent).toContain("Allow location access");
-    expect(screen.queryByText("Finding nearby stations…")).toBeNull();
+    const enable = await screen.findByRole("button", { name: "Enable location" });
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(screen.getByText("Turn on location to see stations near you.")).toBeTruthy();
+
+    // A denial leaves the same grayed-out section and button in place.
+    fireEvent.click(enable);
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("button", { name: "Enable location" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Nearby" })).toBeTruthy();
+  });
+
+  it("lists Nearby once the rider allows location, and offers a retry without a fix", async () => {
+    let answer: (onSuccess: PositionCallback, onError: PositionErrorCallback) => void = (_onSuccess, onError) =>
+      onError({ code: 2, message: "Position unavailable" } as GeolocationPositionError);
+    stubGeolocation(undefined, (onSuccess, onError) => answer(onSuccess, onError));
+
+    render(<StationPicker />);
+
+    // Without a readable permission the section waits for a tap.
+    fireEvent.click(await screen.findByRole("button", { name: "Enable location" }));
+    expect(screen.getByText("Couldn’t find your location.")).toBeTruthy();
+
+    answer = nearPenn;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    const nearby = screen.getByRole("heading", { name: "Nearby" }).closest("section")!;
+    expect(within(nearby).getAllByRole("link").length).toBe(5);
+  });
+
+  it("leaves Nearby off Home, without asking for location, when hidden in Settings", async () => {
+    const getCurrentPosition = stubGeolocation("granted", nearPenn);
+    render(<SettingsPage />);
+    const setting = screen.getByRole("radiogroup", { name: "Nearby stations" });
+    expect(within(setting).getByRole("radio", { name: "Show" }).getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(within(setting).getByRole("radio", { name: "Hide" }));
+    cleanup();
+
+    render(<StationPicker />);
+    await Promise.resolve();
+    expect(screen.queryByRole("heading", { name: "Nearby" })).toBeNull();
+    expect(getCurrentPosition).not.toHaveBeenCalled();
   });
 
   it("ignores and clears watch state left over from before watches were retired", () => {

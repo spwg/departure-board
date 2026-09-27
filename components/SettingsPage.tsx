@@ -6,12 +6,14 @@ import { PageHeader } from "@/components/PageHeader";
 import { PageTitle } from "@/components/PageTitle";
 import { HomeButton } from "@/components/StationHeader";
 import { useClockFormat } from "@/lib/clockFormat";
+import { useShowNearby } from "@/lib/nearbyPreference";
 import { useThemePreference } from "@/lib/themePreference";
 
 /** Full-page preferences so settings never compete with board overlays. */
 export function SettingsPage() {
   const { use24Hour, setClockFormat } = useClockFormat();
   const { theme, setTheme } = useThemePreference();
+  const { showNearby, setShowNearby } = useShowNearby();
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
@@ -53,6 +55,23 @@ export function SettingsPage() {
                 { label: "System", value: "system" },
                 { label: "Light", value: "light" },
                 { label: "Dark", value: "dark" },
+              ]}
+            />
+          </section>
+
+          <section aria-labelledby="nearby-title" className="rounded-xl border border-edge bg-surface-raised p-4">
+            <h2 id="nearby-title" className="text-base font-semibold">Nearby stations</h2>
+            <p className="mt-1 text-sm leading-5 text-muted">
+              Choose whether Home lists stations near you.
+            </p>
+
+            <SegmentedControl
+              label="Nearby stations"
+              value={showNearby}
+              onChange={setShowNearby}
+              options={[
+                { label: "Show", value: true },
+                { label: "Hide", value: false },
               ]}
             />
           </section>
