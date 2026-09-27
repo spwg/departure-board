@@ -46,14 +46,14 @@ export function TrainTitle({ train }: { train: string }) {
       {lineCode && (
         <span
           aria-hidden
-          className="h-2.5 w-2.5 shrink-0 rounded-full"
+          className="hidden h-2.5 w-2.5 shrink-0 rounded-full sm:block"
           style={{ backgroundColor: lineColor(lineCode) }}
         />
       )}
       <div className="min-w-0">
-        <h1 className="truncate text-base font-semibold leading-6">Train {train}</h1>
+        <h1 className="text-base font-semibold leading-6">Train {train}</h1>
         {lineCode && (
-          <p className="truncate text-sm text-muted">
+          <p className="text-sm leading-5 text-muted">
             {lineName(lineCode)}
             {route.destination ? ` · to ${route.destination}` : ""}
           </p>

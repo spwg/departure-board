@@ -153,11 +153,11 @@ function StopName({ id, name }: { id: string; name: string }) {
   return listing ? (
     <Link
       href={listing.href}
-      className="block truncate rounded transition-colors hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+      className="block rounded break-words transition-colors hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
     >
       {name}
     </Link>
   ) : (
-    <span className="block truncate">{name}</span>
+    <span className="block break-words">{name}</span>
   );
 }

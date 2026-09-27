@@ -194,7 +194,7 @@ function StopRow({
 
   const name = (
     <span
-      className={`truncate ${here ? "font-semibold" : ""} ${
+      className={`break-words ${here ? "font-semibold" : ""} ${
         stop.departed ? "text-faint" : ""
       }`}
     >

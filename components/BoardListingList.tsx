@@ -37,7 +37,7 @@ export function BoardListingList({ items }: { items: BoardListingListItem[] }) {
               className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{listing.name}</span>
+                <span className="block font-medium break-words">{listing.name}</span>
                 {/* Distance from the rider, then the complex's other published
                     names, for a rider who searched one of those instead. The
                     routes live only in the bullets on the right. */}

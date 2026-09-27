@@ -180,7 +180,7 @@ function SubwayRow({ departure, now }: { departure: Board["departures"][number];
       className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-bg focus-visible:bg-bg focus-visible:outline-none"
     >
       <span aria-label={`${departure.route} train`} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-lg font-bold text-white" style={{ backgroundColor: subwayRouteColor(departure.route) }}>{departure.route}</span>
-      <span className="min-w-0 flex-1 truncate text-lg font-semibold">{departure.destination}</span>
+      <span className="min-w-0 flex-1 text-lg font-semibold leading-6 break-words">{departure.destination}</span>
       <span className="shrink-0 text-lg font-semibold">{minutes === 0 ? "now" : `${minutes} min`}</span>
       <span className="sr-only">See remaining stops</span>
     </Link>

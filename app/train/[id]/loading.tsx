@@ -12,7 +12,7 @@ export default function Loading() {
       <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header
           className="flex items-center gap-1 border-b border-edge px-2 sm:px-3"
-          style={{ height: STATION_HEADER_HEIGHT }}
+          style={{ minHeight: STATION_HEADER_HEIGHT }}
         >
           <HomeButton />
           <div className="min-w-0 flex-1 px-1" aria-hidden>

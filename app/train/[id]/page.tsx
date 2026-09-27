@@ -43,8 +43,8 @@ export default async function TrainPage({
       <TrainLineProvider>
         <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
           <header
-            className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 backdrop-blur-md sm:static sm:px-3"
-            style={{ height: STATION_HEADER_HEIGHT }}
+            className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2 backdrop-blur-md sm:static sm:px-3"
+            style={{ minHeight: STATION_HEADER_HEIGHT }}
           >
             <HomeButton />
             <TrainTitle train={train} />
