@@ -11,6 +11,7 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { useCurrentLocation, type LocationState } from "@/lib/currentLocation";
 import { useFavorites } from "@/lib/favorites";
 import { useShowNearby } from "@/lib/nearbyPreference";
+import { distanceKm } from "@/lib/stations";
 import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
 import {
   boardListingsByImportance,
@@ -75,19 +76,22 @@ export function StationPicker() {
     () => coordinates ? nearbyBoardListings(coordinates.latitude, coordinates.longitude) : [],
     [coordinates],
   );
-  // A favorite that is also nearby stays under Favorites, with its distance.
+  // A favorite that is also nearby stays under Favorites. Every favorite shows
+  // its distance once location is known, however far outside Nearby it is.
   const favoriteListings = useMemo(() => resolveChoices(favorites), [favorites]);
   const favoriteKeys = useMemo(
     () => new Set(favoriteListings.map((listing) => boardChoiceKey(listing.choice))),
     [favoriteListings],
   );
-  const favoriteItems = useMemo<BoardListingListItem[]>(() => {
-    const distances = new Map(nearby.map((item) => [boardChoiceKey(item.listing.choice), item.distanceKm]));
-    return favoriteListings.map((listing) => ({
+  const favoriteItems = useMemo<BoardListingListItem[]>(
+    () => favoriteListings.map((listing) => ({
       listing,
-      distanceKm: distances.get(boardChoiceKey(listing.choice)),
-    }));
-  }, [favoriteListings, nearby]);
+      distanceKm: coordinates
+        ? distanceKm(coordinates.latitude, coordinates.longitude, listing.latitude, listing.longitude)
+        : undefined,
+    })),
+    [favoriteListings, coordinates],
+  );
   const nearbyItems = useMemo<BoardListingListItem[]>(
     () => nearby.filter((item) => !favoriteKeys.has(boardChoiceKey(item.listing.choice))),
     [nearby, favoriteKeys],
