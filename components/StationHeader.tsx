@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FavoriteButton } from "@/components/FavoriteButton";
+import { PAGE_HEADER_HEIGHT, PageHeader } from "@/components/PageHeader";
 import { SettingsButton } from "@/components/SettingsButton";
 import type { BoardChoice } from "@/lib/boardChoices";
 
@@ -8,7 +9,7 @@ import type { BoardChoice } from "@/lib/boardChoices";
  * phones, so the header must not grow with its content — a taller header
  * would leave rows showing through the gap, a shorter one would overlap them.
  */
-export const STATION_HEADER_HEIGHT = "4rem";
+export const STATION_HEADER_HEIGHT = PAGE_HEADER_HEIGHT;
 
 /**
  * One station's header: a way Home, the station's name with the routes that
@@ -32,10 +33,7 @@ export function StationHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <header
-      className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface px-2 sm:static sm:px-3"
-      style={{ height: STATION_HEADER_HEIGHT }}
-    >
+    <PageHeader fixedHeight>
       <HomeButton />
       <div className="min-w-0 flex-1 px-1">
         <h1 className="line-clamp-2 text-base font-semibold leading-5 break-words">
@@ -53,7 +51,7 @@ export function StationHeader({
       {actions}
       <SettingsButton />
       <FavoriteButton choice={choice} name={favoriteName} />
-    </header>
+    </PageHeader>
   );
 }
 

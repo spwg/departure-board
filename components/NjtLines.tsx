@@ -14,7 +14,14 @@ export function NjtLines({ lines }: { lines: string[] }) {
       {lines.map((line) => (
         <li key={line} title={lineName(line)} className="mr-2 inline">
           <span aria-hidden className="mr-1 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: lineColor(line) }} />
-          <span className={coloursOnly ? "sr-only sm:not-sr-only" : undefined}>{lineName(line)}</span>
+          {coloursOnly ? (
+            <>
+              <span className="sr-only sm:hidden">{lineName(line)}</span>
+              <span className="hidden sm:inline">{lineName(line)}</span>
+            </>
+          ) : (
+            lineName(line)
+          )}
         </li>
       ))}
     </ul>
