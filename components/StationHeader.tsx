@@ -38,7 +38,7 @@ export function StationHeader({
     >
       <HomeButton />
       <div className="min-w-0 flex-1 px-1">
-        <h1 className="truncate text-base font-semibold leading-6">
+        <h1 className="line-clamp-2 text-base font-semibold leading-5 break-words">
           {titleHref ? (
             <Link
               href={titleHref}

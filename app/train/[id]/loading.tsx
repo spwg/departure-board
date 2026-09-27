@@ -1,5 +1,5 @@
 import { SettingsButton } from "@/components/SettingsButton";
-import { HomeButton } from "@/components/StationHeader";
+import { HomeButton, STATION_HEADER_HEIGHT } from "@/components/StationHeader";
 
 /**
  * Also the Suspense boundary the page needs: the train number and the board
@@ -10,9 +10,14 @@ export default function Loading() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
-        <header className="flex items-center gap-1 border-b border-edge px-2 py-2.5 sm:px-3">
+        <header
+          className="flex items-center gap-1 border-b border-edge px-2 sm:px-3"
+          style={{ minHeight: STATION_HEADER_HEIGHT }}
+        >
           <HomeButton />
-          <div className="flex-1" />
+          <div className="min-w-0 flex-1 px-1" aria-hidden>
+            <div className="h-5 w-28 animate-pulse rounded bg-edge" />
+          </div>
           <SettingsButton />
         </header>
 

@@ -4,6 +4,7 @@ import { ServiceStatusButton, ServiceStatusList } from "@/components/ServiceStat
 import {
   TrainLineProvider,
   TrainServiceStatusButton,
+  TrainTitle,
   useReportTrainLine,
 } from "@/components/TrainServiceStatus";
 import type { ServiceAdvisory } from "@/lib/serviceAdvisories";
@@ -102,10 +103,31 @@ describe("station service-status button", () => {
   });
 });
 
-function ReportLine({ lineCode }: { lineCode: string | null }) {
-  useReportTrainLine(lineCode);
+function ReportLine({ lineCode, destination = null }: { lineCode: string | null; destination?: string | null }) {
+  useReportTrainLine(lineCode, destination);
   return null;
 }
+
+describe("train title", () => {
+  it("names the train from the start and adds its line and destination once known", () => {
+    const { rerender } = render(
+      <TrainLineProvider>
+        <TrainTitle train="6931" />
+        <ReportLine lineCode={null} />
+      </TrainLineProvider>,
+    );
+    expect(screen.getByRole("heading", { name: "Train 6931" })).toBeTruthy();
+    expect(screen.queryByText(/Line/)).toBeNull();
+
+    rerender(
+      <TrainLineProvider>
+        <TrainTitle train="6931" />
+        <ReportLine lineCode="ME" destination="Dover" />
+      </TrainLineProvider>,
+    );
+    expect(screen.getByText("Morris & Essex Line · to Dover")).toBeTruthy();
+  });
+});
 
 describe("train service status", () => {
   it("links the train header to its line's status page once the line is known", async () => {
@@ -139,5 +161,21 @@ describe("train service status", () => {
     stubFeed([]);
     render(<ServiceStatusList lineCode="NE" />);
     expect(await screen.findByText("No service notices for this line.")).toBeTruthy();
+  });
+});
+
+describe("subway service status", () => {
+  it("lists MTA alerts as plain text with route bullets and fetches by route", async () => {
+    stubFeed([{
+      id: "lmm:alert:1", revision: "r1", severity: "disruption", publishedAt: null,
+      text: "[FS] trains are running with delays.", details: "Take the [B] or [Q] instead.",
+    }]);
+    render(<ServiceStatusList subwayRoute="FS" />);
+
+    const region = await screen.findByRole("region", { name: "Disruptions" });
+    expect(within(region).queryByRole("link")).toBeNull();
+    expect(within(region).getByRole("img", { name: "FS train" })).toBeTruthy();
+    expect(within(region).getByRole("img", { name: "Q train" })).toBeTruthy();
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toBe("/api/subway/alerts?route=FS");
   });
 });

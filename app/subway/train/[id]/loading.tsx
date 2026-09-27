@@ -1,4 +1,4 @@
-import { HomeButton } from "@/components/StationHeader";
+import { HomeButton, STATION_HEADER_HEIGHT } from "@/components/StationHeader";
 import { SettingsButton } from "@/components/SettingsButton";
 
 /**
@@ -10,19 +10,17 @@ export default function Loading() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
-        <header className="flex items-center gap-1 border-b border-edge px-2 py-2.5 sm:px-3">
+        <header
+          className="flex items-center gap-1 border-b border-edge px-2 sm:px-3"
+          style={{ minHeight: STATION_HEADER_HEIGHT }}
+        >
           <HomeButton />
-          {/* Subway trains carry no rider-facing number; the route bullet and
-              destination below identify the train, so the bar holds controls. */}
-          <h1 className="sr-only">Subway train</h1>
-          <div className="flex-1" />
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 px-1" aria-hidden>
+            <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-edge" />
+            <div className="h-5 w-40 animate-pulse rounded bg-edge" />
+          </div>
           <SettingsButton />
         </header>
-
-        <div className="flex items-center gap-3 border-b border-edge px-4 py-3 sm:px-5" aria-hidden>
-          <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-edge" />
-          <div className="h-5 w-40 animate-pulse rounded bg-edge" />
-        </div>
 
         <ul className="py-1" aria-hidden>
           {Array.from({ length: 8 }, (_, i) => (

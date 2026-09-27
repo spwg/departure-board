@@ -54,7 +54,7 @@ export function DepartureRow({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
             <div
-              className={`min-w-0 truncate text-lg font-semibold tracking-tight sm:text-xl ${
+              className={`min-w-0 text-lg font-semibold leading-6 tracking-tight break-words sm:text-xl ${
                 cancelled ? "line-through decoration-2" : ""
               }`}
             >
@@ -69,12 +69,13 @@ export function DepartureRow({
               </span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted sm:text-sm">
-            <span className="truncate">{lineName(departure.lineCode)}</span>
-            <span aria-hidden className="text-faint">
-              ·
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted sm:text-sm">
+            <span>{lineName(departure.lineCode)}</span>
+            {/* The separator travels with the number when the line wraps. */}
+            <span className="whitespace-nowrap">
+              <span aria-hidden className="mr-1.5 text-faint">·</span>
+              <span className="font-mono">#{departure.trainNumber}</span>
             </span>
-            <span className="shrink-0 font-mono">#{departure.trainNumber}</span>
             {showViaSecaucus && (
               <>
                 <span aria-hidden className="text-faint">·</span>
@@ -103,7 +104,8 @@ export function DepartureRow({
           <div className="mt-0.5 text-xs text-muted sm:text-sm">
             {delayed && !cancelled ? (
               <>
-                <span className="line-through">
+                {/* Stacked on phones so the times column stays narrow. */}
+                <span className="block line-through sm:inline">
                   {formatClock(departure.scheduledTime, { hour12: !use24Hour })}
                 </span>{" "}
                 <span className="font-medium text-warn">

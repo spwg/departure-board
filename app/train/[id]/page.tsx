@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PositionHistoryButton } from "@/components/PositionHistoryButton";
 import { SettingsButton } from "@/components/SettingsButton";
-import { HomeButton } from "@/components/StationHeader";
+import { HomeButton, STATION_HEADER_HEIGHT } from "@/components/StationHeader";
 import { StopList } from "@/components/StopList";
 import {
   TrainLineProvider,
   TrainServiceStatusButton,
+  TrainTitle,
 } from "@/components/TrainServiceStatus";
 import { isExcludedTrainId } from "@/lib/departures";
 import { getStation } from "@/lib/stations";
@@ -41,12 +42,12 @@ export default async function TrainPage({
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <TrainLineProvider>
         <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
-          <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
+          <header
+            className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2 backdrop-blur-md sm:static sm:px-3"
+            style={{ minHeight: STATION_HEADER_HEIGHT }}
+          >
             <HomeButton />
-            {/* The train number shows beside its line in the stop list; the
-                heading here keeps the page named while that list loads. */}
-            <h1 className="sr-only">Train {train}</h1>
-            <div className="flex-1" />
+            <TrainTitle train={train} />
             <TrainServiceStatusButton train={train} from={origin?.code ?? ""} />
             <PositionHistoryButton train={train} from={origin?.code ?? ""} />
             <SettingsButton />

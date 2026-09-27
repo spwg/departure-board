@@ -8,6 +8,7 @@ import { getBoardListing } from "@/lib/boardDirectory";
 import { subwayBoardChoice } from "@/lib/boardChoices";
 import { subwayRouteColor, type SubwayTrip } from "@/lib/subway";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { useReportSubwayTrain } from "./SubwayTrainHeader";
 import { TransferLinks } from "./TransferLinks";
 
 /** Matches the board's cadence; these are clock times, so no local tick. */
@@ -30,6 +31,11 @@ export function SubwayStopList({ tripId }: { tripId: string }) {
   const [stale, setStale] = useState(false);
   const { use24Hour } = useClockFormat();
   const loadedOnce = useRef(false);
+  useReportSubwayTrain(
+    trip
+      ? { route: trip.route, destination: trip.destination, direction: trip.direction }
+      : status === "loading" ? undefined : null,
+  );
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -110,22 +116,6 @@ export function SubwayStopList({ tripId }: { tripId: string }) {
     <>
       {stale && <FreshnessWarning lastLiveAt={Date.parse(trip.sourceTimestamp)} />}
 
-      {/* The route's own identity, in MTA's terms. The internal trip id that
-          addresses this train is never rider-facing text. */}
-      <div className="flex items-center gap-3 border-b border-edge px-4 py-3 sm:px-5">
-        <span
-          aria-label={`${trip.route} train`}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-lg font-bold text-white"
-          style={{ backgroundColor: color }}
-        >
-          {trip.route}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{trip.destination}</span>
-          <span className="block truncate text-sm text-muted">{trip.direction}</span>
-        </span>
-      </div>
-
       <ol className="py-1" aria-label="Remaining stops">
         {trip.stops.map((stop, index) => (
           <li key={`${stop.id}-${index}`} className="relative flex items-center gap-3 py-2.5 pl-4 pr-3 sm:pl-5">
@@ -163,11 +153,11 @@ function StopName({ id, name }: { id: string; name: string }) {
   return listing ? (
     <Link
       href={listing.href}
-      className="block truncate rounded transition-colors hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+      className="block rounded break-words transition-colors hover:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
     >
       {name}
     </Link>
   ) : (
-    <span className="block truncate">{name}</span>
+    <span className="block break-words">{name}</span>
   );
 }

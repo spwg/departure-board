@@ -6,7 +6,7 @@ import type { StopsResponse } from "@/app/api/stops/[train]/route";
 import { formatClock } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
 import { useClockFormat } from "@/lib/clockFormat";
-import { getStation, lineColor, lineName } from "@/lib/stations";
+import { getStation, lineColor } from "@/lib/stations";
 import type { Stop, StopList as StopListData } from "@/lib/stops";
 import { FreshnessWarning } from "./FreshnessWarning";
 import { TransferLinks } from "./TransferLinks";
@@ -28,7 +28,7 @@ export function StopList({ train, from }: { train: string; from: string }) {
   const [stale, setStale] = useState(false);
   const [lastLiveAt, setLastLiveAt] = useState<number | null>(null);
   const { use24Hour } = useClockFormat();
-  useReportTrainLine(stopList?.lineCode ?? null);
+  useReportTrainLine(stopList?.lineCode ?? null, stopList?.destination || null);
 
   // Held in a ref so the polling effect does not restart on every render.
   const loadedOnce = useRef(false);
@@ -144,22 +144,6 @@ export function StopList({ train, from }: { train: string; from: string }) {
         )
       )}
 
-      <div className="flex items-center gap-2 border-b border-edge px-4 py-3 text-sm sm:px-5">
-        <span
-          aria-hidden
-          className="h-2.5 w-2.5 shrink-0 rounded-full"
-          style={{ backgroundColor: color }}
-        />
-        <span className="min-w-0 truncate text-muted">
-          <span className="font-medium text-text">
-            Train {stopList.trainNumber || train}
-          </span>
-          {" · "}
-          {lineName(stopList.lineCode)}
-          {stopList.destination ? ` · to ${stopList.destination}` : ""}
-        </span>
-      </div>
-
       {stopList.transferAt && (
         <p className="border-b border-edge bg-warn-soft px-4 py-2 text-xs font-medium text-warn sm:px-5">
           Change at {stopList.transferAt} to complete this trip.
@@ -210,7 +194,7 @@ function StopRow({
 
   const name = (
     <span
-      className={`truncate ${here ? "font-semibold" : ""} ${
+      className={`break-words ${here ? "font-semibold" : ""} ${
         stop.departed ? "text-faint" : ""
       }`}
     >
