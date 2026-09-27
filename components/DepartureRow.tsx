@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatClock, type Departure } from "@/lib/departures";
+import { formatClock, type Departure, type TrainPosition } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
 import { lineColor, lineName } from "@/lib/stations";
 
@@ -35,9 +35,6 @@ export function DepartureRow({
   const cancelled = departure.status === "cancelled";
   const boarding = departure.status === "boarding";
   const delayed = departure.delayMinutes >= 1;
-  // Most labels are a number or a single letter. "Single" is a real NJT
-  // platform label, so it needs a wider chip instead of being clipped.
-  const namedTrack = departure.track.length > 2;
 
   return (
     <li className={`relative flex items-center ${cancelled ? "opacity-55" : ""}`}>
@@ -85,6 +82,7 @@ export function DepartureRow({
               </>
             )}
           </div>
+          {departure.position && <PositionLine position={departure.position} />}
         </div>
 
         <div className="shrink-0 text-right">
@@ -119,29 +117,81 @@ export function DepartureRow({
         </div>
 
         {/* Track is what you actually run for, so it gets its own anchor. */}
-        <div
-          className={`flex h-11 shrink-0 items-center justify-center rounded-xl font-bold ${
-            namedTrack
-              ? "min-w-16 px-2 text-sm sm:h-12 sm:min-w-20 sm:text-base"
-              : "w-11 text-lg sm:h-12 sm:w-12 sm:text-xl"
-          } ${
-            departure.track
-              ? "bg-track text-track-fg"
-              : "border border-dashed border-edge-strong text-text"
-          }`}
-          aria-label={
-            departure.track
-              ? namedTrack
-                ? `${departure.track} track`
-                : `Track ${departure.track}`
-              : "Track not yet assigned"
-          }
-        >
-          {departure.track || "–"}
-        </div>
+        <TrackChip track={departure.track} historyTrack={departure.position?.historyTrack} />
 
         <span className="sr-only">See stops</span>
       </Link>
     </li>
+  );
+}
+
+/**
+ * The train's live position, straight from the vehicle feed. Worded as a place
+ * rather than a track so it never reads as NJT's assignment: "At Penn" only
+ * when the reported coordinates are inside the station.
+ */
+function PositionLine({ position }: { position: TrainPosition }) {
+  return (
+    <div className={`mt-0.5 flex min-w-0 items-center gap-1 text-xs ${position.atPenn ? "text-ok" : "text-muted"}`}>
+      <span className="shrink-0 font-semibold">{position.atPenn ? "At Penn" : "Position"}</span>
+      <span aria-hidden className="text-faint">·</span>
+      <span className="shrink-0">signal</span>
+      <span className="truncate font-mono">{position.circuit}</span>
+    </div>
+  );
+}
+
+/**
+ * A posted track is a solid chip. A history track — the platform the train's
+ * current signal circuit has always led to in position history — is outlined
+ * and captioned, so it never reads as the official assignment.
+ */
+function TrackChip({
+  track,
+  historyTrack,
+}: {
+  track: string;
+  historyTrack?: string;
+}) {
+  const onPlatform = !track && Boolean(historyTrack);
+  const shown = track || historyTrack || "";
+  // Most labels are a number or a single letter. "Single" is a real NJT
+  // platform label, so it needs a wider chip instead of being clipped.
+  const namedTrack = shown.length > 2;
+  const size = namedTrack
+    ? "min-w-16 px-2 text-sm sm:h-12 sm:min-w-20 sm:text-base"
+    : "w-11 text-lg sm:h-12 sm:w-12 sm:text-xl";
+  const style = track
+    ? "bg-track text-track-fg"
+    : onPlatform
+      ? "border-2 border-ok text-ok"
+      : "border border-dashed border-edge-strong text-text";
+  const label = track
+    ? namedTrack
+      ? `${track} track`
+      : `Track ${track}`
+    : onPlatform
+      ? `Train on the circuit for track ${historyTrack}, not yet announced`
+      : "Track not yet assigned";
+
+  const chip = (
+    <div
+      className={`flex h-11 shrink-0 items-center justify-center rounded-xl font-bold ${size} ${style}`}
+      aria-label={label}
+    >
+      {shown || "–"}
+    </div>
+  );
+
+  if (!onPlatform) return chip;
+  // The caption hangs below the chip, outside the layout, so this row's track
+  // column stays aligned with every other row's.
+  return (
+    <div className="relative shrink-0">
+      {chip}
+      <span aria-hidden className="absolute right-0 top-full mt-1 whitespace-nowrap text-[0.625rem] font-semibold uppercase leading-none tracking-wide text-ok">
+        On platform
+      </span>
+    </div>
   );
 }

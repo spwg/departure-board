@@ -1,11 +1,12 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import type { RawDeparture } from "./departures";
-import { fixtureDepartures, fixtureStopList } from "./fixtures";
+import { fixtureDepartures, fixtureStopList, fixtureVehicles } from "./fixtures";
 import {
   getOrCreateStoredToken,
   invalidateStoredToken,
 } from "./njtTokenStore";
+import type { RawVehicle } from "./trainPositions";
 import type { RawStopList } from "./stops";
 
 
@@ -244,4 +245,25 @@ export async function fetchStopList(trainId: string): Promise<RawStopList> {
   }
 
   return payload as RawStopList;
+}
+
+/**
+ * Position records for every active train: one call covers the whole system.
+ *
+ * Used only for New York Penn train positions. Its `ICS_TRACK_CKT` is the
+ * signal track circuit a train occupies, which is how a train standing on a
+ * platform can be placed before its track is posted.
+ */
+export async function fetchVehicleData(): Promise<RawVehicle[]> {
+  if (usingFixtures()) return fixtureVehicles();
+
+  const token = await getToken();
+  const payload = await post("/TrainData/getVehicleData", { token });
+
+  if (isInvalidToken(payload)) throw new InvalidTokenError(token);
+
+  const error = errorMessageOf(payload);
+  if (error) throw new Error(`NJT getVehicleData failed: ${error}`);
+
+  return Array.isArray(payload) ? (payload as RawVehicle[]) : [];
 }

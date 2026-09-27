@@ -35,7 +35,7 @@ export interface TokenStoreOptions {
 }
 
 /** Executes one Redis command through Upstash's HTTPS API. */
-async function redisCommand<T>(...command: Array<string | number>): Promise<T> {
+export async function redisCommand<T>(...command: Array<string | number>): Promise<T> {
   const { url, token } = redisCredentials();
   const response = await fetch(url, {
     method: "POST",

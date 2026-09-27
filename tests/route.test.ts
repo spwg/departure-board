@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const fetchDepartures = vi.fn(); const normalizeDepartures = vi.fn(); const getStation = vi.fn(); const usingFixtures = vi.fn(); const revalidateTag = vi.fn(); const invalidateToken = vi.fn();
 class InvalidTokenError extends Error { constructor(readonly token = "rejected-token") { super(); } }
-vi.mock("@/lib/njtClient", () => ({ fetchDepartures, invalidateToken, usingFixtures, InvalidTokenError, TOKEN_TAG: "njt-token" }));
+const fetchVehicleData = vi.fn(); const addTrainPositions = vi.fn(async (departures: unknown) => departures);
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/njtClient", () => ({ fetchDepartures, fetchVehicleData, invalidateToken, usingFixtures, InvalidTokenError, TOKEN_TAG: "njt-token" }));
+vi.mock("@/lib/pennPositions", () => ({ POSITION_STATION: "NY", addTrainPositions }));
 vi.mock("@/lib/departures", () => ({ normalizeDepartures })); vi.mock("@/lib/stations", () => ({ getStation })); vi.mock("next/cache", () => ({ revalidateTag }));
 afterEach(() => { vi.clearAllMocks(); vi.resetModules(); });
 const context = (code: string) => ({ params: Promise.resolve({ code }) }) as never;
@@ -15,6 +18,16 @@ describe("departures route contract", () => {
     getStation.mockReturnValue({ code: "NY", name: "New York Penn Station" }); fetchDepartures.mockResolvedValue([{ raw: true }]); normalizeDepartures.mockReturnValue([{ id: "one" }]); usingFixtures.mockReturnValue(true);
     const { GET } = await import("@/app/api/departures/[code]/route"); const response = await GET(new Request("http://test"), context("ny")); const body = await response.json();
     expect(response.headers.get("Cache-Control")).toBe("no-store"); expect(body).toMatchObject({ station: { code: "NY", name: "New York Penn Station" }, departures: [{ id: "one" }], fixtures: true }); expect(normalizeDepartures).toHaveBeenCalledWith([{ raw: true }]);
+  });
+  it("adds train positions at New York Penn only", async () => {
+    usingFixtures.mockReturnValue(true); normalizeDepartures.mockReturnValue([{ id: "one" }]); fetchDepartures.mockResolvedValue([]);
+    addTrainPositions.mockImplementationOnce(async (departures: unknown) => (departures as object[]).map((d) => ({ ...d, position: "stub" })));
+    const { GET } = await import("@/app/api/departures/[code]/route");
+    getStation.mockReturnValue({ code: "NY", name: "New York Penn Station" });
+    expect((await (await GET(new Request("http://test"), context("NY"))).json()).departures).toEqual([{ id: "one", position: "stub" }]);
+    getStation.mockReturnValue({ code: "NP", name: "Newark Penn Station" });
+    expect((await (await GET(new Request("http://test"), context("NP"))).json()).departures).toEqual([{ id: "one" }]);
+    expect(addTrainPositions).toHaveBeenCalledTimes(1);
   });
   it("refreshes a rejected token once and turns unrecoverable failures into 502", async () => {
     getStation.mockReturnValue({ code: "NY", name: "New York Penn Station" }); fetchDepartures.mockRejectedValueOnce(new InvalidTokenError()).mockResolvedValueOnce([]); normalizeDepartures.mockReturnValue([]); usingFixtures.mockReturnValue(false);

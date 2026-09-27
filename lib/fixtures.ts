@@ -1,5 +1,6 @@
 import { NJT_TIME_ZONE, type RawDeparture } from "./departures";
 import { getStation } from "./stations";
+import type { CircuitObservation, RawVehicle } from "./trainPositions";
 import type { RawStop, RawStopList } from "./stops";
 
 
@@ -232,4 +233,47 @@ export function fixtureStopList(trainId: string): RawStopList {
     TRANSFERAT: template.destination === "Bay Head" ? "Long Branch" : "",
     STOPS: stops,
   };
+}
+
+/** Inside New York Penn's platform area, as the vehicle feed reports it. */
+const AT_PENN = { LATITUDE: "40.750600", LONGITUDE: "-73.993500" };
+
+/**
+ * Stand-in getVehicleData records. The circuit names are made up — real ones
+ * are whatever RailData reports — and chosen so the fixture NY board shows a
+ * train at Penn whose circuit history names its platform (#6647), a train at
+ * Penn on a circuit with no settled history (#3251), and a train still out on
+ * the approach (#3863).
+ */
+export function fixtureVehicles(): RawVehicle[] {
+  const updated = njtDate(new Date(Date.now() - 40_000));
+  return [
+    { ID: "3861", ICS_TRACK_CKT: "FIXTURE-PLATFORM-5", ...AT_PENN, LAST_MODIFIED: updated },
+    { ID: "3247", ICS_TRACK_CKT: "FIXTURE-PLATFORM-7", ...AT_PENN, LAST_MODIFIED: updated },
+    { ID: "6647", ICS_TRACK_CKT: "FIXTURE-PLATFORM-9", ...AT_PENN, LAST_MODIFIED: updated },
+    { ID: "3251", ICS_TRACK_CKT: "FIXTURE-PLATFORM-2", ...AT_PENN, LAST_MODIFIED: updated },
+    { ID: "3863", ICS_TRACK_CKT: "FIXTURE-APPROACH", LATITUDE: "40.745300", LONGITUDE: "-74.017900", LAST_MODIFIED: updated },
+  ];
+}
+
+/** Stand-in position history matching `fixtureVehicles`, newest first. */
+export function fixturePositionHistory(): CircuitObservation[] {
+  const day = 24 * 60 * 60_000;
+  const now = Date.now();
+  const rows: Array<[string, string, string, number]> = [
+    ["6647", "FIXTURE-PLATFORM-9", "9", 1],
+    ["3861", "FIXTURE-PLATFORM-5", "5", 1],
+    ["6647", "FIXTURE-PLATFORM-9", "9", 2],
+    ["3863", "FIXTURE-APPROACH", "4", 2],
+    ["6647", "FIXTURE-PLATFORM-9", "9", 3],
+    ["3863", "FIXTURE-APPROACH", "3", 3],
+    ["3251", "FIXTURE-PLATFORM-2", "2", 4],
+    ["6647", "FIXTURE-PLATFORM-9", "9", 5],
+  ];
+  return rows.map(([trainNumber, circuit, track, daysAgo]) => ({
+    trainNumber,
+    circuit,
+    track,
+    scheduledTime: new Date(now - daysAgo * day).toISOString(),
+  }));
 }

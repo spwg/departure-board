@@ -31,6 +31,18 @@ export type DepartureStatus =
   | "boarding"
   | "departed";
 
+/** A train's reported position; a position, never a posted track. */
+export type TrainPosition = {
+  /** The signal track circuit the train occupies, as RailData names it. */
+  circuit: string;
+  /** Whether its reported coordinates fall inside New York Penn Station. */
+  atPenn: boolean;
+  /** When the feed last updated this position, ISO 8601, if known. */
+  updatedAt: string | null;
+  /** The platform this circuit's history agrees on, when it does. */
+  historyTrack?: string;
+};
+
 export type Departure = {
   /** Stable identity across refreshes, so the list can update in place. */
   id: string;
@@ -48,6 +60,11 @@ export type Departure = {
   lineCode: string;
   /** Track as NJT reports it. Empty until one is assigned. */
   track: string;
+  /**
+   * Where the train is right now, from RailData's vehicle feed. Set only at New
+   * York Penn and only while `track` is still empty. See lib/trainPositions.
+   */
+  position?: TrainPosition;
   status: DepartureStatus;
   /** NJT's own wording, e.g. "in 13 Min" — shown verbatim when useful. */
   statusText: string;

@@ -36,6 +36,7 @@ NJT_API_PASSWORD=
 NJT_USE_FIXTURES=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
+CRON_SECRET=
 # Leave unset for production RailData; npm run dev:njt-test supplies this.
 # NJT_API_BASE_URL=https://testraildata.njtransit.com/api
 ```
@@ -68,6 +69,24 @@ A successful live response has `"fixtures":false`.
 The test backend has its own data and may return imperfect or stale labels. Use
 it to exercise the integration and error states, not to validate current
 operational train information.
+
+## New York Penn train positions
+
+For New York Penn departures without a posted track, the board shows the
+train's live position from RailData's `getVehicleData`: its signal circuit,
+marked "At Penn" when its coordinates are inside the station. Every time a
+train with a posted track reports a circuit, the pairing is kept as position
+history in the same Upstash Redis database as the token; a circuit whose
+history always led to one track also shows that track as "on platform". Each
+train page links to the history at `/train/<number>/positions`.
+
+History accrues on its own, not only when the board is open: the
+`Record Penn positions` GitHub Actions workflow calls
+`/api/penn-positions/record` every five minutes. To enable it, set a random
+`CRON_SECRET` in the deployment's environment, then add two repository secrets:
+`CRON_SECRET` (the same value) and `PENN_RECORD_URL`
+(`https://<your deployment>/api/penn-positions/record`). See
+`docs/adr/0005-penn-train-positions.md`.
 
 ## NJ Transit API token
 
