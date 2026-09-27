@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 import { HomeButton, STATION_HEADER_HEIGHT } from "@/components/StationHeader";
 import { SettingsButton } from "@/components/SettingsButton";
 import { SubwayStopList } from "@/components/SubwayStopList";
-import { SubwayTrainProvider, SubwayTrainTitle } from "@/components/SubwayTrainHeader";
+import {
+  SubwayServiceStatusButton,
+  SubwayTrainProvider,
+  SubwayTrainTitle,
+} from "@/components/SubwayTrainHeader";
 import { parseSubwayDepartureId } from "@/lib/subway";
 
 /**
@@ -28,11 +32,12 @@ export default async function SubwayTrainPage({ params }: { params: Promise<{ id
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <SubwayTrainProvider>
           <header
-            className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 backdrop-blur-md sm:static sm:px-3"
-            style={{ height: STATION_HEADER_HEIGHT }}
+            className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2 backdrop-blur-md sm:static sm:px-3"
+            style={{ minHeight: STATION_HEADER_HEIGHT }}
           >
             <HomeButton />
             <SubwayTrainTitle />
+            <SubwayServiceStatusButton tripId={tripId} />
             <SettingsButton />
           </header>
 

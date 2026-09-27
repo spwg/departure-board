@@ -163,3 +163,19 @@ describe("train service status", () => {
     expect(await screen.findByText("No service notices for this line.")).toBeTruthy();
   });
 });
+
+describe("subway service status", () => {
+  it("lists MTA alerts as plain text with route bullets and fetches by route", async () => {
+    stubFeed([{
+      id: "lmm:alert:1", revision: "r1", severity: "disruption", publishedAt: null,
+      text: "[FS] trains are running with delays.", details: "Take the [B] or [Q] instead.",
+    }]);
+    render(<ServiceStatusList subwayRoute="FS" />);
+
+    const region = await screen.findByRole("region", { name: "Disruptions" });
+    expect(within(region).queryByRole("link")).toBeNull();
+    expect(within(region).getByRole("img", { name: "FS train" })).toBeTruthy();
+    expect(within(region).getByRole("img", { name: "Q train" })).toBeTruthy();
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toBe("/api/subway/alerts?route=FS");
+  });
+});

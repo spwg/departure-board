@@ -88,11 +88,17 @@ const ROUTE_COLORS: Record<string, string> = {
   B: "#FF6319", D: "#FF6319", F: "#FF6319", FX: "#FF6319", M: "#FF6319",
   G: "#6CBE45", J: "#996633", Z: "#996633", L: "#A7A9AC",
   N: "#FCCC0A", Q: "#FCCC0A", R: "#FCCC0A", W: "#FCCC0A",
-  S: "#808183", SI: "#0039A6", SIR: "#0039A6",
+  S: "#808183", FS: "#808183", GS: "#808183", H: "#808183",
+  SI: "#0039A6", SIR: "#0039A6",
 };
 
 export function subwayRouteColor(route: string): string {
   return ROUTE_COLORS[route] ?? "#808183";
+}
+
+/** Whether a route id is one of MTA's Subway routes. */
+export function isSubwayRoute(route: string): boolean {
+  return Object.hasOwn(ROUTE_COLORS, route);
 }
 
 export function getSubwayStation(stationId: string): SubwayStation | undefined {

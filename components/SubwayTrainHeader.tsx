@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { subwayRouteColor } from "@/lib/subway";
+import { isSubwayRoute, subwayRouteColor } from "@/lib/subway";
+import { ServiceStatusButton } from "./ServiceStatus";
 
 /** What the header shows for a Subway train, known once its trip loads. */
 export type SubwayTrainIdentity = {
@@ -83,9 +84,24 @@ export function SubwayTrainTitle() {
         {identity.route}
       </span>
       <div className="min-w-0">
-        <h1 className="truncate text-base font-semibold leading-6">{identity.destination}</h1>
-        <p className="truncate text-sm text-muted">{identity.direction}</p>
+        <h1 className="text-base font-semibold leading-5">{identity.destination}</h1>
+        <p className="text-sm leading-5 text-muted">{identity.direction}</p>
       </div>
     </div>
+  );
+}
+
+/**
+ * The Subway train page's way to its route's MTA alerts, as the NJ Transit
+ * train page has one to its line's. It appears once the route is known.
+ */
+export function SubwayServiceStatusButton({ tripId }: { tripId: string }) {
+  const route = useContext(SubwayTrainContext)?.identity?.route;
+  if (!route || !isSubwayRoute(route)) return null;
+  return (
+    <ServiceStatusButton
+      subwayRoute={route}
+      href={`/subway/train/${encodeURIComponent(tripId)}/status?route=${encodeURIComponent(route)}`}
+    />
   );
 }

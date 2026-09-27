@@ -7,6 +7,7 @@ import {
   visibleServiceAdvisories,
 } from "@/lib/serviceAdvisoryDismissals";
 import type { ServiceAdvisory } from "@/lib/serviceAdvisories";
+import { isSubwayRoute, subwayRouteColor } from "@/lib/subway";
 
 const REFRESH_MS = 90_000;
 
@@ -32,21 +33,27 @@ function disruptionCount(count: number): string {
 export function useServiceStatus({
   stationCode,
   lineCode,
+  subwayRoute,
 }: {
   stationCode?: string;
   lineCode?: string;
+  subwayRoute?: string;
 }) {
   const [status, setStatus] = useState<ServiceStatusResponse | null>(null);
   const [failed, setFailed] = useState(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const query = new URLSearchParams();
+    let endpoint = "/api/service-advisories";
     if (stationCode) query.set("station", stationCode);
     else if (lineCode) query.append("line", lineCode);
-    else return;
+    else if (subwayRoute) {
+      endpoint = "/api/subway/alerts";
+      query.set("route", subwayRoute);
+    } else return;
 
     try {
-      const response = await fetch(`/api/service-advisories?${query}`, {
+      const response = await fetch(`${endpoint}?${query}`, {
         signal,
         cache: "no-store",
       });
@@ -60,7 +67,7 @@ export function useServiceStatus({
         setFailed(true);
       }
     }
-  }, [lineCode, stationCode]);
+  }, [lineCode, stationCode, subwayRoute]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -96,10 +103,11 @@ export function useServiceStatus({
   };
 }
 
-/** Which notices a status control covers: a station's, or one line's. */
+/** Which notices a status control covers: a station's, an NJ Transit line's, or a Subway route's. */
 export type ServiceStatusScope =
-  | { stationCode: string; lineCode?: never }
-  | { lineCode: string; stationCode?: never };
+  | { stationCode: string; lineCode?: never; subwayRoute?: never }
+  | { lineCode: string; stationCode?: never; subwayRoute?: never }
+  | { subwayRoute: string; stationCode?: never; lineCode?: never };
 
 /**
  * A station's or train's way to its service-status page. Planned advisories
@@ -147,8 +155,8 @@ export function ServiceStatusButton({ href, ...scope }: ServiceStatusScope & { h
 
 /**
  * Every official notice for one station or line, on a page of its own:
- * current disruptions first, then planned advisories, each linking to
- * NJ TRANSIT's original and dismissible one by one.
+ * current disruptions first, then planned advisories, each linking to the
+ * official original where there is one, and dismissible one by one.
  */
 export function ServiceStatusList(scope: ServiceStatusScope) {
   const { failed, disruptions, advisories, dismiss } = useServiceStatus(scope);
@@ -156,7 +164,9 @@ export function ServiceStatusList(scope: ServiceStatusScope) {
   if (!disruptions || !advisories) {
     return (
       <p className="px-5 py-16 text-center text-muted">
-        {failed ? "Couldn\u2019t reach NJ Transit service status. Try again shortly." : "Loading service status…"}
+        {failed
+          ? `Couldn\u2019t reach ${scope.subwayRoute ? "MTA" : "NJ Transit"} service status. Try again shortly.`
+          : "Loading service status…"}
       </p>
     );
   }
@@ -171,10 +181,10 @@ export function ServiceStatusList(scope: ServiceStatusScope) {
   return (
     <>
       {disruptions.length > 0 && (
-        <NoticeGroup title="Disruptions" tone="danger" notices={disruptions} onDismiss={dismiss} />
+        <NoticeGroup title="Disruptions" tone="danger" notices={disruptions} onDismiss={dismiss} subway={Boolean(scope.subwayRoute)} />
       )}
       {advisories.length > 0 && (
-        <NoticeGroup title="Advisories" tone="warn" notices={advisories} onDismiss={dismiss} />
+        <NoticeGroup title="Advisories" tone="warn" notices={advisories} onDismiss={dismiss} subway={Boolean(scope.subwayRoute)} />
       )}
     </>
   );
@@ -185,11 +195,13 @@ function NoticeGroup({
   tone,
   notices,
   onDismiss,
+  subway,
 }: {
   title: string;
   tone: "danger" | "warn";
   notices: ServiceAdvisory[];
   onDismiss: (notice: ServiceAdvisory) => void;
+  subway: boolean;
 }) {
   return (
     <section aria-label={title} className="border-b border-edge last:border-b-0">
@@ -198,7 +210,7 @@ function NoticeGroup({
       </h3>
       <div className="divide-y divide-edge">
         {notices.map((notice) => (
-          <Notice key={notice.id} notice={notice} onDismiss={() => onDismiss(notice)} />
+          <Notice key={notice.id} notice={notice} onDismiss={() => onDismiss(notice)} subway={subway} />
         ))}
       </div>
     </section>
@@ -208,23 +220,38 @@ function NoticeGroup({
 function Notice({
   notice,
   onDismiss,
+  subway,
 }: {
   notice: ServiceAdvisory;
   onDismiss: () => void;
+  subway: boolean;
 }) {
+  const text = subway ? <WithRouteBullets text={notice.text} /> : notice.text;
   return (
     <article className="flex gap-3 px-4 py-3 text-sm sm:px-5">
-      <p className="min-w-0 flex-1 leading-5">
-        <a
-          href={notice.url}
-          target="_blank"
-          rel="noreferrer"
-          className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          {notice.text}
-          <span className="sr-only"> (official NJ TRANSIT notice)</span>
-        </a>
-      </p>
+      <div className="min-w-0 flex-1 leading-5">
+        {notice.url ? (
+          <a
+            href={notice.url}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            {text}
+            <span className="sr-only"> (official NJ TRANSIT notice)</span>
+          </a>
+        ) : (
+          <p className="font-medium">{text}</p>
+        )}
+        {notice.details && (
+          <details className="mt-1 text-muted">
+            <summary className="cursor-pointer select-none text-xs font-medium">Details</summary>
+            <p className="mt-1 whitespace-pre-line">
+              {subway ? <WithRouteBullets text={notice.details} /> : notice.details}
+            </p>
+          </details>
+        )}
+      </div>
       <button
         type="button"
         onClick={onDismiss}
@@ -235,4 +262,26 @@ function Notice({
       </button>
     </article>
   );
+}
+
+/**
+ * MTA writes a route as its bullet in brackets, "[A]"; show it as the bullet
+ * riders know from signage. Anything bracketed that is not a route stays text.
+ */
+function WithRouteBullets({ text }: { text: string }) {
+  return text.split(/(\[[0-9A-Z]{1,3}\])/).map((part, index) => {
+    const route = part.match(/^\[([0-9A-Z]{1,3})\]$/)?.[1];
+    if (!route || !isSubwayRoute(route)) return part;
+    return (
+      <span
+        key={index}
+        role="img"
+        aria-label={`${route} train`}
+        className="mx-px inline-flex h-[1.35em] min-w-[1.35em] items-center justify-center rounded-full px-0.5 align-middle text-[0.8em] font-bold leading-none text-white"
+        style={{ backgroundColor: subwayRouteColor(route) }}
+      >
+        {route}
+      </span>
+    );
+  });
 }
