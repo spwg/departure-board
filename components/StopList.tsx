@@ -151,6 +151,10 @@ export function StopList({ train, from }: { train: string; from: string }) {
           style={{ backgroundColor: color }}
         />
         <span className="min-w-0 truncate text-muted">
+          <span className="font-medium text-text">
+            Train {stopList.trainNumber || train}
+          </span>
+          {" · "}
           {lineName(stopList.lineCode)}
           {stopList.destination ? ` · to ${stopList.destination}` : ""}
         </span>

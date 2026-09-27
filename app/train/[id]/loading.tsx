@@ -1,5 +1,5 @@
-import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { SettingsButton } from "@/components/SettingsButton";
+import { HomeButton } from "@/components/StationHeader";
 
 /**
  * Also the Suspense boundary the page needs: the train number and the board
@@ -11,7 +11,8 @@ export default function Loading() {
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
         <header className="flex items-center gap-1 border-b border-edge px-2 py-2.5 sm:px-3">
-          <Breadcrumbs parents={[{ label: "Home", href: "/" }]} current="Train" />
+          <HomeButton />
+          <div className="flex-1" />
           <SettingsButton />
         </header>
 

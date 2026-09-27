@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { PositionHistoryButton } from "@/components/PositionHistoryButton";
 import { SettingsButton } from "@/components/SettingsButton";
+import { HomeButton } from "@/components/StationHeader";
 import { StopList } from "@/components/StopList";
 import {
   TrainLineProvider,
@@ -42,13 +42,11 @@ export default async function TrainPage({
       <TrainLineProvider>
         <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
           <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
-            <Breadcrumbs
-              parents={[
-                { label: "Home", href: "/" },
-                ...(origin ? [{ label: origin.name, href: `/station/${origin.code}` }] : []),
-              ]}
-              current={`Train ${train}`}
-            />
+            <HomeButton />
+            {/* The train number shows beside its line in the stop list; the
+                heading here keeps the page named while that list loads. */}
+            <h1 className="sr-only">Train {train}</h1>
+            <div className="flex-1" />
             <TrainServiceStatusButton train={train} from={origin?.code ?? ""} />
             <PositionHistoryButton train={train} from={origin?.code ?? ""} />
             <SettingsButton />
