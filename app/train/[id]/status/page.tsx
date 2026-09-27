@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/PageHeader";
 import { PageTitle } from "@/components/PageTitle";
 import { HomeButton } from "@/components/StationHeader";
 import { ServiceStatusList } from "@/components/ServiceStatus";
@@ -32,11 +33,11 @@ export default async function TrainServiceStatusPage({
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
-        <header className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2.5 backdrop-blur-md sm:static sm:px-3">
+        <PageHeader>
           <HomeButton />
           <PageTitle title="Service status" subtitle={`Train ${train} · ${lineName(lineCode)}`} />
           <SettingsButton />
-        </header>
+        </PageHeader>
 
         <ServiceStatusList lineCode={lineCode} />
       </div>

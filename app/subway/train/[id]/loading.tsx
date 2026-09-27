@@ -1,4 +1,5 @@
-import { HomeButton, STATION_HEADER_HEIGHT } from "@/components/StationHeader";
+import { PageHeader } from "@/components/PageHeader";
+import { HomeButton } from "@/components/StationHeader";
 import { SettingsButton } from "@/components/SettingsButton";
 
 /**
@@ -10,17 +11,14 @@ export default function Loading() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <div className="flex flex-1 flex-col overflow-clip border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
-        <header
-          className="flex items-center gap-1 border-b border-edge px-2 sm:px-3"
-          style={{ minHeight: STATION_HEADER_HEIGHT }}
-        >
+        <PageHeader sticky={false}>
           <HomeButton />
           <div className="flex min-w-0 flex-1 items-center gap-2.5 px-1" aria-hidden>
             <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-edge" />
             <div className="h-5 w-40 animate-pulse rounded bg-edge" />
           </div>
           <SettingsButton />
-        </header>
+        </PageHeader>
 
         <ul className="py-1" aria-hidden>
           {Array.from({ length: 8 }, (_, i) => (

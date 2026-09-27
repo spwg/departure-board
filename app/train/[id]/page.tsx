@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/PageHeader";
 import { PositionHistoryButton } from "@/components/PositionHistoryButton";
 import { SettingsButton } from "@/components/SettingsButton";
-import { HomeButton, STATION_HEADER_HEIGHT } from "@/components/StationHeader";
+import { HomeButton } from "@/components/StationHeader";
 import { StopList } from "@/components/StopList";
 import {
   TrainLineProvider,
@@ -42,16 +43,13 @@ export default async function TrainPage({
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">
       <TrainLineProvider>
         <div className="flex flex-1 flex-col overflow-hidden border-edge bg-surface sm:flex-none sm:rounded-2xl sm:border sm:shadow-sm">
-          <header
-            className="sticky top-0 z-10 flex items-center gap-1 border-b border-edge bg-surface/85 px-2 py-2 backdrop-blur-md sm:static sm:px-3"
-            style={{ minHeight: STATION_HEADER_HEIGHT }}
-          >
+          <PageHeader>
             <HomeButton />
             <TrainTitle train={train} />
             <TrainServiceStatusButton train={train} from={origin?.code ?? ""} />
             <PositionHistoryButton train={train} from={origin?.code ?? ""} />
             <SettingsButton />
-          </header>
+          </PageHeader>
 
           <StopList train={train} from={origin?.code ?? ""} />
         </div>
