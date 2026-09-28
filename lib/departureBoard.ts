@@ -1,6 +1,6 @@
 import "server-only";
 import { revalidateTag } from "next/cache";
-import { normalizeDepartures, type Departure } from "./departures";
+import { isNjtTrainId, normalizeDepartures, type Departure } from "./departures";
 import {
   InvalidTokenError,
   TOKEN_TAG,
@@ -22,6 +22,22 @@ import { addPredictions } from "./pennPredictions";
  */
 const TTL_MS = 20_000;
 const cache = new Map<string, { at: number; departures: Departure[] }>();
+
+/** Train ids already reported by warnUnexpectedTrainIds, so each is logged once per instance. */
+const warnedTrainIds = new Set<string>();
+
+/**
+ * Logs board trains whose number falls outside the app's train-number spec
+ * (NJT_TRAIN_NUMBER in lib/departures): their pages would 404, so the spec
+ * needs revisiting.
+ */
+function warnUnexpectedTrainIds(stationCode: string, departures: Departure[]): void {
+  for (const { trainNumber } of departures) {
+    if (isNjtTrainId(trainNumber) || warnedTrainIds.has(trainNumber)) continue;
+    warnedTrainIds.add(trainNumber);
+    console.warn(`Train ${JSON.stringify(trainNumber)} on the ${stationCode} board does not match NJT_TRAIN_NUMBER; its train page will 404.`);
+  }
+}
 
 /**
  * The normalized board for a station, shared for 20 seconds. A rejected token
@@ -49,6 +65,7 @@ export async function getDepartures(stationCode: string): Promise<Departure[]> {
 
   const items = await withFreshToken(() => fetchDepartures(stationCode));
   let departures = normalizeDepartures(items);
+  warnUnexpectedTrainIds(stationCode, departures);
   if (stationCode === PENN_STATION) departures = await addPredictions(departures);
   cache.set(stationCode, { at: now, departures });
   return departures;
