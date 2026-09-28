@@ -62,6 +62,13 @@ describe("station service-status page", () => {
     expect(screen.getByText(secondAdvisory.text)).toBeTruthy();
   });
 
+  it("shows a notice whose feed link is not a web address as plain text", async () => {
+    stubFeed([{ ...firstAdvisory, url: "javascript:alert(1)" }]);
+    render(<ServiceStatusList stationCode="NY" />);
+    expect(await screen.findByText(firstAdvisory.text)).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
   it("says so when a station has no notices", async () => {
     stubFeed([]);
     render(<ServiceStatusList stationCode="NY" />);

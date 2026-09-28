@@ -9,8 +9,9 @@ import {
   TrainServiceStatusButton,
   TrainTitle,
 } from "@/components/TrainServiceStatus";
-import { isExcludedTrainId } from "@/lib/departures";
+import { isNjtTrainId } from "@/lib/departures";
 import { getStation } from "@/lib/stations";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 /**
  * Not prerendered, unlike the station shells: train numbers are reassigned
@@ -21,7 +22,7 @@ export async function generateMetadata({
   params,
 }: PageProps<"/train/[id]">): Promise<Metadata> {
   const { id } = await params;
-  return { title: `Train ${decodeURIComponent(id)} stops` };
+  return { title: `Train ${decodeRouteParam(id)} stops` };
 }
 
 export default async function TrainPage({
@@ -29,9 +30,9 @@ export default async function TrainPage({
   searchParams,
 }: PageProps<"/train/[id]">) {
   const { id } = await params;
-  const train = decodeURIComponent(id).trim();
+  const train = decodeRouteParam(id).trim();
   // This app shows NJ Transit trains only, however you arrive at the page.
-  if (!train || isExcludedTrainId(train)) notFound();
+  if (!isNjtTrainId(train)) notFound();
 
   // Which board sent you here, so the remaining-route list can mark where you
   // are standing; an unknown code degrades quietly.

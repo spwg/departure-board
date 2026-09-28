@@ -1,5 +1,5 @@
 import { revalidateTag } from "next/cache";
-import { isExcludedTrainId } from "@/lib/departures";
+import { isNjtTrainId } from "@/lib/departures";
 import {
   InvalidTokenError,
   TOKEN_TAG,
@@ -8,6 +8,7 @@ import {
   usingFixtures,
 } from "@/lib/njtClient";
 import { normalizeStopList, type StopList } from "@/lib/stops";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 export type StopsResponse = {
   stopList: StopList;
@@ -26,6 +27,8 @@ export type StopsResponse = {
  * sequence — only the estimates against it move.
  */
 const TTL_MS = 60_000;
+/** Well above the trains running at once, so real lookups never evict each other. */
+const MAX_ENTRIES = 500;
 const cache = new Map<string, { at: number; stopList: StopList }>();
 
 async function getStopList(trainId: string): Promise<StopList> {
@@ -46,7 +49,10 @@ async function getStopList(trainId: string): Promise<StopList> {
   }
 
   const stopList = normalizeStopList(raw);
+  // Re-inserting keeps the map in age order, so the first key is the oldest.
+  cache.delete(trainId);
   cache.set(trainId, { at: now, stopList });
+  if (cache.size > MAX_ENTRIES) cache.delete(cache.keys().next().value!);
   return stopList;
 }
 
@@ -55,11 +61,11 @@ export async function GET(
   context: RouteContext<"/api/stops/[train]">,
 ) {
   const { train } = await context.params;
-  const trainId = decodeURIComponent(train).trim();
+  const trainId = decodeRouteParam(train).trim();
 
   // Reached by URL rather than by tapping a row, so the board's filters have
   // to be applied again here — this app shows NJ Transit trains only.
-  if (!trainId || isExcludedTrainId(trainId)) {
+  if (!isNjtTrainId(trainId)) {
     return Response.json(
       { error: `Not an NJ Transit train: ${trainId}` },
       { status: 404 },

@@ -185,6 +185,19 @@ export function isExcludedTrainId(trainId: string): boolean {
   return EXCLUDED_TRAIN_PREFIXES.test((trainId ?? "").trim());
 }
 
+/** RailData train numbers are a few letters and digits, such as 3861 or A187. */
+const TRAIN_ID_SHAPE = /^[A-Z0-9]{1,10}$/i;
+
+/**
+ * True for a train number this app would look up: shaped like one and not
+ * excluded. Routes reached by URL check this before calling NJ Transit, so
+ * arbitrary strings cannot each spend a call from the daily allowance.
+ */
+export function isNjtTrainId(trainId: string): boolean {
+  const id = (trainId ?? "").trim();
+  return TRAIN_ID_SHAPE.test(id) && !isExcludedTrainId(id);
+}
+
 /** True for trains this board should never show. */
 export function isExcluded(item: RawDeparture): boolean {
   return (

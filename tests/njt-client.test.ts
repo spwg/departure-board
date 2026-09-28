@@ -43,6 +43,14 @@ describe("NJT client contract", () => {
     await expect(requestVehicles("token")).rejects.toThrow("no vehicle list");
     await expect(requestVehicles("stale")).rejects.toBeInstanceOf(InvalidTokenError);
   });
+  it("keeps a rejected token readable but out of logged errors", async () => {
+    const { InvalidTokenError } = await import("@/lib/njtApi");
+    const { inspect } = await import("node:util");
+    const error = new InvalidTokenError("secret-token");
+    expect(error.token).toBe("secret-token");
+    expect(inspect(error)).not.toContain("secret-token");
+    expect(JSON.stringify(error)).not.toContain("secret-token");
+  });
   it("authenticates and sends a multipart schedule request when configured", async () => {
     process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_API_BASE_URL = "https://api.example/";
     const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ UserToken: "token" }))).mockResolvedValueOnce(new Response(JSON.stringify({ ITEMS: [{ TRAIN_ID: "1" }] })));
