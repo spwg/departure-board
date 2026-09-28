@@ -11,6 +11,7 @@ import {
 } from "@/components/TrainServiceStatus";
 import { isNjtTrainId } from "@/lib/departures";
 import { getStation } from "@/lib/stations";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 /**
  * Not prerendered, unlike the station shells: train numbers are reassigned
@@ -21,7 +22,7 @@ export async function generateMetadata({
   params,
 }: PageProps<"/train/[id]">): Promise<Metadata> {
   const { id } = await params;
-  return { title: `Train ${id} stops` };
+  return { title: `Train ${decodeRouteParam(id)} stops` };
 }
 
 export default async function TrainPage({
@@ -29,7 +30,7 @@ export default async function TrainPage({
   searchParams,
 }: PageProps<"/train/[id]">) {
   const { id } = await params;
-  const train = id.trim();
+  const train = decodeRouteParam(id).trim();
   // This app shows NJ Transit trains only, however you arrive at the page.
   if (!isNjtTrainId(train)) notFound();
 

@@ -7,12 +7,13 @@ import { ServiceStatusList } from "@/components/ServiceStatus";
 import { SettingsButton } from "@/components/SettingsButton";
 import { isNjtTrainId } from "@/lib/departures";
 import { LINE_NAMES, lineName } from "@/lib/stations";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 export async function generateMetadata({
   params,
 }: PageProps<"/train/[id]/status">): Promise<Metadata> {
   const { id } = await params;
-  return { title: `Train ${id} service status` };
+  return { title: `Train ${decodeRouteParam(id)} service status` };
 }
 
 /**
@@ -25,7 +26,7 @@ export default async function TrainServiceStatusPage({
   searchParams,
 }: PageProps<"/train/[id]/status">) {
   const { id } = await params;
-  const train = id.trim();
+  const train = decodeRouteParam(id).trim();
   const { line } = await searchParams;
   const lineCode = typeof line === "string" ? line.toUpperCase() : "";
   if (!isNjtTrainId(train) || !(lineCode in LINE_NAMES)) notFound();

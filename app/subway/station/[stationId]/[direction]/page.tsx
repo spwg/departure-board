@@ -8,9 +8,10 @@ import { TransferBoard } from "@/components/TransferBoard";
 import { subwayBoardChoice } from "@/lib/boardChoices";
 import { getSubwayStation } from "@/lib/subway";
 import { transferHref } from "@/lib/transfers";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 function stationIdsFromParam(value: string): string[] {
-  return value.split(",").filter(Boolean);
+  return decodeRouteParam(value).split(",").filter(Boolean);
 }
 
 function getStationContext(stationId: string) {
@@ -31,7 +32,7 @@ export async function generateMetadata({
   const { stationId, direction } = await params;
   const context = getStationContext(stationId);
   if (!context) return { title: "Station not found" };
-  return { title: `${context.station.name} ${direction} departures` };
+  return { title: `${context.station.name} ${decodeRouteParam(direction)} departures` };
 }
 
 export default function SubwayDirectionPage({
@@ -51,10 +52,11 @@ async function SubwayDirectionContent({
 }: {
   params: Promise<{ stationId: string; direction: string }>;
 }) {
-  const { stationId, direction } = await params;
+  const { stationId, direction: rawDirection } = await params;
   const context = getStationContext(stationId);
   if (!context) notFound();
 
+  const direction = decodeRouteParam(rawDirection);
   const boardStationId = context.stationIds.join(",");
   const choice = subwayBoardChoice(context.stationIds[0]!);
 

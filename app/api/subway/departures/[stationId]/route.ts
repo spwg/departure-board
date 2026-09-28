@@ -1,4 +1,5 @@
 import { decodeSubwayBoard, fetchSubwayFeedsForStation, getSubwayStation, subwayMetadata } from "@/lib/subway";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 /**
  * A live board for one MTA station complex, given as a comma-separated list
@@ -10,7 +11,7 @@ export async function GET(
   context: { params: Promise<{ stationId: string }> },
 ) {
   const { stationId } = await context.params;
-  const stationIds = stationId.split(",").filter(Boolean);
+  const stationIds = decodeRouteParam(stationId).split(",").filter(Boolean);
   const exact = new URL(request.url).searchParams.get("exact") === "true";
   if (stationIds.length === 0 || !stationIds.every(getSubwayStation)) {
     return Response.json({ error: `Unknown Subway station: ${stationId}` }, { status: 404 });

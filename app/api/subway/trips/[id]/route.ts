@@ -4,6 +4,7 @@ import {
   parseSubwayDepartureId,
   subwayMetadata,
 } from "@/lib/subway";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 /**
  * One exact live trip's remaining route.
@@ -16,7 +17,8 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { id: tripId } = await context.params;
+  const { id } = await context.params;
+  const tripId = decodeRouteParam(id);
   const parsed = parseSubwayDepartureId(tripId);
   if (!parsed) {
     return Response.json({ error: `Unknown Subway trip: ${tripId}` }, { status: 404 });
