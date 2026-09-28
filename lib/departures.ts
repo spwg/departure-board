@@ -203,18 +203,34 @@ export function isExcluded(item: RawDeparture): boolean {
  */
 export const NJT_TIME_ZONE = "America/New_York";
 
+/**
+ * One formatter per zone, reused: building an Intl.DateTimeFormat costs far
+ * more than using one, and the collector Worker parses a timestamp for every
+ * train in the system on each run, inside a 10 ms CPU budget.
+ */
+const zoneFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function zoneFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = zoneFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    zoneFormatters.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 /** How far `timeZone`'s wall clock is ahead of UTC at a given instant, in ms. */
 function zoneOffset(timestamp: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(new Date(timestamp));
+  const parts = zoneFormatter(timeZone).formatToParts(new Date(timestamp));
 
   const field: Record<string, string> = {};
   for (const part of parts) field[part.type] = part.value;

@@ -141,24 +141,29 @@ export function changeEvent(at: string, source: BoardLogSource, snapshot: TrainS
   return { kind: "change", v: BOARD_LOG_VERSION, at, source, model: CONFIDENCE_MODEL, ...(change as TrainChange) };
 }
 
+// Built once: constructing a formatter costs far more than using one, and
+// the collector runs these on every collection within a small CPU budget.
+const MINUTE_FORMAT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: NJT_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+const DAY_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: NJT_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 /** The Eastern minute of the day, 0–1439, a poll is counted under. */
 export function logMinute(at: string): number {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: NJT_TIME_ZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(at));
+  const parts = MINUTE_FORMAT.formatToParts(new Date(at));
   const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? 0);
   return value("hour") * 60 + value("minute");
 }
 
 /** The Eastern date an entry is filed under, YYYY-MM-DD. */
 export function logDay(at: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: NJT_TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(at));
+  return DAY_FORMAT.format(new Date(at));
 }
