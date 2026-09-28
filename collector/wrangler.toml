@@ -1,12 +1,16 @@
-# The New York Penn collector Worker. Deploy from the repository root:
-#   npx wrangler deploy --config collector/wrangler.toml
-# and set its secrets once with `npx wrangler secret put <NAME> --config
+# The New York Penn collector Worker. No secrets here; they live in Cloudflare.
+# Deploy from the repository root with `npm run collector:deploy`, then set its
+# secrets once with `npx wrangler@4 secret put <NAME> --config
 # collector/wrangler.toml` (see collector/worker.ts for the list).
 name = "departure-board-penn-collector"
 main = "worker.ts"
 # 2025-04-01 or later puts secrets in process.env under nodejs_compat.
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Cron-only: no public workers.dev or preview URL, since there is no web handler.
+workers_dev = false
+preview_urls = false
 
 [triggers]
 crons = ["* * * * *"]

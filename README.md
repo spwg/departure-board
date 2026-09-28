@@ -89,15 +89,17 @@ The app only reads those predictions back — one Redis read per fresh NY
 board — and still loads departures and posted tracks from NJ Transit itself.
 
 ```bash
-npx wrangler@4 login
+npx wrangler@4 login        # browser sign-in to your Cloudflare account
+npm run collector:deploy    # bundle collector/worker.ts, upload it, start the cron
 for name in NJT_API_USERNAME NJT_API_PASSWORD UPSTASH_REDIS_REST_URL UPSTASH_REDIS_REST_TOKEN; do
-  npx wrangler@4 secret put $name --config collector/wrangler.toml
+  npx wrangler@4 secret put $name --config collector/wrangler.toml   # prompts for each value
 done
-npm run collector:deploy
 ```
 
 Use the same NJ Transit and Upstash values as the Vercel project, so both share
-one NJ Transit token. Each run logs a one-line JSON summary
+one NJ Transit token. Runs in the minute or two before the secrets are set fail
+harmlessly and are logged. `collector/wrangler.toml` holds no secrets and is
+committed; secrets live only in Cloudflare. Each run logs a one-line JSON summary
 (`"event":"penn-collect"`) to Workers Logs. To run it locally, put the same
 variables in `collector/.dev.vars` (ignored by git), start
 `npx wrangler@4 dev --config collector/wrangler.toml --test-scheduled`, and
