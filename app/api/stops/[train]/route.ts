@@ -33,7 +33,13 @@ const cache = new Map<string, { at: number; stopList: StopList }>();
 async function getStopList(trainId: string): Promise<StopList> {
   const hit = cache.get(trainId);
   const now = Date.now();
-  if (hit && now - hit.at < TTL_MS) return hit.stopList;
+  // Every use moves a train to the end of the map, so the first key is always
+  // the least recently used one — the one to evict.
+  cache.delete(trainId);
+  if (hit && now - hit.at < TTL_MS) {
+    cache.set(trainId, hit);
+    return hit.stopList;
+  }
 
   let raw;
   try {
@@ -48,8 +54,6 @@ async function getStopList(trainId: string): Promise<StopList> {
   }
 
   const stopList = normalizeStopList(raw);
-  // Re-inserting keeps the map in age order, so the first key is the oldest.
-  cache.delete(trainId);
   cache.set(trainId, { at: now, stopList });
   if (cache.size > MAX_ENTRIES) cache.delete(cache.keys().next().value!);
   return stopList;

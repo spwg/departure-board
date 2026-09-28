@@ -27,14 +27,18 @@ describe("stops route contract", () => {
     expect(fetchStopList).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the cache bounded by evicting the oldest train", async () => {
+  it("keeps the cache bounded by evicting the least recently used train", async () => {
     fetchStopList.mockImplementation(async (id: string) => ({ TRAIN_ID: id, STOPS: [] }));
     const { GET } = await import("@/app/api/stops/[train]/route");
-    for (let id = 1; id <= 501; id += 1) await GET(new Request("http://test"), context(String(id)));
+    for (let id = 1; id <= 500; id += 1) await GET(new Request("http://test"), context(String(id)));
+    // A hit on the oldest train keeps it; the next train in line is evicted instead.
+    await GET(new Request("http://test"), context("1"));
+    await GET(new Request("http://test"), context("501"));
     fetchStopList.mockClear();
+    await GET(new Request("http://test"), context("1"));
     await GET(new Request("http://test"), context("501"));
     expect(fetchStopList).not.toHaveBeenCalled();
-    await GET(new Request("http://test"), context("1"));
-    expect(fetchStopList).toHaveBeenCalledWith("1");
+    await GET(new Request("http://test"), context("2"));
+    expect(fetchStopList).toHaveBeenCalledWith("2");
   });
 });
