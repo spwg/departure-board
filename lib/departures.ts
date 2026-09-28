@@ -174,15 +174,35 @@ export function normalizeNjtDestination(value: string): NormalizedNjtDestination
   };
 }
 
-/**
- * True for train numbers this board should never show, by prefix alone.
- *
- * Split out from `isExcluded` so routes reached by URL rather than by tapping a
- * row — where there is no full record to inspect — can turn away the same
- * trains the board filters out.
- */
+/** True for train numbers this board should never show, by prefix alone. */
 export function isExcludedTrainId(trainId: string): boolean {
   return EXCLUDED_TRAIN_PREFIXES.test((trainId ?? "").trim());
+}
+
+/**
+ * The shape of an NJ Transit passenger train number, as this app defines it.
+ *
+ * This is the app's own spec, not NJ Transit's: no published format for
+ * TRAIN_ID has been found beyond the prefixes above. It follows NJ Transit's
+ * public numbering instead — a plain number of at most four digits, as in its
+ * timetables (1 to 9999). Letters are left out entirely, which also turns away
+ * every prefixed train (A, S, X) the board filters.
+ *
+ * Four digits rather than anything looser because each distinct id that
+ * passes can cost an NJ Transit call from the shared daily allowance: this
+ * caps the train pages and /api/stops/[train] at 9,999 possible ids instead
+ * of an unbounded set. It does not stop someone walking all of them; the
+ * Vercel firewall's rate limit on /api/* is what slows that down.
+ *
+ * If NJ Transit ever sends a board train outside this shape, its page would
+ * 404; lib/departureBoard logs a warning when that happens, which is the
+ * signal to revisit this spec.
+ */
+const NJT_TRAIN_NUMBER = /^\d{1,4}$/;
+
+/** True for a train number this app would look up (see NJT_TRAIN_NUMBER). */
+export function isNjtTrainId(trainId: string): boolean {
+  return NJT_TRAIN_NUMBER.test((trainId ?? "").trim());
 }
 
 /** True for trains this board should never show. */

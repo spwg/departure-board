@@ -7,7 +7,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/njtClient", () => ({ fetchDepartures, invalidateToken, usingFixtures, InvalidTokenError, TOKEN_TAG: "njt-token" }));
 vi.mock("@/lib/pennCollect", () => ({ PENN_STATION: "NY" }));
 vi.mock("@/lib/pennPredictions", () => ({ addPredictions }));
-vi.mock("@/lib/departures", () => ({ normalizeDepartures })); vi.mock("@/lib/stations", () => ({ getStation })); vi.mock("next/cache", () => ({ revalidateTag }));
+vi.mock("@/lib/departures", () => ({ normalizeDepartures, isNjtTrainId: (id: string) => /^\d{1,4}$/.test(id) })); vi.mock("@/lib/stations", () => ({ getStation })); vi.mock("next/cache", () => ({ revalidateTag }));
 afterEach(() => { vi.clearAllMocks(); vi.resetModules(); });
 const context = (code: string) => ({ params: Promise.resolve({ code }) }) as never;
 
@@ -29,6 +29,14 @@ describe("departures route contract", () => {
     getStation.mockReturnValue({ code: "NP", name: "Newark Penn Station" });
     expect((await (await GET(new Request("http://test"), context("NP"))).json()).departures).toEqual([{ id: "one" }]);
     expect(addPredictions).toHaveBeenCalledTimes(1);
+  });
+  it("warns once about a board train outside the train-number spec", async () => {
+    usingFixtures.mockReturnValue(true); fetchDepartures.mockResolvedValue([]); normalizeDepartures.mockReturnValue([{ trainNumber: "3861" }, { trainNumber: "38611" }]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { GET } = await import("@/app/api/departures/[code]/route");
+    getStation.mockReturnValue({ code: "NP", name: "Newark Penn Station" }); await GET(new Request("http://test"), context("NP"));
+    getStation.mockReturnValue({ code: "NW", name: "Newark" }); await GET(new Request("http://test"), context("NW"));
+    expect(warn).toHaveBeenCalledTimes(1); expect(warn.mock.calls[0][0]).toContain('"38611"');
   });
   it("refreshes a rejected token once and turns unrecoverable failures into 502", async () => {
     getStation.mockReturnValue({ code: "NY", name: "New York Penn Station" }); fetchDepartures.mockRejectedValueOnce(new InvalidTokenError()).mockResolvedValueOnce([]); normalizeDepartures.mockReturnValue([]); usingFixtures.mockReturnValue(false);

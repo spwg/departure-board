@@ -5,14 +5,15 @@ import { PageTitle } from "@/components/PageTitle";
 import { HomeButton } from "@/components/StationHeader";
 import { ServiceStatusList } from "@/components/ServiceStatus";
 import { SettingsButton } from "@/components/SettingsButton";
-import { isExcludedTrainId } from "@/lib/departures";
+import { isNjtTrainId } from "@/lib/departures";
 import { LINE_NAMES, lineName } from "@/lib/stations";
+import { decodeRouteParam } from "@/lib/routeParams";
 
 export async function generateMetadata({
   params,
 }: PageProps<"/train/[id]/status">): Promise<Metadata> {
   const { id } = await params;
-  return { title: `Train ${decodeURIComponent(id)} service status` };
+  return { title: `Train ${decodeRouteParam(id)} service status` };
 }
 
 /**
@@ -25,10 +26,10 @@ export default async function TrainServiceStatusPage({
   searchParams,
 }: PageProps<"/train/[id]/status">) {
   const { id } = await params;
-  const train = decodeURIComponent(id).trim();
+  const train = decodeRouteParam(id).trim();
   const { line } = await searchParams;
   const lineCode = typeof line === "string" ? line.toUpperCase() : "";
-  if (!train || isExcludedTrainId(train) || !(lineCode in LINE_NAMES)) notFound();
+  if (!isNjtTrainId(train) || !(lineCode in LINE_NAMES)) notFound();
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">

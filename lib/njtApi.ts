@@ -21,9 +21,13 @@ const DEFAULT_BASE_URL = "https://raildata.njtransit.com/api";
 
 /** Thrown when NJT rejects the cached token, so the caller can refresh and retry. */
 export class InvalidTokenError extends Error {
-  constructor(readonly token: string) {
+  declare readonly token: string;
+
+  constructor(token: string) {
     super("NJT rejected the cached token");
     this.name = "InvalidTokenError";
+    // Not enumerable, so logging the error never writes the token to the logs.
+    Object.defineProperty(this, "token", { value: token });
   }
 }
 

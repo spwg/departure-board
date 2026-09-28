@@ -16,6 +16,21 @@ type ServiceStatusResponse = {
   authoritativeRevisions: Record<string, string>;
 };
 
+/**
+ * The notice's link, only when it is an ordinary web address. The URL comes
+ * from an upstream feed, so any other scheme (javascript:, data:) is dropped
+ * and the notice shows as plain text.
+ */
+function webLink(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "https:" || protocol === "http:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 /** "1 disruption", "2 disruptions". */
 function disruptionCount(count: number): string {
   return `${count} ${count === 1 ? "disruption" : "disruptions"}`;
@@ -227,12 +242,13 @@ function Notice({
   subway: boolean;
 }) {
   const text = subway ? <WithRouteBullets text={notice.text} /> : notice.text;
+  const href = webLink(notice.url);
   return (
     <article className="flex gap-3 px-4 py-3 text-sm sm:px-5">
       <div className="min-w-0 flex-1 leading-5">
-        {notice.url ? (
+        {href ? (
           <a
-            href={notice.url}
+            href={href}
             target="_blank"
             rel="noreferrer"
             className="font-medium underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2"
