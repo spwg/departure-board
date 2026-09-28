@@ -12,7 +12,7 @@
  *  - misled:    a prediction shown at any point differed from the posted track
  *  - lead:      how long before posting the correct track was showing, unbroken
  *
- * Posting times are only as exact as the collector's interval (30 s).
+ * Posting times are only as exact as the collector's interval (one minute).
  *
  * Usage:
  *   npm run penn-accuracy                         # last 14 days from Upstash

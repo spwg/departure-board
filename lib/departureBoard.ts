@@ -1,15 +1,14 @@
 import "server-only";
 import { revalidateTag } from "next/cache";
-import type { BoardLogSource } from "./boardLog";
 import { normalizeDepartures, type Departure } from "./departures";
 import {
   InvalidTokenError,
   TOKEN_TAG,
   fetchDepartures,
-  fetchVehicleData,
   invalidateToken,
 } from "./njtClient";
-import { POSITION_STATION, addTrainPositions } from "./pennPositions";
+import { PENN_STATION } from "./pennCollect";
+import { addPredictions } from "./pennPredictions";
 
 /**
  * Briefly shares departures between everyone watching the same station.
@@ -26,14 +25,10 @@ const cache = new Map<string, { at: number; departures: Departure[] }>();
 
 /**
  * The normalized board for a station, shared for 20 seconds. A rejected token
- * is refreshed once. New York Penn boards also carry train positions and
- * predicted tracks, update the position history, and are logged, credited to
- * `source` (lib/pennPositions).
+ * is refreshed once. New York Penn boards also carry the predicted tracks the
+ * collector last published (lib/pennPredictions).
  */
-export async function getDepartures(
-  stationCode: string,
-  source: BoardLogSource = "board",
-): Promise<Departure[]> {
+export async function getDepartures(stationCode: string): Promise<Departure[]> {
   const hit = cache.get(stationCode);
   const now = Date.now();
   if (hit && now - hit.at < TTL_MS) return hit.departures;
@@ -54,13 +49,7 @@ export async function getDepartures(
 
   const items = await withFreshToken(() => fetchDepartures(stationCode));
   let departures = normalizeDepartures(items);
-  if (stationCode === POSITION_STATION) {
-    departures = await addTrainPositions(
-      departures,
-      () => withFreshToken(fetchVehicleData),
-      source,
-    );
-  }
+  if (stationCode === PENN_STATION) departures = await addPredictions(departures);
   cache.set(stationCode, { at: now, departures });
   return departures;
 }

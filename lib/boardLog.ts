@@ -14,16 +14,15 @@ import {
  *
  * A train's full snapshot is logged when it first appears, then only what can
  * change whenever something a rider could see does, then a "gone" entry when
- * it leaves the board. Every fresh board load is also counted per minute, so
- * gaps in collection show. Everything here is pure; storage lives in
- * lib/boardLogStore.
+ * it leaves the board. Every collection is also counted per minute, so gaps
+ * show. Everything here is pure; storage lives in lib/pennStore.
  */
 
 /** Bumped whenever a logged field changes meaning. */
 export const BOARD_LOG_VERSION = 1;
 
-/** What loaded the board: the always-on collector, or a rider's view. */
-export type BoardLogSource = "collector" | "board";
+/** What loaded the board. Only the collector Worker writes the log today. */
+export type BoardLogSource = "collector";
 
 export type TrainSnapshot = {
   /** Train number and timetable time: one train on one day. */

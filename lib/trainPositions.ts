@@ -15,7 +15,7 @@ import { parseNjtDate, type Departure, type TrainPosition } from "./departures";
  * with how confident that history makes it.
  *
  * Everything in this file is pure; storage and fetching live in
- * lib/pennPositions and lib/pennPositionStore.
+ * lib/pennCollect and lib/pennStore.
  */
 
 /** A record from getVehicleData. Only fields we actually use. */

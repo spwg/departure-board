@@ -2,7 +2,7 @@
 status: accepted
 ---
 
-# Predict every New York Penn track with a confidence, log what the board shows, and collect around the clock
+# Predict every New York Penn track with a confidence, log what the board shows, and collect from a separate Worker
 
 ADR 0005 showed a history track only once a circuit's history was 95%
 unanimous over at least 3 pairings, recorded that history from a GitHub
@@ -29,17 +29,24 @@ their precision or recall.
   once a day is 90 days old it is subtracted from the running counts and
   deleted, so a circuit remapped during track work does not keep predicting its
   old track.
-- **Board log.** Every fresh New York Penn board load logs what riders saw, per
-  train: its first appearance in full, then a compact entry whenever anything
-  visible changes (posted track, predicted track or its confidence, times,
-  status, circuit while inside Penn), then when it leaves the board. Loads are
-  counted per minute so collection gaps show. Each day's log expires after 90
-  days. `npm run penn-accuracy` turns it into precision, recall, F1, lead time,
-  calibration of the shown percentages, and monthly figures to show drift.
-- **Always-on collector.** A timer inside the app (`instrumentation.ts`,
-  `lib/pennCollector.ts`) loads the board every 30 seconds by requesting its own
-  `/api/penn-positions/record`. It runs only where `PENN_COLLECTOR=true`, on a
-  long-lived `next start` server; Vercel keeps serving riders.
+- **Board log.** Every collection logs what the NY board shows, per train: its
+  first appearance in full, then a compact entry whenever anything a rider
+  could see changes (posted track, predicted track or its confidence, times,
+  status, circuit while inside Penn), then when it leaves the board.
+  Collections are counted per minute so gaps show. Each day's log expires after
+  90 days. `npm run penn-accuracy` turns it into precision, recall, F1, lead
+  time, calibration of the shown percentages, and monthly figures to show
+  drift.
+- **A collector Worker, separate from the app.** A Cloudflare Worker
+  (`collector/`) runs once a minute on the free plan's cron trigger. It calls
+  NJ Transit's board and vehicle feed itself, records history, logs the board,
+  and publishes the current predictions to Upstash with a 3-minute expiry.
+  It is the only writer. The Vercel app keeps loading departures and posted
+  tracks from NJ Transit as before, and for NY reads the published
+  predictions — one Redis read per fresh board — ignoring any older than the
+  expiry, so a stalled collector shows no predictions rather than stale ones.
+  Nothing calls the app on a schedule, so it runs only for riders. Both share
+  the one NJ Transit token stored in Upstash.
 - **No history page.** `/train/[id]/positions` and its header button are
   removed; the feature's only rider-facing result is the track chip.
 
@@ -49,8 +56,11 @@ their precision or recall.
   Penn tracks post only 10–15 minutes before departure.
 - **Vercel Cron.** Hobby allows one run a day, anywhere within the hour; Pro
   allows once a minute but is paid.
-- **A timer on Vercel.** Functions are frozen between requests, so the timer
-  would silently stop.
+- **Anything that calls the app on a schedule** (an external pinger, or a
+  timer in an always-on `next start`): every tick would spend Vercel function
+  usage, and exceeding Hobby's limits pauses the whole site for up to 30 days.
+- **Railway cron** runs at most every 5 minutes; an always-on Railway or Fly
+  server costs money (Fly's waiver of small invoices is unofficial).
 - **Scheduled-history guesses** (pennstation.fyi's "Likely · N%" from a train
   number's past tracks, 23.6% accurate) remain rejected; predictions come only
   from where the train is standing.
@@ -60,12 +70,17 @@ their precision or recall.
 - Upstash free tier (256 MB, 500K commands and 10 GB bandwidth a month):
   entries measure about 600 bytes for a first appearance, 460 for a change and
   110 for leaving, roughly 3 KB per train a day. At about 400 Penn departures a
-  day that is about 1.3 MB a day with the minute counts, about 120 MB over 90
-  days. The collector spends about 4,000 commands a day (one scripted write per
-  load, history refreshes), about 120K a month, counting each EVAL as one
-  command, and about 2.5 GB of bandwidth a month.
-- NJ Transit: two RailData calls per load, about 5,800 a day, within the 40,000
-  daily limit.
+  day that is about 1.3 MB a day, about 120 MB over 90 days. The collector
+  spends 3 commands a minute (token read, history script, log script), about
+  130K a month counting each EVAL as one, plus one read per fresh NY board.
+- Cloudflare Workers free plan: one cron trigger of the five allowed, 1,440
+  runs a day, 10 ms of CPU per run. Parsing the system-wide vehicle feed is
+  the heaviest step; if runs start exceeding the CPU limit, Workers Paid
+  ($5/month) lifts it.
+- NJ Transit: the collector makes two RailData calls a minute, about 2,900 a
+  day, on top of riders' traffic, within the 40,000 daily limit.
+- Predictions are up to a minute old; a posted track from the app's own
+  NJ Transit call always replaces them at once.
 - A low-confidence prediction can be wrong; the percentage says so, and the
   board log measures whether the percentages are honest.
 - Position history restarted empty under new keys (v2).

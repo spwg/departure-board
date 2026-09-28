@@ -19,6 +19,7 @@
     "build-subway-transfers": "node scripts/build-subway-transfers.mjs",
     "build-subway-headsigns": "node scripts/build-subway-headsigns.mjs",
     "penn-accuracy": "tsx --env-file-if-exists=.env.local scripts/penn-accuracy.mts",
+    "collector:deploy": "npx wrangler@4 deploy --config collector/wrangler.toml",
     "build-icons": "node scripts/build-icons.mjs",
     "test:watch": "vitest"
   },

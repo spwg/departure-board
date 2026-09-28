@@ -31,7 +31,7 @@ describe("board log", () => {
 
   it("leaves fixed fields out of change entries", () => {
     const [snapshot] = boardSnapshots([base], new Map(), table);
-    const change = changeEvent("2024-05-30T14:55:00.000Z", "board", snapshot);
+    const change = changeEvent("2024-05-30T14:55:00.000Z", "collector", snapshot);
     expect(change).toMatchObject({ kind: "change", id: snapshot.id, status: "on-time" });
     for (const field of ["trainNumber", "line", "lineCode", "destination", "scheduledTime"]) expect(change).not.toHaveProperty(field);
   });

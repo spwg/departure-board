@@ -36,7 +36,6 @@ NJT_API_PASSWORD=
 NJT_USE_FIXTURES=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
-CRON_SECRET=
 # Leave unset for production RailData; npm run dev:njt-test supplies this.
 # NJT_API_BASE_URL=https://testraildata.njtransit.com/api
 ```
@@ -75,29 +74,34 @@ operational train information.
 NJ Transit posts New York Penn tracks late. Before a train's track is posted,
 the NY board shows a grey predicted track with its confidence ("95% likely"),
 from the history of which track trains standing on the same signal circuit
-were given; the chip turns green when NJ Transit posts. History and a log of
+were given; the chip turns into the green posted track when NJ Transit posts. History and a log of
 everything the board showed live in the same Upstash Redis database as the
 token and age out after 90 days. See
 `docs/adr/0008-penn-predicted-tracks-and-board-log.md`.
 
-### Always-on collector
+### Collector Worker
 
-History and the log need the board loaded around the clock, not just when
-someone has it open. Run the app on any always-on machine with `next start`
-and these set, alongside the NJ Transit and Upstash credentials:
+Predictions need NJ Transit polled around the clock, not only while someone has
+the board open, and without waking the Vercel app. A Cloudflare Worker
+(`collector/`, free plan) runs once a minute: it calls NJ Transit itself,
+records history, logs the board, and publishes current predictions to Upstash.
+The app only reads those predictions back — one Redis read per fresh NY
+board — and still loads departures and posted tracks from NJ Transit itself.
 
 ```bash
-PENN_COLLECTOR=true          # start the 30-second timer in this server
-CRON_SECRET=<long random>    # guards /api/penn-positions/record
-npm run build && npm start
+npx wrangler@4 login
+for name in NJT_API_USERNAME NJT_API_PASSWORD UPSTASH_REDIS_REST_URL UPSTASH_REDIS_REST_TOKEN; do
+  npx wrangler@4 secret put $name --config collector/wrangler.toml
+done
+npm run collector:deploy
 ```
 
-Leave `PENN_COLLECTOR` unset on Vercel: functions are frozen between requests,
-so a timer there would stop. `PENN_COLLECTOR_INTERVAL_SECONDS` changes the
-interval (default 30, minimum 10). The timer calls its own server on
-`127.0.0.1:$PORT` (default 3000), so serve on a different port with `PORT=…`
-rather than `-p`. Each load prints one JSON line
-(`"event":"penn-collect"`) to the server log.
+Use the same NJ Transit and Upstash values as the Vercel project, so both share
+one NJ Transit token. Each run logs a one-line JSON summary
+(`"event":"penn-collect"`) to Workers Logs. To run it locally, put the same
+variables in `collector/.dev.vars` (ignored by git), start
+`npx wrangler@4 dev --config collector/wrangler.toml --test-scheduled`, and
+trigger a run with `curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"`.
 
 ### Measuring accuracy
 
