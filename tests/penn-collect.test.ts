@@ -69,6 +69,16 @@ describe("Penn collector", () => {
     expect(JSON.parse(log.at(-2) as string).predictions).toEqual({});
   });
 
+  it("reads positions only for the board's trains, and stays healthy when none are running", async () => {
+    const d = deps({ njt: { departures: vi.fn(async () => [raw("3861", "", 10)]), vehicles: vi.fn(async () => [{ ID: "9999", ICS_TRACK_CKT: "FAR" }]) } });
+    expect(await collectPenn(d)).toMatchObject({ vehicles: true, history: true, predicted: 0 });
+    const [history] = evals(d.redis, "HGETALL', KEYS[1]");
+    expect(history[2]).toBe(3 + 0 + 30); // no pairings, but the history still loads
+    const [log] = evals(d.redis, "HKEYS");
+    expect(log[9]).toMatch(/:collector:ok$/);
+    expect(JSON.parse(log[14] as string)).toMatchObject({ trainNumber: "3861", circuit: null });
+  });
+
   it("replaces a rejected token once and retries", async () => {
     const get = vi.fn().mockResolvedValueOnce("stale").mockResolvedValue("fresh");
     const departures = vi.fn(async (token: string) => { if (token === "stale") throw new InvalidTokenError(token); return [raw("3861", "", 10)]; });

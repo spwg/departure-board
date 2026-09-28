@@ -68,12 +68,16 @@ export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
     }),
   ]);
   const departures = normalizeDepartures(rawDepartures);
-  const readings: Map<string, VehicleReading> = rawVehicles ? readingsByTrain(rawVehicles) : new Map();
+  // Only the NY board's trains are positioned, predicted or recorded.
+  const boardTrains = new Set(departures.map((departure) => departure.trainNumber));
+  const readings: Map<string, VehicleReading> = rawVehicles ? readingsByTrain(rawVehicles, boardTrains) : new Map();
 
   let table: CircuitTable = new Map();
   let recorded = 0;
   let history = false;
-  if (readings.size > 0) {
+  // Even when no board train is running yet, the history still loads, so a
+  // quiet night counts as healthy rather than as a failed run.
+  if (rawVehicles) {
     try {
       ({ recorded, table } = await recordHistory(deps.redis, circuitObservations(departures, readings), Date.parse(at)));
       history = true;
