@@ -203,55 +203,71 @@ export function isExcluded(item: RawDeparture): boolean {
  */
 export const NJT_TIME_ZONE = "America/New_York";
 
-/** How far `timeZone`'s wall clock is ahead of UTC at a given instant, in ms. */
-function zoneOffset(timestamp: number, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour12: false,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(new Date(timestamp));
+/**
+ * Eastern wall-clock time, from one formatter built once: constructing an
+ * Intl.DateTimeFormat costs far more than using one, and the collector Worker
+ * reads a timestamp for every train in the system on each run, inside a
+ * 10 ms CPU budget.
+ */
+const EASTERN = new Intl.DateTimeFormat("en-US", {
+  timeZone: NJT_TIME_ZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
 
-  const field: Record<string, string> = {};
-  for (const part of parts) field[part.type] = part.value;
+export type EasternClock = {
+  year: number;
+  /** 1–12. */
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+};
 
-  const asUtc = Date.UTC(
-    Number(field.year),
-    Number(field.month) - 1,
-    Number(field.day),
-    // en-US with hour12:false renders midnight as 24.
-    Number(field.hour) % 24,
-    Number(field.minute),
-    Number(field.second),
-  );
+/** What a clock in New York reads at `date`. */
+export function easternClock(date: Date): EasternClock {
+  const field: Record<string, number> = {};
+  for (const part of EASTERN.formatToParts(date)) field[part.type] = Number(part.value);
+  const { year, month, day, hour, minute, second } = field;
+  // Some engines still render midnight as 24 in en-US despite h23.
+  return { year, month, day, hour: hour % 24, minute, second };
+}
+
+/** How far Eastern wall-clock time is ahead of UTC at a given instant, in ms. */
+function easternOffset(timestamp: number): number {
+  const clock = easternClock(new Date(timestamp));
+  const asUtc = Date.UTC(clock.year, clock.month - 1, clock.day, clock.hour, clock.minute, clock.second);
   return asUtc - timestamp;
 }
 
 /**
- * Converts a wall-clock reading in `timeZone` to the instant it refers to.
+ * Converts an Eastern wall-clock reading to the instant it refers to.
  *
  * Deliberately not `new Date(y, m, d, ...)`, which would interpret the reading
  * in whatever zone the server happens to run in — UTC on most hosts, putting
- * every departure four or five hours out.
+ * every departure four or five hours out. NJT's readings carry no offset, so a
+ * time in the hour repeated at fall-back resolves to its first, daylight-time
+ * occurrence.
  */
-function fromZonedTime(
+function fromEasternTime(
   year: number,
   month: number,
   day: number,
   hour: number,
   minute: number,
   second: number,
-  timeZone: string,
 ): Date {
   const asIfUtc = Date.UTC(year, month, day, hour, minute, second);
-  let timestamp = asIfUtc - zoneOffset(asIfUtc, timeZone);
+  let timestamp = asIfUtc - easternOffset(asIfUtc);
   // Around a DST change the first guess can land on the wrong side of the
   // transition, so resolve the offset once more at the corrected instant.
-  const corrected = asIfUtc - zoneOffset(timestamp, timeZone);
+  const corrected = asIfUtc - easternOffset(timestamp);
   if (corrected !== timestamp) timestamp = corrected;
   return new Date(timestamp);
 }
@@ -274,14 +290,13 @@ export function parseNjtDate(value: string): Date | null {
   let hour = Number(rawHour) % 12;
   if (meridiem.toUpperCase() === "PM") hour += 12;
 
-  const date = fromZonedTime(
+  const date = fromEasternTime(
     Number(year),
     month,
     Number(day),
     hour,
     Number(minute),
     Number(second),
-    NJT_TIME_ZONE,
   );
   return Number.isNaN(date.getTime()) ? null : date;
 }
