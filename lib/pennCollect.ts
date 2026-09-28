@@ -76,7 +76,8 @@ export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
   let recorded = 0;
   let history = false;
   // Even when no board train is running yet, the history still loads, so a
-  // quiet night counts as healthy rather than as a failed run.
+  // quiet night counts as healthy rather than as a failed run. A broken feed
+  // never gets here: requestVehicles throws rather than return an empty list.
   if (rawVehicles) {
     try {
       ({ recorded, table } = await recordHistory(deps.redis, circuitObservations(departures, readings), Date.parse(at)));

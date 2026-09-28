@@ -178,5 +178,8 @@ export async function requestVehicles(token: string): Promise<RawVehicle[]> {
   if (isInvalidToken(payload)) throw new InvalidTokenError(token);
   const error = errorMessageOf(payload);
   if (error) throw new Error(`NJT getVehicleData failed: ${error}`);
-  return Array.isArray(payload) ? (payload as RawVehicle[]) : [];
+  // A list, even an empty one, is a real answer: no trains are running. An
+  // empty body or anything else is a broken feed, and must not pass for one.
+  if (!Array.isArray(payload)) throw new Error("NJT getVehicleData returned no vehicle list");
+  return payload as RawVehicle[];
 }
