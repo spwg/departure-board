@@ -39,8 +39,10 @@ export type TrainPosition = {
   atPenn: boolean;
   /** When the feed last updated this position, ISO 8601, if known. */
   updatedAt: string | null;
-  /** The platform this circuit's history agrees on, when it does. */
-  historyTrack?: string;
+  /** The track this circuit's history most often led to, when it has any. */
+  predictedTrack?: string;
+  /** How confident that history makes the predicted track, 0–1. */
+  confidence?: number;
 };
 
 export type Departure = {

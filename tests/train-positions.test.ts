@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Departure } from "@/lib/departures";
 import {
-  MIN_SAMPLES,
   circuitField,
+  confidenceOf,
+  confidencePercent,
   circuitObservations,
   isAtPenn,
   parseCircuitTable,
   readingsByTrain,
   summarizeCircuit,
-  trackForCircuit,
+  predictTrack,
   withTrainPositions,
   type CircuitTable,
   type VehicleReading,
@@ -36,28 +37,36 @@ describe("train positions", () => {
     expect([...readings]).toEqual([["3861", { circuit: "NY-9TK", atPenn: true, updatedAt: "2024-05-30T15:56:00.000Z" }]]);
   });
 
-  it("keeps history only for posted trains that have not departed", () => {
-    const readings = new Map([["1", reading("C1")], ["2", reading("C2")], ["3", reading("C3")]]);
+  it("keeps history only for posted trains inside Penn that have not departed", () => {
+    const readings = new Map([["1", reading("C1")], ["2", reading("C2")], ["3", reading("C3")], ["5", reading("SECAUCUS", false)]]);
     const observations = circuitObservations([
       { ...base, trainNumber: "1", track: "9" },
       { ...base, trainNumber: "2", track: "" },
       { ...base, trainNumber: "3", track: "4", status: "departed" },
       { ...base, trainNumber: "4", track: "5" },
+      { ...base, trainNumber: "5", track: "6" },
     ], readings);
     expect(observations).toEqual([{ trainNumber: "1", circuit: "C1", track: "9", scheduledTime: base.scheduledTime }]);
   });
 
-  it("lets a circuit name a platform only when enough history agrees", () => {
-    const learned = table({ PLATFORM: { "9": MIN_SAMPLES }, THIN: { "9": MIN_SAMPLES - 1 }, APPROACH: { "3": 6, "4": 5 }, MOSTLY: { "7": 40, "8": 1 } });
-    expect(trackForCircuit(learned, "PLATFORM")).toBe("9");
-    expect(trackForCircuit(learned, "THIN")).toBeNull();
-    expect(trackForCircuit(learned, "APPROACH")).toBeNull();
-    expect(trackForCircuit(learned, "MOSTLY")).toBe("7");
-    expect(trackForCircuit(learned, "UNKNOWN")).toBeNull();
-    expect(summarizeCircuit(learned, "APPROACH")).toEqual({ circuit: "APPROACH", total: 11, tracks: [{ track: "3", count: 6 }, { track: "4", count: 5 }], platform: null });
+  it("predicts any circuit's most frequent track, with confidence growing with agreeing history", () => {
+    const learned = table({ PLATFORM: { "9": 20 }, THIN: { "9": 1 }, APPROACH: { "3": 6, "4": 5 }, MOSTLY: { "7": 40, "8": 1 } });
+    expect(predictTrack(learned, "PLATFORM")).toEqual({ track: "9", confidence: 21 / 22 });
+    expect(predictTrack(learned, "THIN")).toEqual({ track: "9", confidence: 2 / 3 });
+    expect(predictTrack(learned, "APPROACH")).toEqual({ track: "3", confidence: 7 / 13 });
+    expect(predictTrack(learned, "MOSTLY")?.track).toBe("7");
+    expect(predictTrack(learned, "UNKNOWN")).toBeNull();
+    expect(summarizeCircuit(learned, "APPROACH")).toEqual({ circuit: "APPROACH", total: 11, tracks: [{ track: "3", count: 6 }, { track: "4", count: 5 }], prediction: { track: "3", confidence: 7 / 13 } });
   });
 
-  it("positions unposted running trains without any history, adding the platform only when history names one", () => {
+  it("keeps thin history uncertain and never shows certainty", () => {
+    expect(confidencePercent(confidenceOf(1, 1))).toBe(67);
+    expect(confidencePercent(confidenceOf(3, 3))).toBe(80);
+    expect(confidencePercent(confidenceOf(19, 20))).toBe(91);
+    expect(confidencePercent(confidenceOf(1000, 1000))).toBe(99);
+  });
+
+  it("positions unposted running trains without any history, adding a predicted track when the circuit has history", () => {
     const readings = new Map([["1", reading("P9")], ["2", reading("P5")], ["3", reading("P9")], ["4", reading("P9")], ["6", reading("NEW", false)]]);
     const result = withTrainPositions([
       { ...base, trainNumber: "1" },
@@ -68,7 +77,7 @@ describe("train positions", () => {
       { ...base, trainNumber: "6" },
     ], readings, table({ P9: { "9": 20 } }));
     expect(result.map((d) => d.position)).toEqual([
-      { circuit: "P9", atPenn: true, updatedAt: null, historyTrack: "9" },
+      { circuit: "P9", atPenn: true, updatedAt: null, predictedTrack: "9", confidence: 21 / 22 },
       undefined, undefined, undefined, undefined,
       { circuit: "NEW", atPenn: false, updatedAt: null },
     ]);

@@ -45,12 +45,24 @@ The upcoming stops for one exact train, beginning at its current or next stop an
 _Avoid_: Trip history, full timetable
 
 **Train position**:
-Where an NJ TRANSIT train departing New York Penn is right now, as its signal circuit from the vehicle feed, shown while no track is posted. It is always worded as a place ("At Penn", "Position"), never as a track.
-_Avoid_: Early track, predicted track, posted track
+Where an NJ TRANSIT train departing New York Penn is right now, as its signal circuit from the vehicle feed. It is not shown to riders; it is what a predicted track is made from.
+_Avoid_: Early track, posted track
 
 **Position history**:
-The record of which signal circuit each New York Penn train stood on while its posted track was known. When a circuit's history agrees on one track, the board also shows that track, outlined and captioned "on platform", never as a posted track.
-_Avoid_: Track prediction, guess
+The last 90 days' record of which signal circuit each New York Penn train stood on, inside the station, while its posted track was known.
+_Avoid_: Schedule history
+
+**Predicted track**:
+The track a New York Penn train's current signal circuit has most often led to in position history, shown before NJ TRANSIT posts one: grey, captioned with how likely it is, turning into the posted track in place once posted.
+_Avoid_: Guess, early track, on platform
+
+**Posted track**:
+The track NJ TRANSIT has announced for a departure, shown on every rail board as a soft green chip.
+_Avoid_: Predicted track
+
+**Board log**:
+The timestamped record of what the New York Penn board showed each train — predicted and posted tracks, times and status — kept 90 days so predicted tracks can be scored against posted ones.
+_Avoid_: Analytics, prediction history
 
 **Service banner**:
 A contextual board warning linking to an official alert from the board's transit system that affects the current station or one of its routes or lines. It includes active disruptions and planned service advisories.

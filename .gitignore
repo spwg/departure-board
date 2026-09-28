@@ -49,3 +49,7 @@ next-env.d.ts
 # .agents/skills — the skills themselves are tracked there, not here.
 /.claude
 output
+
+# Cloudflare collector Worker: local secrets and wrangler state
+.dev.vars*
+.wrangler/

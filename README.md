@@ -36,7 +36,6 @@ NJT_API_PASSWORD=
 NJT_USE_FIXTURES=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
-CRON_SECRET=
 # Leave unset for production RailData; npm run dev:njt-test supplies this.
 # NJT_API_BASE_URL=https://testraildata.njtransit.com/api
 ```
@@ -70,23 +69,52 @@ The test backend has its own data and may return imperfect or stale labels. Use
 it to exercise the integration and error states, not to validate current
 operational train information.
 
-## New York Penn train positions
+## New York Penn predicted tracks
 
-For New York Penn departures without a posted track, the board shows the
-train's live position from RailData's `getVehicleData`: its signal circuit,
-marked "At Penn" when its coordinates are inside the station. Every time a
-train with a posted track reports a circuit, the pairing is kept as position
-history in the same Upstash Redis database as the token; a circuit whose
-history always led to one track also shows that track as "on platform". Each
-train page links to the history at `/train/<number>/positions`.
+NJ Transit posts New York Penn tracks late. Before a train's track is posted,
+the NY board shows a grey predicted track with its confidence ("95% likely"),
+from the history of which track trains standing on the same signal circuit
+were given; the chip turns into the green posted track when NJ Transit posts. History and a log of
+everything the board showed live in the same Upstash Redis database as the
+token and age out after 90 days. See
+`docs/adr/0008-penn-predicted-tracks-and-board-log.md`.
 
-History accrues on its own, not only when the board is open: the
-`Record Penn positions` GitHub Actions workflow calls
-`/api/penn-positions/record` every five minutes. To enable it, set a random
-`CRON_SECRET` in the deployment's environment, then add two repository secrets:
-`CRON_SECRET` (the same value) and `PENN_RECORD_URL`
-(`https://<your deployment>/api/penn-positions/record`). See
-`docs/adr/0005-penn-train-positions.md`.
+### Collector Worker
+
+Predictions need NJ Transit polled around the clock, not only while someone has
+the board open, and without waking the Vercel app. A Cloudflare Worker
+(`collector/`, free plan) runs once a minute: it calls NJ Transit itself,
+records history, logs the board, and publishes current predictions to Upstash.
+The app only reads those predictions back — one Redis read per fresh NY
+board — and still loads departures and posted tracks from NJ Transit itself.
+
+```bash
+npx wrangler@4 login        # browser sign-in to your Cloudflare account
+npm run collector:deploy    # bundle collector/worker.ts, upload it, start the cron
+for name in NJT_API_USERNAME NJT_API_PASSWORD UPSTASH_REDIS_REST_URL UPSTASH_REDIS_REST_TOKEN; do
+  npx wrangler@4 secret put $name --config collector/wrangler.toml   # prompts for each value
+done
+```
+
+Use the same NJ Transit and Upstash values as the Vercel project, so both share
+one NJ Transit token. Runs in the minute or two before the secrets are set fail
+harmlessly and are logged. `collector/wrangler.toml` holds no secrets and is
+committed; secrets live only in Cloudflare. Each run logs a one-line JSON summary
+(`"event":"penn-collect"`) to Workers Logs. To run it locally, put the same
+variables in `collector/.dev.vars` (ignored by git), start
+`npx wrangler@4 dev --config collector/wrangler.toml --test-scheduled`, and
+trigger a run with `curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"`.
+
+### Measuring accuracy
+
+```bash
+npm run penn-accuracy                 # last 14 days, reading .env.local
+npm run penn-accuracy -- --days 90
+```
+
+It reports collection coverage, then precision, recall, F1, how often a rider
+saw a wrong prediction, lead time before posting, calibration of the shown
+percentages, and the same figures by month and by line.
 
 ## NJ Transit API token
 

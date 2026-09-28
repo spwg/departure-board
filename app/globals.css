@@ -34,8 +34,16 @@
   --accent-edge: #bfdbfe;
   --accent-edge-strong: #93c5fd;
 
-  --track-bg: #18181b;
-  --track-text: #fafafa;
+  /*
+   * Posted tracks are a soft green; predicted ones a quiet grey, so the two
+   * never mix. A faint inner edge keeps either chip crisp on any surface.
+   */
+  --track-bg: #dcfce7;
+  --track-text: #14532d;
+  --track-edge: rgb(22 163 74 / 0.28);
+  --predicted-bg: #f4f4f5;
+  --predicted-text: #52525b;
+  --predicted-edge: #d4d4d8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -64,8 +72,12 @@
     --accent-edge: #1e40af;
     --accent-edge-strong: #1d4ed8;
 
-    --track-bg: #fafafa;
-    --track-text: #18181b;
+    --track-bg: #12351f;
+    --track-text: #bbf7d0;
+    --track-edge: rgb(74 222 128 / 0.3);
+    --predicted-bg: #232326;
+    --predicted-text: #d4d4d8;
+    --predicted-edge: #3f3f46;
   }
 }
 
@@ -94,8 +106,12 @@
   --accent-edge: #1e40af;
   --accent-edge-strong: #1d4ed8;
 
-  --track-bg: #fafafa;
-  --track-text: #18181b;
+  --track-bg: #12351f;
+  --track-text: #bbf7d0;
+  --track-edge: rgb(74 222 128 / 0.3);
+  --predicted-bg: #232326;
+  --predicted-text: #d4d4d8;
+  --predicted-edge: #3f3f46;
 }
 
 @theme inline {
@@ -123,6 +139,10 @@
 
   --color-track: var(--track-bg);
   --color-track-fg: var(--track-text);
+  --color-track-edge: var(--track-edge);
+  --color-predicted: var(--predicted-bg);
+  --color-predicted-fg: var(--predicted-text);
+  --color-predicted-edge: var(--predicted-edge);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
