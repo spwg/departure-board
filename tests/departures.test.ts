@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeEntities, displayTrack, formatClock, isExcluded, normalizeDepartures, normalizeNjtDestination, parseNjtDate, toStatus, type RawDeparture } from "@/lib/departures";
+import { decodeEntities, displayTrack, easternClock, formatClock, isExcluded, normalizeDepartures, normalizeNjtDestination, parseNjtDate, toStatus, type RawDeparture } from "@/lib/departures";
 
 const item = (overrides: Partial<RawDeparture> = {}): RawDeparture => ({ SCHED_DEP_DATE: "30-May-2024 11:56:00 AM", DESTINATION: "Newark &amp; Airport", TRACK: " 5 ", LINE: "Northeast Corridor Line", LINECODE: "NE", LINEABBREVIATION: "NEC", TRAIN_ID: "1234", STATUS: "in 5 Min", SEC_LATE: "0", INLINEMSG: "", ...overrides });
 
@@ -11,6 +11,15 @@ describe("departure normalization contract", () => {
     expect(parseNjtDate("30-May-2024 11:56:00 AM")?.toISOString()).toBe("2024-05-30T15:56:00.000Z");
     expect(parseNjtDate("15-Jan-2024 11:56:00 AM")?.toISOString()).toBe("2024-01-15T16:56:00.000Z");
     expect(parseNjtDate("not a date")).toBeNull();
+    // Just after the spring-forward gap and in the repeated fall-back hour.
+    expect(parseNjtDate("10-Mar-2024 03:30:00 AM")?.toISOString()).toBe("2024-03-10T07:30:00.000Z");
+    expect(parseNjtDate("03-Nov-2024 12:30:00 AM")?.toISOString()).toBe("2024-11-03T04:30:00.000Z");
+    expect(parseNjtDate("31-Dec-2024 12:00:00 AM")?.toISOString()).toBe("2024-12-31T05:00:00.000Z");
+  });
+
+  it("reads the Eastern wall clock, with midnight as hour 0", () => {
+    expect(easternClock(new Date("2025-01-01T05:00:00.000Z"))).toEqual({ year: 2025, month: 1, day: 1, hour: 0, minute: 0, second: 0 });
+    expect(easternClock(new Date("2024-07-04T03:59:59.000Z"))).toEqual({ year: 2024, month: 7, day: 3, hour: 23, minute: 59, second: 59 });
   });
   it("uses the browser's 12- or 24-hour clock preference", () => {
     const iso = "2024-05-30T23:04:00.000Z";
