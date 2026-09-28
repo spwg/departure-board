@@ -57,7 +57,7 @@ The track a New York Penn train's current signal circuit has most often led to i
 _Avoid_: Guess, early track, on platform
 
 **Posted track**:
-The track NJ TRANSIT has announced for a departure, shown on every rail board as a green-outlined chip with a check.
+The track NJ TRANSIT has announced for a departure, shown on every rail board as a soft green chip.
 _Avoid_: Predicted track
 
 **Board log**:
