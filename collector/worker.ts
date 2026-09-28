@@ -46,7 +46,10 @@ export async function reportHealthy(summary: CollectSummary): Promise<void> {
   const url = process.env.HEALTHCHECK_URL;
   if (!url || !summary.vehicles || !summary.history) return;
   try {
-    await fetch(url, { method: "POST", body: JSON.stringify(summary), signal: AbortSignal.timeout(5_000) });
+    // fetch resolves on any HTTP status; a revoked URL (4xx) or an outage or
+    // throttling (429/5xx) left the check un-pinged all the same.
+    const response = await fetch(url, { method: "POST", body: JSON.stringify(summary), signal: AbortSignal.timeout(5_000) });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
   } catch (error) {
     console.error(JSON.stringify({ event: "healthcheck-ping-failed", error: String(error) }));
   }

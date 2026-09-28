@@ -43,4 +43,13 @@ describe("collector Worker health pings", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     await expect(reportHealthy(healthy)).resolves.toBeUndefined();
   });
+
+  it("logs a ping the health check refused, without affecting collection", async () => {
+    process.env.HEALTHCHECK_URL = "https://hc-ping.example/revoked";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("not found", { status: 404 })));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { reportHealthy } = await import("@/collector/worker");
+    await expect(reportHealthy(healthy)).resolves.toBeUndefined();
+    expect(JSON.parse(error.mock.calls[0][0] as string)).toEqual({ event: "healthcheck-ping-failed", error: "Error: HTTP 404" });
+  });
 });
