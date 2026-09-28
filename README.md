@@ -105,6 +105,15 @@ variables in `collector/.dev.vars` (ignored by git), start
 `npx wrangler@4 dev --config collector/wrangler.toml --test-scheduled`, and
 trigger a run with `curl "http://localhost:8787/__scheduled?cron=*+*+*+*+*"`.
 
+**Alerts.** Cloudflare sends nothing when a scheduled run fails, so the
+Worker can ping a free [Healthchecks.io](https://healthchecks.io) check after
+every run that could predict (board, vehicle feed and history all answered).
+Create a check with a period of 1 minute and a grace time of 10 minutes, then
+`npx wrangler@4 secret put HEALTHCHECK_URL --config collector/wrangler.toml`
+with its ping URL. You are emailed when pings stop for any reason — errors,
+outages, the CPU limit, or a cron that never fires — and again when they
+resume.
+
 ### Measuring accuracy
 
 ```bash
