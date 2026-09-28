@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     template: "%s — Departures",
   },
   description:
-    "A clean NJ Transit rail departure board: destinations, times, and tracks.",
+    "A clean departure board for NJ Transit rail and the NYC Subway: destinations, times, and tracks.",
   applicationName: "Departures",
   appleWebApp: {
     capable: true,

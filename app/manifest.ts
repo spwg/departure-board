@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Departures — NJ Transit rail",
     short_name: "Departures",
     description:
-      "A clean NJ Transit rail departure board: destinations, times, and tracks.",
+      "A clean departure board for NJ Transit rail and the NYC Subway: destinations, times, and tracks.",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",
