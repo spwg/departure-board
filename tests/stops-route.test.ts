@@ -12,7 +12,8 @@ const context = (train: string) => ({ params: Promise.resolve({ train }) }) as n
 describe("stops route contract", () => {
   it("answers 404 without calling NJ Transit for ids that are not train numbers", async () => {
     const { GET } = await import("@/app/api/stops/[train]/route");
-    for (const train of ["%", "A187", "not-a-train", "1".repeat(11)]) {
+    // Next hands the param over decoded once; "%41" must stay literal, never become "A".
+    for (const train of ["%", "%41187", "A187", "not-a-train", "1".repeat(11)]) {
       expect((await GET(new Request("http://test"), context(train))).status).toBe(404);
     }
     expect(fetchStopList).not.toHaveBeenCalled();

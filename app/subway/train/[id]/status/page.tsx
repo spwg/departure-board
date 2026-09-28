@@ -6,7 +6,6 @@ import { ServiceStatusList } from "@/components/ServiceStatus";
 import { SettingsButton } from "@/components/SettingsButton";
 import { HomeButton } from "@/components/StationHeader";
 import { isSubwayRoute, parseSubwayDepartureId } from "@/lib/subway";
-import { decodeRouteParam } from "@/lib/routeParams";
 
 export async function generateMetadata({
   searchParams,
@@ -27,7 +26,7 @@ export default async function SubwayTrainServiceStatusPage({
   const { id } = await params;
   const { route } = await searchParams;
   const subwayRoute = typeof route === "string" ? route.toUpperCase() : "";
-  if (!parseSubwayDepartureId(decodeRouteParam(id)) || !isSubwayRoute(subwayRoute)) notFound();
+  if (!parseSubwayDepartureId(id) || !isSubwayRoute(subwayRoute)) notFound();
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col sm:py-6">

@@ -8,7 +8,6 @@ import {
   usingFixtures,
 } from "@/lib/njtClient";
 import { normalizeStopList, type StopList } from "@/lib/stops";
-import { decodeRouteParam } from "@/lib/routeParams";
 
 export type StopsResponse = {
   stopList: StopList;
@@ -61,7 +60,7 @@ export async function GET(
   context: RouteContext<"/api/stops/[train]">,
 ) {
   const { train } = await context.params;
-  const trainId = decodeRouteParam(train).trim();
+  const trainId = train.trim();
 
   // Reached by URL rather than by tapping a row, so the board's filters have
   // to be applied again here — this app shows NJ Transit trains only.

@@ -10,7 +10,6 @@ import {
   SubwayTrainTitle,
 } from "@/components/SubwayTrainHeader";
 import { parseSubwayDepartureId } from "@/lib/subway";
-import { decodeRouteParam } from "@/lib/routeParams";
 
 /**
  * Not prerendered: MTA trip identities are minted per run, so there is no
@@ -20,12 +19,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   // The route bullet and destination need the live feed, and the internal MTA
   // trip id is never rider-facing text, so the title stays generic.
-  return { title: parseSubwayDepartureId(decodeRouteParam(id)) ? "Subway train" : "Train not found" };
+  return { title: parseSubwayDepartureId(id) ? "Subway train" : "Train not found" };
 }
 
 export default async function SubwayTrainPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const tripId = decodeRouteParam(id);
+  const { id: tripId } = await params;
   const parsed = parseSubwayDepartureId(tripId);
   if (!parsed) notFound();
 
