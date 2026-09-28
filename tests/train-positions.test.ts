@@ -37,6 +37,12 @@ describe("train positions", () => {
     expect([...readings]).toEqual([["3861", { circuit: "NY-9TK", atPenn: true, updatedAt: "2024-05-30T15:56:00.000Z" }]]);
   });
 
+  it("reads only the trains asked for when given a set", () => {
+    const vehicles = [{ ID: "3861", ICS_TRACK_CKT: "P9" }, { ID: "6647", ICS_TRACK_CKT: "P5" }, { ID: " 1023 ", ICS_TRACK_CKT: "P2" }];
+    expect([...readingsByTrain(vehicles, new Set(["3861", "1023"])).keys()]).toEqual(["3861", "1023"]);
+    expect([...readingsByTrain(vehicles).keys()]).toEqual(["3861", "6647", "1023"]);
+  });
+
   it("keeps history only for posted trains inside Penn that have not departed", () => {
     const readings = new Map([["1", reading("C1")], ["2", reading("C2")], ["3", reading("C3")], ["5", reading("SECAUCUS", false)]]);
     const observations = circuitObservations([

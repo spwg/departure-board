@@ -89,13 +89,20 @@ export function isAtPenn(latitude: unknown, longitude: unknown): boolean {
   );
 }
 
-/** The latest reading for each train number that reports a circuit. */
-export function readingsByTrain(vehicles: RawVehicle[]): Map<string, VehicleReading> {
+/**
+ * The latest reading for each train number that reports a circuit. The feed
+ * covers every train in the system; pass `only` to read just the ones that
+ * matter — the board's — and skip parsing the rest's timestamps.
+ */
+export function readingsByTrain(
+  vehicles: RawVehicle[],
+  only?: ReadonlySet<string>,
+): Map<string, VehicleReading> {
   const readings = new Map<string, VehicleReading>();
   for (const vehicle of vehicles) {
     const train = (vehicle?.ID ?? "").trim();
     const circuit = (vehicle?.ICS_TRACK_CKT ?? "").trim().toUpperCase();
-    if (!train || !circuit) continue;
+    if (!train || !circuit || (only && !only.has(train))) continue;
     const updated = parseNjtDate(vehicle.LAST_MODIFIED ?? "");
     readings.set(train, {
       circuit,

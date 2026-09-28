@@ -30,15 +30,17 @@ describe("NJT client contract", () => {
     const { fetchDepartures, usingFixtures } = await import("@/lib/njtClient");
     expect(usingFixtures()).toBe(true); expect((await fetchDepartures("NY")).length).toBeGreaterThan(4); expect(fetchMock).not.toHaveBeenCalled();
   });
-  it("requests vehicle positions with a given token and tolerates a non-list reply", async () => {
+  it("requests vehicle positions with a given token, accepting an empty list but not a missing one", async () => {
     process.env.NJT_API_BASE_URL = "https://api.example";
-    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify([{ ID: "6647", ICS_TRACK_CKT: "X" }]))).mockResolvedValueOnce(new Response("")).mockResolvedValueOnce(new Response(JSON.stringify({ errorMessage: "Invalid token" })));
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify([{ ID: "6647", ICS_TRACK_CKT: "X" }]))).mockResolvedValueOnce(new Response("[]")).mockResolvedValueOnce(new Response("")).mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }))).mockResolvedValueOnce(new Response(JSON.stringify({ errorMessage: "Invalid token" })));
     vi.stubGlobal("fetch", fetchMock);
     const { requestVehicles, InvalidTokenError } = await import("@/lib/njtApi");
     expect(await requestVehicles("token")).toEqual([{ ID: "6647", ICS_TRACK_CKT: "X" }]);
     expect(fetchMock.mock.calls[0][0]).toBe("https://api.example/TrainData/getVehicleData");
     expect((fetchMock.mock.calls[0][1].body as FormData).get("token")).toBe("token");
     expect(await requestVehicles("token")).toEqual([]);
+    await expect(requestVehicles("token")).rejects.toThrow("no vehicle list");
+    await expect(requestVehicles("token")).rejects.toThrow("no vehicle list");
     await expect(requestVehicles("stale")).rejects.toBeInstanceOf(InvalidTokenError);
   });
   it("authenticates and sends a multipart schedule request when configured", async () => {
