@@ -11,9 +11,11 @@ describe("departure normalization contract", () => {
     expect(parseNjtDate("30-May-2024 11:56:00 AM")?.toISOString()).toBe("2024-05-30T15:56:00.000Z");
     expect(parseNjtDate("15-Jan-2024 11:56:00 AM")?.toISOString()).toBe("2024-01-15T16:56:00.000Z");
     expect(parseNjtDate("not a date")).toBeNull();
-    // Just after the spring-forward gap and in the repeated fall-back hour.
+    // Just after the spring-forward gap (2:00–2:59 AM never happens).
     expect(parseNjtDate("10-Mar-2024 03:30:00 AM")?.toISOString()).toBe("2024-03-10T07:30:00.000Z");
-    expect(parseNjtDate("03-Nov-2024 12:30:00 AM")?.toISOString()).toBe("2024-11-03T04:30:00.000Z");
+    // 1:00–1:59 AM happens twice at fall-back; the first, daylight-time one is taken.
+    expect(parseNjtDate("03-Nov-2024 01:30:00 AM")?.toISOString()).toBe("2024-11-03T05:30:00.000Z");
+    expect(parseNjtDate("03-Nov-2024 02:00:00 AM")?.toISOString()).toBe("2024-11-03T07:00:00.000Z");
     expect(parseNjtDate("31-Dec-2024 12:00:00 AM")?.toISOString()).toBe("2024-12-31T05:00:00.000Z");
   });
 

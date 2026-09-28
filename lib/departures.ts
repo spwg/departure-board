@@ -251,7 +251,9 @@ function easternOffset(timestamp: number): number {
  *
  * Deliberately not `new Date(y, m, d, ...)`, which would interpret the reading
  * in whatever zone the server happens to run in — UTC on most hosts, putting
- * every departure four or five hours out.
+ * every departure four or five hours out. NJT's readings carry no offset, so a
+ * time in the hour repeated at fall-back resolves to its first, daylight-time
+ * occurrence.
  */
 function fromEasternTime(
   year: number,
