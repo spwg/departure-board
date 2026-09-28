@@ -1,7 +1,9 @@
 # The New York Penn collector Worker. No secrets here; they live in Cloudflare.
-# Deploy from the repository root with `npm run collector:deploy`, then set its
-# secrets once with `npx wrangler@4 secret put <NAME> --config
-# collector/wrangler.toml` (see collector/worker.ts for the list).
+# Cloudflare's Workers Builds deploys it on every push to main, with this
+# directory as its root (see README.md, "Collector Worker"). To deploy by hand,
+# run `npm run collector:deploy` from the repository root. Its secrets are set
+# once with `npx wrangler@4 secret put <NAME> --config collector/wrangler.toml`
+# (see collector/worker.ts for the list).
 name = "departure-board-penn-collector"
 main = "worker.ts"
 # 2025-04-01 or later puts secrets in process.env under nodejs_compat.

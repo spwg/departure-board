@@ -88,6 +88,24 @@ records history, logs the board, and publishes current predictions to Upstash.
 The app only reads those predictions back — one Redis read per fresh NY
 board — and still loads departures and posted tracks from NJ Transit itself.
 
+**Deploys are automatic.** The Worker is connected to this repository through
+Cloudflare's Workers Builds, so every push to `main` redeploys it, the way Vercel
+redeploys the app. Its build settings (Worker → Settings → Builds):
+
+| Setting | Value |
+|---|---|
+| Production branch | `main` |
+| Root directory | `collector` |
+| Build command | *(empty: the Worker uses no npm packages)* |
+| Deploy command | `npx wrangler deploy` |
+| Preview command | `npx wrangler versions upload` (uploads an inactive version; branches never go live) |
+
+Each deploy replaces the code and keeps the secrets. Builds and their logs are
+under the Worker's Deployments tab.
+
+**Setting up from scratch** (a new Cloudflare account, or to recreate the
+Worker), from the repository root:
+
 ```bash
 npx wrangler@4 login        # browser sign-in to your Cloudflare account
 npm run collector:deploy    # bundle collector/worker.ts, upload it, start the cron
@@ -95,6 +113,10 @@ for name in NJT_API_USERNAME NJT_API_PASSWORD UPSTASH_REDIS_REST_URL UPSTASH_RED
   npx wrangler@4 secret put $name --config collector/wrangler.toml   # prompts for each value
 done
 ```
+
+then connect the repository under Settings → Builds with the settings above.
+`npm run collector:deploy` also deploys by hand at any time, for example if
+automatic builds are ever disconnected.
 
 Use the same NJ Transit and Upstash values as the Vercel project, so both share
 one NJ Transit token. Runs in the minute or two before the secrets are set fail
