@@ -6,12 +6,13 @@
  * back. See docs/adr/0008-penn-predicted-tracks-and-board-log.md.
  *
  * Secrets (wrangler secret put): NJT_API_USERNAME, NJT_API_PASSWORD,
- * UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN. With the nodejs_compat
- * flag they arrive in process.env, which the shared modules read.
+ * UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, and optionally
+ * HEALTHCHECK_URL. With the nodejs_compat flag they arrive in process.env,
+ * which the shared modules read.
  */
 import { fetchToken, requestDepartures, requestVehicles } from "../lib/njtApi";
 import { getOrCreateStoredToken, invalidateStoredToken, redisCommand } from "../lib/njtTokenStore";
-import { collectPenn } from "../lib/pennCollect";
+import { collectPenn, type CollectSummary } from "../lib/pennCollect";
 
 type ExecutionContext = { waitUntil(promise: Promise<unknown>): void };
 
@@ -27,9 +28,27 @@ export async function collect(): Promise<void> {
       njt: { departures: requestDepartures, vehicles: requestVehicles },
     });
     console.log(JSON.stringify(summary));
+    await reportHealthy(summary);
   } catch (error) {
     // The minute goes uncounted in the board log, which shows the gap.
     console.error(JSON.stringify({ event: "penn-collect-failed", at: new Date().toISOString(), error: String(error) }));
+  }
+}
+
+/**
+ * A dead man's switch: after each run that could predict — board, vehicle feed
+ * and history all answered — ping HEALTHCHECK_URL (a Healthchecks.io check).
+ * The monitor alerts when pings stop, so errors, outages, CPU-limit kills and
+ * a cron that never fires all surface the same way, while one bad minute stays
+ * quiet. A failed ping is ignored: monitoring must never break collection.
+ */
+export async function reportHealthy(summary: CollectSummary): Promise<void> {
+  const url = process.env.HEALTHCHECK_URL;
+  if (!url || !summary.vehicles || !summary.history) return;
+  try {
+    await fetch(url, { method: "POST", body: JSON.stringify(summary), signal: AbortSignal.timeout(5_000) });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "healthcheck-ping-failed", error: String(error) }));
   }
 }
 
