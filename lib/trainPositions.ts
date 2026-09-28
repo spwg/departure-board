@@ -6,12 +6,13 @@ import { parseNjtDate, type Departure, type TrainPosition } from "./departures";
  * Penn posts tracks late on purpose, but the train is often already standing on
  * its platform. RailData's getVehicleData reports, by train number, the signal
  * track circuit each active train occupies (`ICS_TRACK_CKT`) and where that is
- * (`LATITUDE`/`LONGITUDE`). The board shows that raw position directly — no
- * history needed — labelled as a position, never as a track.
+ * (`LATITUDE`/`LONGITUDE`). Riders never see the position itself; it is what
+ * a predicted track is made from.
  *
- * Separately, every time a train with a posted track reports a circuit, the
- * circuit/track pair is kept as position history. A circuit whose history
- * agrees on one track is then also shown as that platform.
+ * Separately, every time a train standing in the station with a posted track
+ * reports a circuit, the circuit/track pair is kept as position history. Any
+ * circuit with history then gives an unposted train a predicted track, shown
+ * with how confident that history makes it.
  *
  * Everything in this file is pure; storage and fetching live in
  * lib/pennPositions and lib/pennPositionStore.
@@ -47,12 +48,23 @@ export type CircuitObservation = {
 };
 
 /**
- * How much agreement a circuit's history needs before it names a platform. A
- * circuit on an approach track sees trains bound for several platforms and so
- * never qualifies; a platform circuit sees only its own track.
+ * How a circuit's history becomes a confidence: Laplace's rule of succession,
+ * (agreeing + 1) / (pairings + 2). Thin history reads as uncertain rather than
+ * certain — one pairing is 67%, 3 of 3 is 80%, 20 of 20 is 95% — and one
+ * dissenting pairing lowers it a little instead of switching it off. A platform
+ * circuit sees only its own track and climbs; an approach circuit sees trains
+ * bound for several platforms and stays low.
  */
-export const MIN_SAMPLES = 3;
-export const MIN_AGREEMENT = 0.95;
+export const CONFIDENCE_MODEL = "circuit-history-laplace-v1";
+
+export function confidenceOf(agreeing: number, pairings: number): number {
+  return (agreeing + 1) / (pairings + 2);
+}
+
+/** A confidence as riders see it: a whole percent, never a certain 100. */
+export function confidencePercent(confidence: number): number {
+  return Math.min(99, Math.round(confidence * 100));
+}
 
 /**
  * The New York Penn station box: the platforms run between Seventh and Ninth
@@ -94,7 +106,11 @@ export function readingsByTrain(vehicles: RawVehicle[]): Map<string, VehicleRead
   return readings;
 }
 
-/** Circuit/track pairs to keep: trains with a posted track that are still in the station. */
+/**
+ * Circuit/track pairs to keep: trains with a posted track still standing in the
+ * station. Circuits outside Penn — Secaucus, the tunnel — never predict a
+ * platform and would only clutter the history.
+ */
 export function circuitObservations(
   departures: Departure[],
   readings: Map<string, VehicleReading>,
@@ -103,7 +119,7 @@ export function circuitObservations(
   for (const departure of departures) {
     if (!departure.track || departure.status === "departed") continue;
     const reading = readings.get(departure.trainNumber);
-    if (reading) {
+    if (reading?.atPenn) {
       observations.push({
         trainNumber: departure.trainNumber,
         circuit: reading.circuit,
@@ -115,19 +131,16 @@ export function circuitObservations(
   return observations;
 }
 
-/** One circuit/track pairing as kept in position history. */
-export type PositionEvent = CircuitObservation & {
-  /** When the pairing was recorded, ISO 8601. */
-  recordedAt: string;
-};
+/** A circuit history's most likely track, and how confident it is (0–1). */
+export type TrackPrediction = { track: string; confidence: number };
 
 export type CircuitSummary = {
   circuit: string;
   total: number;
   /** Tracks this circuit preceded, most frequent first. */
   tracks: Array<{ track: string; count: number }>;
-  /** The platform the history agrees on, or null while it is thin or split. */
-  platform: string | null;
+  /** The most frequent track, or null when the circuit has no history. */
+  prediction: TrackPrediction | null;
 };
 
 export function summarizeCircuit(
@@ -139,22 +152,21 @@ export function summarizeCircuit(
     .sort((a, b) => b.count - a.count || a.track.localeCompare(b.track, undefined, { numeric: true }));
   const total = tracks.reduce((sum, { count }) => sum + count, 0);
   const top = tracks[0];
-  const platform =
-    top && total >= MIN_SAMPLES && top.count / total >= MIN_AGREEMENT
-      ? top.track
-      : null;
-  return { circuit, total, tracks, platform };
+  const prediction = top
+    ? { track: top.track, confidence: confidenceOf(top.count, total) }
+    : null;
+  return { circuit, total, tracks, prediction };
 }
 
-/** The platform a circuit's history reliably names, or null. */
-export function trackForCircuit(table: CircuitTable, circuit: string): string | null {
-  return summarizeCircuit(table, circuit).platform;
+/** The track a circuit's history predicts, or null when it has none. */
+export function predictTrack(table: CircuitTable, circuit: string): TrackPrediction | null {
+  return summarizeCircuit(table, circuit).prediction;
 }
 
 /**
  * Adds `position` to departures NJT has not posted a track for yet whose train
- * reports one. Posted tracks always win, and cancelled or departed trains get
- * no position.
+ * reports one, with a predicted track whenever its circuit has history. Posted
+ * tracks always win, and cancelled or departed trains get no position.
  */
 export function withTrainPositions(
   departures: Departure[],
@@ -173,8 +185,11 @@ export function withTrainPositions(
     if (!reading) return departure;
 
     const position: TrainPosition = { ...reading };
-    const historyTrack = trackForCircuit(table, reading.circuit);
-    if (historyTrack) position.historyTrack = historyTrack;
+    const prediction = predictTrack(table, reading.circuit);
+    if (prediction) {
+      position.predictedTrack = prediction.track;
+      position.confidence = prediction.confidence;
+    }
     return { ...departure, position };
   });
 }

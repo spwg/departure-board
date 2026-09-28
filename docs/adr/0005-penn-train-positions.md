@@ -1,8 +1,11 @@
 ---
-status: accepted
+status: accepted, partly superseded by 0008
 ---
 
 # Show New York Penn train positions and keep their track history
+
+_The on-platform threshold, the history page, the raw position line and the
+GitHub Actions schedule below are superseded by ADR 0008._
 
 NJ TRANSIT posts New York Penn tracks late, often after the train has been
 standing on its platform for a while. RailData's `getVehicleData` reports each

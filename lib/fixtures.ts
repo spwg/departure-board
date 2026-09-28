@@ -241,9 +241,9 @@ const AT_PENN = { LATITUDE: "40.750600", LONGITUDE: "-73.993500" };
 /**
  * Stand-in getVehicleData records. The circuit names are made up — real ones
  * are whatever RailData reports — and chosen so the fixture NY board shows a
- * train at Penn whose circuit history names its platform (#6647), a train at
- * Penn on a circuit with no settled history (#3251), and a train still out on
- * the approach (#3863).
+ * train at Penn whose circuit history is nearly unanimous (#6647, 95%), a train
+ * at Penn on a circuit whose history is split (#3251, 60%), and a train still
+ * out in the tunnel, with no prediction (#3863).
  */
 export function fixtureVehicles(): RawVehicle[] {
   const updated = njtDate(new Date(Date.now() - 40_000));
@@ -256,24 +256,21 @@ export function fixtureVehicles(): RawVehicle[] {
   ];
 }
 
-/** Stand-in position history matching `fixtureVehicles`, newest first. */
+/** Stand-in position history matching `fixtureVehicles`, one pairing a day. */
 export function fixturePositionHistory(): CircuitObservation[] {
   const day = 24 * 60 * 60_000;
   const now = Date.now();
-  const rows: Array<[string, string, string, number]> = [
-    ["6647", "FIXTURE-PLATFORM-9", "9", 1],
-    ["3861", "FIXTURE-PLATFORM-5", "5", 1],
-    ["6647", "FIXTURE-PLATFORM-9", "9", 2],
-    ["3863", "FIXTURE-APPROACH", "4", 2],
-    ["6647", "FIXTURE-PLATFORM-9", "9", 3],
-    ["3863", "FIXTURE-APPROACH", "3", 3],
-    ["3251", "FIXTURE-PLATFORM-2", "2", 4],
-    ["6647", "FIXTURE-PLATFORM-9", "9", 5],
+  const rows: Array<[string, string, string]> = [
+    ...Array.from({ length: 18 }, (): [string, string, string] => ["6647", "FIXTURE-PLATFORM-9", "9"]),
+    ["3251", "FIXTURE-PLATFORM-2", "2"],
+    ["3251", "FIXTURE-PLATFORM-2", "2"],
+    ["3251", "FIXTURE-PLATFORM-2", "3"],
+    ["3861", "FIXTURE-PLATFORM-5", "5"],
   ];
-  return rows.map(([trainNumber, circuit, track, daysAgo]) => ({
+  return rows.map(([trainNumber, circuit, track], index) => ({
     trainNumber,
     circuit,
     track,
-    scheduledTime: new Date(now - daysAgo * day).toISOString(),
+    scheduledTime: new Date(now - (index + 1) * day).toISOString(),
   }));
 }

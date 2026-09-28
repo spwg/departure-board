@@ -383,29 +383,28 @@ describe("interactive component contract", () => {
     expect(marker.textContent).toBe("–");
   });
 
-  it("shows a train's live position as a labelled signal circuit, not a track", () => {
+  it("shows nothing of a train's position without a prediction, only an unassigned track", () => {
     render(<DepartureRow departure={{ ...departure, track: "", position: { circuit: "NY-7112TK", atPenn: true, updatedAt: null } }} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
 
-    expect(screen.getByText("At Penn")).toBeTruthy();
-    expect(screen.getByText("NY-7112TK")).toBeTruthy();
-    expect(screen.getByLabelText("Track not yet assigned").textContent).toBe("–");
-    expect(screen.queryByText("On platform")).toBeNull();
-  });
-
-  it("labels a position outside Penn as a position", () => {
-    render(<DepartureRow departure={{ ...departure, track: "", position: { circuit: "HO-7021TK", atPenn: false, updatedAt: null } }} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
-
-    expect(screen.getByText("Position")).toBeTruthy();
     expect(screen.queryByText("At Penn")).toBeNull();
+    expect(screen.queryByText("NY-7112TK")).toBeNull();
+    expect(screen.getByLabelText("Track not yet assigned").textContent).toBe("–");
+    expect(screen.queryByText(/likely/)).toBeNull();
   });
 
-  it("shows a history-backed platform as an outlined, captioned chip rather than a posted track", () => {
-    render(<DepartureRow departure={{ ...departure, track: "", position: { circuit: "NY-9TK", atPenn: true, updatedAt: null, historyTrack: "9" } }} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
+  it("shows a predicted track as a grey chip captioned with its confidence, never as a posted track", () => {
+    render(<DepartureRow departure={{ ...departure, track: "", position: { circuit: "NY-9TK", atPenn: true, updatedAt: null, predictedTrack: "9", confidence: 0.8 } }} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
 
-    const marker = screen.getByLabelText("Train on the circuit for track 9, not yet announced");
+    const marker = screen.getByLabelText("Predicted track 9, 80% likely, not yet announced");
     expect(marker.textContent).toBe("9");
+    expect(marker.className).toContain("bg-predicted");
     expect(marker.className).not.toContain("bg-track");
-    expect(screen.getByText("On platform")).toBeTruthy();
+    expect(screen.getByText("80% likely")).toBeTruthy();
+  });
+
+  it("shows a posted track in the posted colour", () => {
+    render(<DepartureRow departure={{ ...departure, track: "7", position: undefined }} now={Date.parse("2024-05-30T15:00:00.000Z")} stationCode="NY" />);
+    expect(screen.getByLabelText("Track 7").className).toContain("bg-track");
   });
 
   it("keeps service notices off the rail board and the freshness warning on its own line", async () => {

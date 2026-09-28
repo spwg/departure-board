@@ -70,23 +70,45 @@ The test backend has its own data and may return imperfect or stale labels. Use
 it to exercise the integration and error states, not to validate current
 operational train information.
 
-## New York Penn train positions
+## New York Penn predicted tracks
 
-For New York Penn departures without a posted track, the board shows the
-train's live position from RailData's `getVehicleData`: its signal circuit,
-marked "At Penn" when its coordinates are inside the station. Every time a
-train with a posted track reports a circuit, the pairing is kept as position
-history in the same Upstash Redis database as the token; a circuit whose
-history always led to one track also shows that track as "on platform". Each
-train page links to the history at `/train/<number>/positions`.
+NJ Transit posts New York Penn tracks late. Before a train's track is posted,
+the NY board shows a grey predicted track with its confidence ("95% likely"),
+from the history of which track trains standing on the same signal circuit
+were given; the chip turns green when NJ Transit posts. History and a log of
+everything the board showed live in the same Upstash Redis database as the
+token and age out after 90 days. See
+`docs/adr/0008-penn-predicted-tracks-and-board-log.md`.
 
-History accrues on its own, not only when the board is open: the
-`Record Penn positions` GitHub Actions workflow calls
-`/api/penn-positions/record` every five minutes. To enable it, set a random
-`CRON_SECRET` in the deployment's environment, then add two repository secrets:
-`CRON_SECRET` (the same value) and `PENN_RECORD_URL`
-(`https://<your deployment>/api/penn-positions/record`). See
-`docs/adr/0005-penn-train-positions.md`.
+### Always-on collector
+
+History and the log need the board loaded around the clock, not just when
+someone has it open. Run the app on any always-on machine with `next start`
+and these set, alongside the NJ Transit and Upstash credentials:
+
+```bash
+PENN_COLLECTOR=true          # start the 30-second timer in this server
+CRON_SECRET=<long random>    # guards /api/penn-positions/record
+npm run build && npm start
+```
+
+Leave `PENN_COLLECTOR` unset on Vercel: functions are frozen between requests,
+so a timer there would stop. `PENN_COLLECTOR_INTERVAL_SECONDS` changes the
+interval (default 30, minimum 10). The timer calls its own server on
+`127.0.0.1:$PORT` (default 3000), so serve on a different port with `PORT=…`
+rather than `-p`. Each load prints one JSON line
+(`"event":"penn-collect"`) to the server log.
+
+### Measuring accuracy
+
+```bash
+npm run penn-accuracy                 # last 14 days, reading .env.local
+npm run penn-accuracy -- --days 90
+```
+
+It reports collection coverage, then precision, recall, F1, how often a rider
+saw a wrong prediction, lead time before posting, calibration of the shown
+percentages, and the same figures by month and by line.
 
 ## NJ Transit API token
 

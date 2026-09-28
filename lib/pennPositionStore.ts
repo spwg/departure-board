@@ -1,4 +1,5 @@
 import "server-only";
+import { logDay } from "./boardLog";
 import { fixturePositionHistory } from "./fixtures";
 import { usingFixtures } from "./njtClient";
 import { redisCommand } from "./njtTokenStore";
@@ -8,29 +9,35 @@ import {
   parseCircuitTable,
   type CircuitObservation,
   type CircuitTable,
-  type PositionEvent,
 } from "./trainPositions";
-
-export type { PositionEvent };
 
 /**
  * New York Penn position history in Upstash Redis, the same database that holds
  * the NJT token:
  *
- *  - a hash of circuit/track pair counts, which is what the board consults, and
- *  - a capped list of the individual pairings, newest first, for the history
- *    page.
+ *  - a hash of circuit/track pair counts over the last 90 days, which is what
+ *    the board consults,
+ *  - a hash of each Eastern day's pair counts, kept so that day can be taken
+ *    back out of the running counts once it is 90 days old.
  *
- * Fixture runs have no Redis and read a canned history instead.
+ * Ageing out keeps a circuit renamed or remapped during track work from
+ * predicting its old track forever. Fixture runs have no Redis and read a
+ * canned history instead.
  */
 
-const TABLE_KEY = "departure-board:penn-circuits:v1";
-const EVENTS_KEY = "departure-board:penn-circuit-events:v1";
-const SEEN_KEY_PREFIX = "departure-board:penn-circuits-seen:v1:";
+const TABLE_KEY = "departure-board:penn-circuits:v2";
+const DAY_KEY_PREFIX = "departure-board:penn-circuits:v2:day:";
+const SEEN_KEY_PREFIX = "departure-board:penn-circuits-seen:v2:";
 /** A train number recurs daily; record its pairing again on a later day. */
 const SEEN_TTL_SECONDS = 12 * 60 * 60;
-/** Enough for several weeks of Penn departures. */
-const MAX_EVENTS = 5_000;
+export const HISTORY_DAYS = 90;
+/**
+ * A day's counts outlive the window by this much, so an outage of up to this
+ * long still finds them to take out; the ageing check looks back as far.
+ */
+const AGE_OUT_GRACE_DAYS = 30;
+const DAY_MS = 24 * 60 * 60_000;
+const RETENTION_SECONDS = (HISTORY_DAYS + AGE_OUT_GRACE_DAYS) * 24 * 60 * 60;
 /** How long an instance reuses the table before re-reading it. */
 const TABLE_TTL_MS = 5 * 60_000;
 
@@ -42,21 +49,42 @@ const TABLE_TTL_MS = 5 * 60_000;
 const RECORD_ONCE =
   "if redis.call('SET', KEYS[2], '1', 'NX', 'EX', ARGV[2]) then " +
   "redis.call('HINCRBY', KEYS[1], ARGV[1], 1) " +
-  "redis.call('LPUSH', KEYS[3], ARGV[3]) " +
-  "redis.call('LTRIM', KEYS[3], 0, ARGV[4]) " +
+  "redis.call('HINCRBY', KEYS[3], ARGV[1], 1) " +
+  "redis.call('EXPIRE', KEYS[3], ARGV[3]) " +
   "return 1 else return 0 end";
+
+/**
+ * Takes each given day's counts back out of the running counts, once: the
+ * day's hash is deleted as it is subtracted, so a repeat finds nothing. KEYS:
+ * the running counts, then the days' hashes. Returns the days taken out.
+ */
+const AGE_OUT =
+  "local aged = 0 " +
+  "for i = 2, #KEYS do " +
+  "  local day = redis.call('HGETALL', KEYS[i]) " +
+  "  for j = 1, #day, 2 do " +
+  "    if redis.call('HINCRBY', KEYS[1], day[j], -tonumber(day[j + 1])) <= 0 then " +
+  "      redis.call('HDEL', KEYS[1], day[j]) " +
+  "    end " +
+  "  end " +
+  "  if #day > 0 then aged = aged + 1 end " +
+  "  redis.call('DEL', KEYS[i]) " +
+  "end " +
+  "return aged";
+
+/** The day hashes past the window that may still need taking out. */
+export function agedDayKeys(now: number): string[] {
+  const keys: string[] = [];
+  for (let age = HISTORY_DAYS; age < HISTORY_DAYS + AGE_OUT_GRACE_DAYS; age += 1) {
+    keys.push(`${DAY_KEY_PREFIX}${logDay(new Date(now - age * DAY_MS).toISOString())}`);
+  }
+  return keys;
+}
 
 let cachedTable: { at: number; table: CircuitTable } | null = null;
 /** Pairs this instance has already sent, so Redis sees each one once. */
 const sent = new Set<string>();
 const SENT_LIMIT = 5_000;
-
-function fixtureEvents(): PositionEvent[] {
-  return fixturePositionHistory().map((observation) => ({
-    ...observation,
-    recordedAt: new Date(Date.parse(observation.scheduledTime) - 8 * 60_000).toISOString(),
-  }));
-}
 
 function tableFromEvents(events: CircuitObservation[]): CircuitTable {
   const table: CircuitTable = new Map();
@@ -70,6 +98,7 @@ export async function loadCircuitTable(): Promise<CircuitTable> {
 
   const now = Date.now();
   if (cachedTable && now - cachedTable.at < TABLE_TTL_MS) return cachedTable.table;
+  await redisCommand<number>("EVAL", AGE_OUT, 1 + AGE_OUT_GRACE_DAYS, TABLE_KEY, ...agedDayKeys(now));
   const table = parseCircuitTable(await redisCommand<string[]>("HGETALL", TABLE_KEY));
   cachedTable = { at: now, table };
   return table;
@@ -88,18 +117,16 @@ export async function recordObservations(
     const key = `${trainNumber}|${circuit}|${track}`;
     if (sent.has(key)) continue;
 
-    const event: PositionEvent = { ...observation, recordedAt: new Date().toISOString() };
     const added = await redisCommand<number>(
       "EVAL",
       RECORD_ONCE,
       3,
       TABLE_KEY,
       `${SEEN_KEY_PREFIX}${key}`,
-      EVENTS_KEY,
+      `${DAY_KEY_PREFIX}${logDay(new Date().toISOString())}`,
       circuitField(circuit, track),
       SEEN_TTL_SECONDS,
-      JSON.stringify(event),
-      MAX_EVENTS - 1,
+      RETENTION_SECONDS,
     );
     sent.add(key);
     if (added) {
@@ -108,38 +135,4 @@ export async function recordObservations(
     }
   }
   return recorded;
-}
-
-function isPositionEvent(value: unknown): value is PositionEvent {
-  if (!value || typeof value !== "object") return false;
-  const event = value as Record<string, unknown>;
-  return ["trainNumber", "circuit", "track", "scheduledTime", "recordedAt"].every(
-    (field) => typeof event[field] === "string",
-  );
-}
-
-/** The full history, uncached: pair counts plus individual pairings, newest first. */
-export async function loadPositionHistory(): Promise<{
-  table: CircuitTable;
-  events: PositionEvent[];
-}> {
-  if (usingFixtures()) {
-    const events = fixtureEvents();
-    return { table: tableFromEvents(events), events };
-  }
-
-  const [flat, rawEvents] = await Promise.all([
-    redisCommand<string[]>("HGETALL", TABLE_KEY),
-    redisCommand<string[]>("LRANGE", EVENTS_KEY, 0, -1),
-  ]);
-  const events: PositionEvent[] = [];
-  for (const raw of rawEvents ?? []) {
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      if (isPositionEvent(parsed)) events.push(parsed);
-    } catch {
-      // A malformed entry is skipped rather than failing the whole page.
-    }
-  }
-  return { table: parseCircuitTable(flat), events };
 }

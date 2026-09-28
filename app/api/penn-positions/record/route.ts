@@ -3,11 +3,11 @@ import { getDepartures } from "@/lib/departureBoard";
 import { POSITION_STATION } from "@/lib/pennPositions";
 
 /**
- * Refreshes the New York Penn board on a schedule so position history keeps
+ * Refreshes the New York Penn board so position history and the board log keep
  * accruing when nobody has the board open. Loading the board is what records
- * the history; this route only makes sure it happens.
+ * both; this route only makes sure it happens.
  *
- * Called by .github/workflows/record-penn-positions.yml with
+ * Called every 30 seconds by the always-on collector (lib/pennCollector) with
  * `Authorization: Bearer $CRON_SECRET`. Without CRON_SECRET configured the
  * route refuses every call rather than letting anyone spend NJT quota.
  */
@@ -28,11 +28,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const departures = await getDepartures(POSITION_STATION);
+    const departures = await getDepartures(POSITION_STATION, "collector");
     return Response.json(
       {
         departures: departures.length,
         positioned: departures.filter((departure) => departure.position).length,
+        predicted: departures.filter((departure) => departure.position?.predictedTrack).length,
       },
       { headers: { "Cache-Control": "no-store" } },
     );

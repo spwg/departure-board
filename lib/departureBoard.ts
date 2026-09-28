@@ -1,5 +1,6 @@
 import "server-only";
 import { revalidateTag } from "next/cache";
+import type { BoardLogSource } from "./boardLog";
 import { normalizeDepartures, type Departure } from "./departures";
 import {
   InvalidTokenError,
@@ -26,9 +27,13 @@ const cache = new Map<string, { at: number; departures: Departure[] }>();
 /**
  * The normalized board for a station, shared for 20 seconds. A rejected token
  * is refreshed once. New York Penn boards also carry train positions and
- * update the position history (lib/pennPositions).
+ * predicted tracks, update the position history, and are logged, credited to
+ * `source` (lib/pennPositions).
  */
-export async function getDepartures(stationCode: string): Promise<Departure[]> {
+export async function getDepartures(
+  stationCode: string,
+  source: BoardLogSource = "board",
+): Promise<Departure[]> {
   const hit = cache.get(stationCode);
   const now = Date.now();
   if (hit && now - hit.at < TTL_MS) return hit.departures;
@@ -50,8 +55,10 @@ export async function getDepartures(stationCode: string): Promise<Departure[]> {
   const items = await withFreshToken(() => fetchDepartures(stationCode));
   let departures = normalizeDepartures(items);
   if (stationCode === POSITION_STATION) {
-    departures = await addTrainPositions(departures, () =>
-      withFreshToken(fetchVehicleData),
+    departures = await addTrainPositions(
+      departures,
+      () => withFreshToken(fetchVehicleData),
+      source,
     );
   }
   cache.set(stationCode, { at: now, departures });

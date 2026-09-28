@@ -18,7 +18,7 @@
     "build-subway-stations": "node scripts/build-subway-stations.mjs",
     "build-subway-transfers": "node scripts/build-subway-transfers.mjs",
     "build-subway-headsigns": "node scripts/build-subway-headsigns.mjs",
-    "penn-backtest": "tsx --env-file-if-exists=.env.local scripts/penn-backtest.mts",
+    "penn-accuracy": "tsx --env-file-if-exists=.env.local scripts/penn-accuracy.mts",
     "build-icons": "node scripts/build-icons.mjs",
     "test:watch": "vitest"
   },

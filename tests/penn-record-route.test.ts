@@ -23,13 +23,13 @@ describe("Penn position recording route", () => {
     expect(getDepartures).not.toHaveBeenCalled();
   });
 
-  it("loads the New York Penn board, which records history, and reports what it saw", async () => {
+  it("loads the New York Penn board as the collector, which records history and the log, and reports what it saw", async () => {
     process.env.CRON_SECRET = "s3cret";
-    getDepartures.mockResolvedValue([{ id: "a", position: {} }, { id: "b" }]);
+    getDepartures.mockResolvedValue([{ id: "a", position: { predictedTrack: "9" } }, { id: "b", position: {} }, { id: "c" }]);
     const response = await call("Bearer s3cret");
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ departures: 2, positioned: 1 });
-    expect(getDepartures).toHaveBeenCalledWith("NY");
+    expect(await response.json()).toEqual({ departures: 3, positioned: 2, predicted: 1 });
+    expect(getDepartures).toHaveBeenCalledWith("NY", "collector");
   });
 
   it("reports an upstream failure as 502", async () => {
