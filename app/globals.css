@@ -34,9 +34,15 @@
   --accent-edge: #bfdbfe;
   --accent-edge-strong: #93c5fd;
 
-  /* Posted tracks are green; predicted ones grey, so the two never mix. */
-  --track-bg: #15803d;
-  --track-text: #ffffff;
+  /*
+   * Posted tracks are an outlined green with a check, reading as confirmed;
+   * predicted ones are grey, so the two never mix.
+   */
+  --track-bg: #f0fdf4;
+  --track-text: #166534;
+  --track-edge: #22c55e;
+  --track-badge: #16a34a;
+  --track-badge-text: #ffffff;
   --predicted-bg: #d4d4d8;
   --predicted-text: #3f3f46;
 }
@@ -67,8 +73,11 @@
     --accent-edge: #1e40af;
     --accent-edge-strong: #1d4ed8;
 
-    --track-bg: #15803d;
-    --track-text: #ffffff;
+    --track-bg: #0c2416;
+    --track-text: #bbf7d0;
+    --track-edge: #22c55e;
+    --track-badge: #22c55e;
+    --track-badge-text: #052e16;
     --predicted-bg: #3f3f46;
     --predicted-text: #e4e4e7;
   }
@@ -99,8 +108,11 @@
   --accent-edge: #1e40af;
   --accent-edge-strong: #1d4ed8;
 
-  --track-bg: #15803d;
-  --track-text: #ffffff;
+  --track-bg: #0c2416;
+  --track-text: #bbf7d0;
+  --track-edge: #22c55e;
+  --track-badge: #22c55e;
+  --track-badge-text: #052e16;
   --predicted-bg: #3f3f46;
   --predicted-text: #e4e4e7;
 }
@@ -130,6 +142,9 @@
 
   --color-track: var(--track-bg);
   --color-track-fg: var(--track-text);
+  --color-track-edge: var(--track-edge);
+  --color-track-badge: var(--track-badge);
+  --color-track-badge-fg: var(--track-badge-text);
   --color-predicted: var(--predicted-bg);
   --color-predicted-fg: var(--predicted-text);
 

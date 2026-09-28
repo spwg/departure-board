@@ -19,8 +19,9 @@ their precision or recall.
   its confidence ("95% likely"). Confidence is Laplace's rule of succession,
   (agreeing + 1) / (pairings + 2), shown as a whole percent and never 100%:
   thin history reads as uncertain, and a dissenting pairing lowers it rather
-  than switching it off. Posted tracks, at every station, are green; the grey
-  chip turns green in place when NJ Transit posts. Trains without a prediction
+  than switching it off. Posted tracks, at every station, are a pale green chip
+  with a green outline and a check badge, reading as confirmed; the grey
+  chip becomes the posted track in place when NJ Transit posts. Trains without a prediction
   show nothing about their position.
 - **History only from inside Penn.** A pairing is recorded only while the
   train's coordinates are inside the station, so circuits in the tunnel or at

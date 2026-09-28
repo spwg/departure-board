@@ -132,7 +132,8 @@ export function DepartureRow({
 }
 
 /**
- * A posted track is a solid green chip. A predicted track — the platform the
+ * A posted track is an outlined green chip with a check badge: confirmed. A
+ * predicted track — the platform the
  * train's current signal circuit has most often led to in position history —
  * is grey and captioned with its confidence, so it never reads as the official
  * assignment.
@@ -156,7 +157,7 @@ function TrackChip({
     ? "min-w-16 px-2 text-sm sm:h-12 sm:min-w-20 sm:text-base"
     : "w-11 text-lg sm:h-12 sm:w-12 sm:text-xl";
   const style = track
-    ? "bg-track text-track-fg"
+    ? "border-2 border-track-edge bg-track text-track-fg"
     : predicted
       ? "bg-predicted text-predicted-fg"
       : "border border-dashed border-edge-strong text-text";
@@ -177,6 +178,21 @@ function TrackChip({
     </div>
   );
 
+  if (track) {
+    return (
+      <div className="relative shrink-0">
+        {chip}
+        <span
+          aria-hidden
+          className="absolute -right-1.5 -top-1.5 flex h-[1.125rem] w-[1.125rem] items-center justify-center rounded-full bg-track-badge text-track-badge-fg ring-2 ring-surface"
+        >
+          <svg viewBox="0 0 12 12" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2.5 6.3 5 8.6 9.5 3.6" />
+          </svg>
+        </span>
+      </div>
+    );
+  }
   if (!predicted) return chip;
   // The caption hangs below the chip, outside the layout, so this row's track
   // column stays aligned with every other row's.

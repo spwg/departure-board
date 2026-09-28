@@ -53,11 +53,11 @@ The last 90 days' record of which signal circuit each New York Penn train stood 
 _Avoid_: Schedule history
 
 **Predicted track**:
-The track a New York Penn train's current signal circuit has most often led to in position history, shown before NJ TRANSIT posts one: grey, captioned with how likely it is, turning into the green posted track in place once posted.
+The track a New York Penn train's current signal circuit has most often led to in position history, shown before NJ TRANSIT posts one: grey, captioned with how likely it is, turning into the posted track in place once posted.
 _Avoid_: Guess, early track, on platform
 
 **Posted track**:
-The track NJ TRANSIT has announced for a departure, shown green on every rail board.
+The track NJ TRANSIT has announced for a departure, shown on every rail board as a green-outlined chip with a check.
 _Avoid_: Predicted track
 
 **Board log**:
