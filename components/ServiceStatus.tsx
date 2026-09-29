@@ -143,7 +143,7 @@ export function ServiceStatusButton({ href, ...scope }: ServiceStatusScope & { h
       title={label}
       className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted transition-colors hover:bg-bg hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
     >
-      {/* A megaphone: official announcements, not an alarm. */}
+      {/* A speech bubble with "!": there is a notice to read, not an alarm. */}
       <svg
         viewBox="0 0 24 24"
         className="h-5 w-5"
@@ -154,8 +154,9 @@ export function ServiceStatusButton({ href, ...scope }: ServiceStatusScope & { h
         strokeLinejoin="round"
         aria-hidden
       >
-        <path d="m3 11 18-5v12L3 14v-3z" />
-        <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        <path d="M12 7v4" />
+        <path d="M12 14h.01" />
       </svg>
       {disrupted && (
         <span
