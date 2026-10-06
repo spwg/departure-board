@@ -8,6 +8,10 @@
  *   - Departure and stop data is network-first with a cached fallback, tagged
  *     with X-From-Cache so the UI can label the times it shows as stale rather
  *     than passing old times off as current.
+ *
+ * Home also asks the worker to fetch the boards within a short walk ahead of
+ * time ("warm-boards"), so a board opened on a platform with no signal shows
+ * its last times instead of the offline page.
  */
 
 const VERSION = "v2";
@@ -81,6 +85,57 @@ async function cacheFirst(request, cacheName) {
   return response;
 }
 
+function isDataPath(pathname) {
+  return (
+    pathname.startsWith("/api/departures/") ||
+    pathname.startsWith("/api/subway/departures/") ||
+    pathname.startsWith("/api/stops/")
+  );
+}
+
+/** Only board pages and board data may be fetched ahead. */
+function isWarmablePath(pathname) {
+  return (
+    pathname.startsWith("/station/") ||
+    pathname.startsWith("/subway/station/") ||
+    pathname.startsWith("/api/departures/") ||
+    pathname.startsWith("/api/subway/departures/")
+  );
+}
+
+/** Fetches one board page or data URL and keeps it for an offline open. */
+async function warm(url) {
+  const data = isDataPath(url.pathname);
+  try {
+    const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+    if (!response.ok) return;
+    const cache = await caches.open(data ? DATA_CACHE : SHELL_CACHE);
+    await cache.put(url.href, data ? tagWithLiveTime(response) : response);
+  } catch {
+    // Fetching ahead is best-effort; the board fetches for itself when opened.
+  }
+}
+
+self.addEventListener("message", (event) => {
+  const message = event.data;
+  if (message?.type !== "warm-boards" || !Array.isArray(message.urls)) return;
+
+  const urls = message.urls
+    .slice(0, 12)
+    .map((value) => {
+      try {
+        return new URL(String(value), self.location.origin);
+      } catch {
+        return null;
+      }
+    })
+    .filter(
+      (url) =>
+        url && url.origin === self.location.origin && isWarmablePath(url.pathname),
+    );
+  event.waitUntil(Promise.all(urls.map(warm)));
+});
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
@@ -88,10 +143,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (
-    url.pathname.startsWith("/api/departures/") ||
-    url.pathname.startsWith("/api/stops/")
-  ) {
+  if (isDataPath(url.pathname)) {
     event.respondWith(networkFirst(request, DATA_CACHE, { tagStale: true }));
     return;
   }
