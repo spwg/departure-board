@@ -5,11 +5,10 @@ import {
   boardsToWarm,
   boardWarmUrls,
   resetWarmedBoards,
-  WARM_LIMIT,
-  WARM_MAX_DISTANCE_KM,
+  WARM_FAVORITES,
+  WARM_NEAREST,
   warmBoards,
 } from "@/lib/platformWarmup";
-import { distanceKm } from "@/lib/stations";
 
 const PENN = { latitude: 40.750569, longitude: -73.993519 };
 
@@ -36,17 +35,29 @@ describe("fetching nearby boards ahead", () => {
       .toEqual([subway.href, "/api/subway/departures/A28?exact=true"]);
   });
 
-  it("picks only the closest few boards within a short walk", () => {
+  it("picks the closest few boards however far away they are", () => {
     const boards = boardsToWarm(PENN);
-    expect(boards.length).toBeGreaterThan(0);
-    expect(boards.length).toBeLessThanOrEqual(WARM_LIMIT);
+    expect(boards).toHaveLength(WARM_NEAREST);
     expect(boards.map((listing) => listing.choice)).toContainEqual(njtBoardChoice("NY"));
-    for (const listing of boards) {
-      expect(distanceKm(PENN.latitude, PENN.longitude, listing.latitude, listing.longitude))
-        .toBeLessThanOrEqual(WARM_MAX_DISTANCE_KM);
-    }
-    // Middle of the Atlantic: nothing is a walk away.
-    expect(boardsToWarm({ latitude: 39, longitude: -70 })).toEqual([]);
+    // Middle of the Atlantic: the nearest boards are still worth having.
+    expect(boardsToWarm({ latitude: 39, longitude: -70 })).toHaveLength(WARM_NEAREST);
+  });
+
+  it("adds favorites after the nearest boards, each board once, even without a location", () => {
+    const penn = getBoardListing(njtBoardChoice("NY"))!;
+    const hoboken = getBoardListing(njtBoardChoice("HB"))!;
+    // Upper West Side: the nearest boards are all subway stops.
+    const uws = boardsToWarm({ latitude: 40.7835, longitude: -73.9785 }, [penn, hoboken]);
+    expect(uws).toHaveLength(WARM_NEAREST + 2);
+    expect(uws.slice(-2)).toEqual([penn, hoboken]);
+
+    // Standing at Penn, the favorite is already among the nearest.
+    const atPenn = boardsToWarm(PENN, [penn]);
+    expect(atPenn.filter((listing) => listing === penn)).toHaveLength(1);
+
+    expect(boardsToWarm(null, [penn, hoboken])).toEqual([penn, hoboken]);
+    const many = Array.from({ length: WARM_FAVORITES + 2 }, (_, i) => uws[i % 3]!);
+    expect(boardsToWarm(null, [penn, hoboken, ...many]).length).toBeLessThanOrEqual(WARM_FAVORITES);
   });
 
   it("hands the URLs to the service worker and skips boards fetched moments ago", () => {

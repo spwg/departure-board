@@ -11,7 +11,7 @@ import { SettingsButton } from "@/components/SettingsButton";
 import { useCurrentLocation, type LocationState } from "@/lib/currentLocation";
 import { useFavorites } from "@/lib/favorites";
 import { useShowNearby } from "@/lib/nearbyPreference";
-import { useWarmNearbyBoards } from "@/lib/platformWarmup";
+import { useWarmBoards } from "@/lib/platformWarmup";
 import { distanceKm } from "@/lib/stations";
 import { boardChoiceKey, type BoardChoice } from "@/lib/boardChoices";
 import {
@@ -77,11 +77,11 @@ export function StationPicker() {
     () => coordinates ? nearbyBoardListings(coordinates.latitude, coordinates.longitude) : [],
     [coordinates],
   );
-  // Fetches the boards within a short walk ahead, for a platform with no signal.
-  useWarmNearbyBoards(coordinates);
   // A favorite that is also nearby stays under Favorites. Every favorite shows
   // its distance once location is known, however far outside Nearby it is.
   const favoriteListings = useMemo(() => resolveChoices(favorites), [favorites]);
+  // Fetches the nearest boards and favorites ahead, for a platform with no signal.
+  useWarmBoards(coordinates, favoriteListings);
   const favoriteKeys = useMemo(
     () => new Set(favoriteListings.map((listing) => boardChoiceKey(listing.choice))),
     [favoriteListings],

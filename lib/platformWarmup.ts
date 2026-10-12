@@ -2,18 +2,22 @@
 
 import { useEffect } from "react";
 import type { Coordinates } from "./currentLocation";
+import { boardChoiceKey } from "./boardChoices";
 import { nearbyBoardListings, type BoardListing } from "./boardDirectory";
 
 /**
- * Boards within a short walk are fetched ahead of time, so a rider whose
- * signal dies on the platform still opens a recent board instead of an
- * offline page. About a twelve-minute walk: farther than that, the board
- * fetched now is old news by the time the rider gets there.
+ * The closest boards are fetched ahead whatever their distance: a rider on the
+ * way to a station that is not a short walk away (in a car, or crossing town)
+ * still has its board when signal drops.
  */
-export const WARM_MAX_DISTANCE_KM = 1;
+export const WARM_NEAREST = 3;
 
-/** At most this many boards are fetched ahead, closest first. */
-export const WARM_LIMIT = 3;
+/**
+ * Favorites are fetched ahead too, with or without a location: from most of
+ * Manhattan the nearest boards are all subway stops, so the rail station a
+ * rider is actually heading for is usually one they have saved.
+ */
+export const WARM_FAVORITES = 5;
 
 /** A board fetched more recently than this is not fetched again. */
 const WARM_INTERVAL_MS = 2 * 60_000;
@@ -29,11 +33,26 @@ export function boardWarmUrls(listing: BoardListing): string[] {
     : [listing.href, `/api/subway/departures/${encodeURIComponent(stationId)}?exact=true`];
 }
 
-/** The boards worth fetching ahead from where the rider stands. */
-export function boardsToWarm(coordinates: Coordinates): BoardListing[] {
-  return nearbyBoardListings(coordinates.latitude, coordinates.longitude, WARM_MAX_DISTANCE_KM)
-    .slice(0, WARM_LIMIT)
-    .map(({ listing }) => listing);
+/**
+ * The boards worth fetching ahead: the nearest few to where the rider stands,
+ * then their first few favorites, each board once.
+ */
+export function boardsToWarm(
+  coordinates: Coordinates | null,
+  favorites: BoardListing[] = [],
+): BoardListing[] {
+  const nearest = coordinates
+    ? nearbyBoardListings(coordinates.latitude, coordinates.longitude, Infinity)
+      .slice(0, WARM_NEAREST)
+      .map(({ listing }) => listing)
+    : [];
+  const seen = new Set<string>();
+  return [...nearest, ...favorites.slice(0, WARM_FAVORITES)].filter((listing) => {
+    const key = boardChoiceKey(listing.choice);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 const lastWarmedAt = new Map<string, number>();
@@ -61,18 +80,18 @@ export function resetWarmedBoards() {
 }
 
 /**
- * Keeps the boards near the rider fetched ahead while Home is open: once the
- * location is known, and again whenever the app comes back to the foreground
- * — the moment a rider pulls out their phone on the way to the platform.
+ * Keeps the boards a rider is likely heading for fetched ahead while Home is
+ * open: on opening, once the location is known, and again whenever the app
+ * comes back to the foreground — the moment a rider pulls out their phone on
+ * the way to the platform.
  */
-export function useWarmNearbyBoards(coordinates: Coordinates | null) {
+export function useWarmBoards(coordinates: Coordinates | null, favorites: BoardListing[]) {
   useEffect(() => {
-    if (!coordinates) return;
     const warm = () => {
-      if (document.visibilityState === "visible") warmBoards(boardsToWarm(coordinates));
+      if (document.visibilityState === "visible") warmBoards(boardsToWarm(coordinates, favorites));
     };
     warm();
     document.addEventListener("visibilitychange", warm);
     return () => document.removeEventListener("visibilitychange", warm);
-  }, [coordinates]);
+  }, [coordinates, favorites]);
 }

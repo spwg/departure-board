@@ -9,9 +9,9 @@
  *     with X-From-Cache so the UI can label the times it shows as stale rather
  *     than passing old times off as current.
  *
- * Home also asks the worker to fetch the boards within a short walk ahead of
- * time ("warm-boards"), so a board opened on a platform with no signal shows
- * its last times instead of the offline page.
+ * Home also asks the worker to fetch the nearest boards and the rider's
+ * favorites ahead of time ("warm-boards"), so a board opened on a platform
+ * with no signal shows its last times instead of the offline page.
  */
 
 const VERSION = "v2";
@@ -121,7 +121,7 @@ self.addEventListener("message", (event) => {
   if (message?.type !== "warm-boards" || !Array.isArray(message.urls)) return;
 
   const urls = message.urls
-    .slice(0, 12)
+    .slice(0, 20)
     .map((value) => {
       try {
         return new URL(String(value), self.location.origin);
