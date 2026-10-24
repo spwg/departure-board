@@ -1,0 +1,1873 @@
+{
+ "generatedBy": "protobuf.js 8.7.1 via gtfs-realtime-bindings 2.2.0",
+ "cases": [
+  {
+   "name": "empty input: missing required header",
+   "input": "",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'header'"
+    }
+   }
+  },
+  {
+   "name": "header only",
+   "input": "CgsKAzIuMBiA5dDTBg==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "header without version",
+   "input": "CgIYBQ==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'gtfsRealtimeVersion'"
+    }
+   }
+  },
+  {
+   "name": "header without timestamp",
+   "input": "CgUKAzIuMA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "uint64 timestamp above 2^53",
+   "input": "Cg8KAzIuMBi54ICAgICAgBA=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1152921504606859300
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "uint64 timestamp at 2^64-1",
+   "input": "ChAKAzIuMBj///////////8B",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 18446744073709552000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "one trip with arrival and departure",
+   "input": "CgsKAzIuMBiA5dDTBhI2CgFlGjEKBwoCdDEqATESFhIGEOTl0NMGGgYQyObQ0wYiBDEyOE4SDhIGEOjs0NMGIgQxMDFO",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "128N",
+          "arrival": {
+           "time": 1786000100
+          },
+          "departure": {
+           "time": 1786000200
+          }
+         },
+         {
+          "stopId": "101N",
+          "arrival": {
+           "time": 1786001000
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "negative int64 time",
+   "input": "CgsKAzIuMBiA5dDTBhIgCgFlGhsKBwoCdDEqATESEBILEPv//////////wEiAUE=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "A",
+          "arrival": {
+           "time": -5
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "int64 time beyond 2^53",
+   "input": "CgsKAzIuMBiA5dDTBhIfCgFlGhoKBwoCdDEqATESDxIKEIeAgICAgICAQCIBQQ==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "A",
+          "arrival": {
+           "time": 4611686018427388000
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "entity without id",
+   "input": "CgsKAzIuMBiA5dDTBhIUGhIKBwoCdDEqATESBxICEAEiAUE=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'id'"
+    }
+   }
+  },
+  {
+   "name": "trip update without trip",
+   "input": "CgsKAzIuMBiA5dDTBhIOCgFlGgkSBxICEAEiAUE=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'trip'"
+    }
+   }
+  },
+  {
+   "name": "trip update twice: merged, trip from the first",
+   "input": "CgsKAzIuMBiA5dDTBhIiCgFlGhIKBwoCdDEqATESBxICEAEiAUEaCRIHEgIQAiIBQg==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "A",
+          "arrival": {
+           "time": 1
+          },
+          "departure": null
+         },
+         {
+          "stopId": "B",
+          "arrival": {
+           "time": 2
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "header twice: merged",
+   "input": "CgsKAzIuMBiA5dDTBgoCGGM=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 99
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "departure twice: merged",
+   "input": "CgsKAzIuMBiA5dDTBhIbCgFlGhYKBwoCdDEqATESCxoCEAUaAggBIgFB",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "A",
+          "arrival": null,
+          "departure": {
+           "time": 5
+          }
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "NYCT extension fields are skipped",
+   "input": "CgsKAzIuMBiA5dDTBhIdCgFlGhgKDAoCdDEqATHKPgIIARIIIgFByj4CCAE=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "A",
+          "arrival": null,
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "vehicle position with its required fields",
+   "input": "CgsKAzIuMBiA5dDTBhIRCgF2IgwSCg0AAIA/FQAAAEA=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "vehicle position missing latitude",
+   "input": "CgsKAzIuMBiA5dDTBhIMCgF2IgcSBRUAAABA",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'latitude'"
+    }
+   }
+  },
+  {
+   "name": "position twice in a vehicle: required fields merge",
+   "input": "CgsKAzIuMBiA5dDTBhIYCgF2IhMSCg0BAgMEFQECAwQSBR0BAgME",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "alert translation missing text",
+   "input": "CgsKAzIuMBiA5dDTBhINCgFhKghSBgoEEgJlbg==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'text'"
+    }
+   }
+  },
+  {
+   "name": "alert image missing media type",
+   "input": "CgsKAzIuMBiA5dDTBhIUCgFhKg96DQoLCglodHRwczovL3g=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'mediaType'"
+    }
+   }
+  },
+  {
+   "name": "field number 0",
+   "input": "CgsKAzIuMBiA5dDTBgAB",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "illegal tag: field number 0"
+    }
+   }
+  },
+  {
+   "name": "wire type 3 group, skipped",
+   "input": "CgsKAzIuMBiA5dDTBksIB0w=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "group with mismatched end tag",
+   "input": "CgsKAzIuMBiA5dDTBksIB1Q=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid end group tag"
+    }
+   }
+  },
+  {
+   "name": "group never ended",
+   "input": "CgsKAzIuMBiA5dDTBksIBw==",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "groups nested past the depth limit",
+   "input": "CgsKAzIuMBiA5dDTBktTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTW0tTWw==",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "max depth exceeded"
+    }
+   }
+  },
+  {
+   "name": "wire type 4 at top level",
+   "input": "CgsKAzIuMBiA5dDTBkw=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 4 at offset 14"
+    }
+   }
+  },
+  {
+   "name": "wire type 6",
+   "input": "CgsKAzIuMBiA5dDTBk4B",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 6 at offset 14"
+    }
+   }
+  },
+  {
+   "name": "wire type 7",
+   "input": "CgsKAzIuMBiA5dDTBk8B",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 7 at offset 14"
+    }
+   }
+  },
+  {
+   "name": "known field with the wrong wire type is skipped",
+   "input": "CgsKAzIuMBiA5dDTBhAF",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "tag longer than 32 bits",
+   "input": "CgsKAzIuMBiA5dDTBoCAgIAQ",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "varint of 11 bytes",
+   "input": "CgsKAzIuMBiA5dDTBkj/////////////AQ==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "length 2^32 truncates to 0",
+   "input": "CgsKAzIuMBiA5dDTBkqAgICAEA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "nested message longer than the buffer",
+   "input": "CgsKAzIuMBiA5dDTBhJ/CgFl",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "string longer than the buffer",
+   "input": "CgsKAzIuMBiA5dDTBkogQQ==",
+   "expect": {
+    "error": {
+     "name": "RangeError",
+     "message": "index out of range: 15 + 32 > 16"
+    }
+   }
+  },
+  {
+   "name": "string runs past its enclosing message",
+   "input": "CgsKAzIuMBiA5dDTBhICCgNBQkM=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "truncated after a tag",
+   "input": "CgsKAzIuMBiA5dDTBhI=",
+   "expect": {
+    "error": {
+     "name": "RangeError",
+     "message": "index out of range: 19 + 1 > 14"
+    }
+   }
+  },
+  {
+   "name": "stop id: overlong 2-byte UTF-8",
+   "input": "CgsKAzIuMBiA5dDTBhIYCgFlGhMKBwoCdDEqATESCBICEAEiAsGB",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "�",
+          "arrival": {
+           "time": 1
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "stop id: lead byte cut off reads past the string",
+   "input": "CgsKAzIuMBiA5dDTBhIYCgFlGhMKBwoCdDEqATESCBICEAEiAkHi",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "A ",
+          "arrival": {
+           "time": 1
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "stop id: 4-byte sequence above U+10FFFF",
+   "input": "CgsKAzIuMBiA5dDTBhIaCgFlGhUKBwoCdDEqATESChICEAEiBPe/v78=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "�",
+          "arrival": {
+           "time": 1
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "stop id: stray continuation bytes",
+   "input": "CgsKAzIuMBiA5dDTBhIaCgFlGhUKBwoCdDEqATESChICEAEiBEGAv0I=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "AB",
+          "arrival": {
+           "time": 1
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "stop id: emoji",
+   "input": "CgsKAzIuMBiA5dDTBhIaCgFlGhUKBwoCdDEqATESChICEAEiBPCfmoc=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "🚇",
+          "arrival": {
+           "time": 1
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "stop id: 64 bytes of invalid UTF-8 (TextDecoder path)",
+   "input": "CgsKAzIuMBiA5dDTBhJWCgFlGlEKBwoCdDEqATESRhICEAEiQP////////////////////////////////////////////////////////////////////////////////////8=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "����������������������������������������������������������������",
+          "arrival": {
+           "time": 1
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "stop id: 63 bytes of invalid UTF-8 (hand-decoded path)",
+   "input": "CgsKAzIuMBiA5dDTBhJVCgFlGlAKBwoCdDEqATESRRICEAEiP////////////////////////////////////////////////////////////////////////////////////w==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1786000000
+     },
+     "entity": [
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "t1",
+         "routeId": "1"
+        },
+        "stopTimeUpdate": [
+         {
+          "stopId": "����������������",
+          "arrival": {
+           "time": 1
+          },
+          "departure": null
+         }
+        ]
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz index out of range: N + N > N",
+   "input": "Cm0KKH1CLURrUlhzJ1tMMixkMU50UShhVyQkbjNwWk0uaERbMUp1dHUjJyEKP347KWhwW2wkeVF8K2ZRJzFgZltcSyQjIEhCRVc7JHUlI2YneVE4N0htOm9Hc0MtbSBXVUFmJHBwXyx3Zj46UBBgEtkZCgjAoMHAwPjtoCItfQECAwQSJg1/c4dmFbur",
+   "expect": {
+    "error": {
+     "name": "RangeError",
+     "message": "index out of range: 139 + 4 > 141"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid tag encoding",
+   "input": "ClcKACIowL+/4PD44MCA+Pj47aDgv7/B8MDwoO3g7eDBv/DBwMHgwODw+MDggCIAIg9mncoqKr3KW6ek/JreGLRjEBwYg42YpLiZocJJmgEJZ0EzIEK9ylunpPya3hi0YxAcGIONmKS4maHCSZoBCWdBMyBCIXUxLZgG5bTXsLzDr70B1T4BAgME",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid varint encoding",
+   "input": "CjAKAcEYgOi27vbn////AQoJNjfiMjMwNDbiGP36t7IGEOCHn60BEIDerPik5Ob///8B",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid varint encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz index out of range: N + N > N",
+   "input": "ChUK",
+   "expect": {
+    "error": {
+     "name": "RangeError",
+     "message": "index out of range: 8 + 1 > 3"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid tag encoding",
+   "input": "CksKAzU2NyII8O3B8O2A4MAQ+f////////9/Igc5fEZRNV1xEPr/////////fyIJOTYzNjU0NzUzEIel+YCaw9P6oQEQwJ+AgICAgBAKLwoD8PDAEP3/////////fxisgICAgICAECIPYF5nNlFAVT5ccT5HR2YsQxD49Iv2BgoDQUJD",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz index out of range: N + N > N",
+   "input": "ChcKCOS4rcOpw6nDGKLdouYGGB8iA3t0VgomCg86ayIhaVUzYEtcNit2KCkY8YjRexDe3+LlBhjv3KKk5sHMsDwK/QEY/f////////9/GBLZwjEiKDZW",
+   "expect": {
+    "error": {
+     "name": "RangeError",
+     "message": "index out of range: 83 + 8 > 87"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid wire type N at offset N",
+   "input": "CqEBCihktRy+idk7nz1EHILBc++GcM6/0jdSmAG0noCAgICAECJviGeFaGbBKYShdjCE3eGmVC8cgsFz74Zwzr/SN1KYAbSegICAgIAQIkCAUylfXZQnmOSAAsuZb3VgvhjHWuM68xOtSXk7+K6CERdRLlDru88lYu5GDC9pgy7tRKwWMG3dveI4U9eVqxtHGM3JyeQGGMSYgICAgIAQCg8wTEEjXCs2IkJRa0I6UGE=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 4 at offset 55"
+    }
+   }
+  },
+  {
+   "name": "fuzz index out of range: N + N > N",
+   "input": "CloKCTkxMTfiMDAyNRjG697rkODGvAsYfRCZ75bJBhCgkoCAgICAEBD9/////////38KKDIyOTI1MjE2ODM1NDE2MjgyNTc5ODA0NTQxMQ==",
+   "expect": {
+    "error": {
+     "name": "RangeError",
+     "message": "index out of range: 52 + 40 > 79"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "ChwKBzU1OTQ5MzYKD86p5Litw6nOqc6pzqnihhAeChwKAHMzGPv/////////fzR0GOiYgICAgIAQIgGgEngKB3Q3XGUqd1kiYxIaDc5iiDcV1+t41sHeH3rpH/Sgj8zjLaWlu7cSABIiDZ90KqAVLnL1OCEVeAczX77l8hVKgVtUDWVZRdMdTCQ3QxITDf0uirUVVH3GsyHkFWUSB1YPfRIKDX3BbycVi3DqzpgG3ISAgICAgBA=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 9007199254744168
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz index out of range: N + N > N",
+   "input": "CicKAzYxMxig85TNAxj7iOyJ",
+   "expect": {
+    "error": {
+     "name": "RangeError",
+     "message": "index out of range: 18 + 1 > 18"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CjsKKO3t7eDw7e34wMD4wcHBwMHgv/i/wPjt+L+gwYDBoL/twcDAwICg4OAYgITFhbD8////ARCF6tz3BpkGGejAQetirSzRPgrczJGIlIoH",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 18446743949167116000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz index out of range: N + N > N",
+   "input": "Cg==",
+   "expect": {
+    "error": {
+     "name": "RangeError",
+     "message": "index out of range: 6 + 1 > 1"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CigKAEkYQMvXLquqXhikh4CAgICAEFuLASsgjIyAgICAgBAsjAFcCgEMEg8KAEIAwt4fBzE2NTQ2NzTJPok7LMczhDpG",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 9007199254741924
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid tag encoding",
+   "input": "CtgBCgjkuK3wn5qH5BjElYCAgICAEMo+KM6p5LitzqnOqeKGkvCfmofDqeS4reS4reS4reKGkhXihpLihpLDqeS4GLKIoLYGmAbrveyU8ciXmwc=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid wire type N at offset N",
+   "input": "CncKAUUiDzM1NpUwN+IxNuI1OTLiMwoJ59Mt7UebSR+JIj/OqfCfmofwn5qH5Litw6nihpLkuK3OqeKGkuS4reKGksOp4oaSw6nwn5qH4oaSzqnOqeKGksOp4oaS5LitzqkQhoSc/+iPi/7FAcg+gIKS9u/w////ATUBAgMEEi4KCPCg+MHBoIDBFxIKDQXEJHAVcUDbziCA6KLVvef///8BmAb5/////////3/JmwEogNaI//Pm////AZwB",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 7 at offset 139"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid tag encoding",
+   "input": "CmwKACJA4oaS4oaS4oaSzqnihpLkuK3wn5qH5Lit4oaS5Lit5Lit8J+ah8Op8J+ah+S4rfCfmofkuK3kuK3kuK3OqeKGkgoHzqnDqeS4rSIH8J+ah86pzjmrX2s+6rjL/iIAGBQ=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Ch4KCcOpzqnihpLOqRiQi4O+BiIAGIjSwrgBGOnixlcbEISDgICAgIAQHMXeHwECAwQ=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 183611753
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "ChAKAeSaAQAiCDTiMzA3MzUyCksKAzEyNCJBQyU9R2ZfZDUiLmgiNDEvbltBO2h3Pz9RO3BSITUhajNhbFx3NDFFS25RO11Dfk1pKTs/ImU8KDwhdiEvcyonVDwKAcwSXgoo4MG/+MGA7eD47YCgv6C/4L/AgPDB+KCggKDgwfDB8L+g+O34v+C24CIsEhkNpndJ4BVJ+cqGDTtd+dEVU+6qaRUHqCGKEg8NNufl3RUHjwiPHZHrUgYQpcby8gY=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid wire type N at offset N",
+   "input": "ChQKAeQImM3s/Y7Hg6ulAVQiAjPimQbDOY/H1FljTEooOTQzNjM5MDg5MTcwMeI3NTg34jU5MjE5ODExMTg2ODY3MjM5MjM24hJvCgEzIgAiKBImDQgvaDcVjmeSGyHrCCWVlvRWiSGU99N82FvA1UoIUjIxcDtpIW4iPBIKDQdC3DYViNg4gRIeDZVcHs4V7Btp8y0LYyfzLUrWxVwdfCkv8xXbpPf7KMX0l8ylh4bYWSD6iLKHByIA",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 4 at offset 17"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid tag encoding",
+   "input": "CjoKD2c0Rl57IXBRdnQmI2wvIRCA3JWD7fP///8B/v////////9/GPz/////////f5oKB0SlIglktcXeHwECAwTQPvn/////////fw==",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CjoKKDM4OTcyODE14jYzNDU4NjniMeI1OTIwMjAwNTU2NeI5NTQ4MzQ2MjUYkJ3U7gYKCLOJ2AGLepJGEhgKCI6C8WGpH0cOuAGA2s+62fn///8BMgASbwo/NmtzN3VzZ206QzhkVVUpYTolPjJ8SDp3cVUlVHsrXyREZUx3PSZKeik2fSs1OXFcdVNeNDQ1aFV9bj11bCRQGiIKEDC8pKCABwoIWCdycndHIHvF3h8BAgMEKIiRgICAgIAQEP3/////////fw==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1842679440
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      },
+      {
+       "tripUpdate": {
+        "trip": {
+         "tripId": "X'rrwG {",
+         "routeId": ""
+        },
+        "stopTimeUpdate": []
+       }
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz illegal tag: field number N",
+   "input": "ChMKA6C/4AoHMDQxNDk2MSIDZ0hzCiAKCcC/8O2/v6CgoCID5IdbnQEBAgMWBBj5/////////3/RPkiYnqBMOL2bgwEojqb9oIrNr9ZnhAE=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "illegal tag: field number 0"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid tag encoding",
+   "input": "Cn4KACIohcmp+5Dx5EYajmeAyL2iT9D256vok6v7oy39KTa3CR5jPBK7K25EGIvt4ZICCgcJKRypInpYCj/twPCgLMDB7cHBwfjw4KCg8O3t8KCg8OC/wKDwoO2ggODA8IDB8MGg4O3A7b/t7cDBgODB8MDt8ODgwcDwwMEQT8g+P0sTcyCA4uDw7eP///8BdBRM",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid tag encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz illegal tag: field number N",
+   "input": "CisKD0ZWLiZ3dWh3aCFmZ0BWTBDw8p/wBhCAgK2xj/3///8BCgdja1l4Lid6mQGEi7ZvizJdLApeCgP453wYARiA6veI9Of///8BEPCJgICAgIAQIkEzNuI2ODA54jg5NTY2MzkzNjU1NTM4MTkxNzc4NTg1MzI0Nzg1NTg2MTkzNjg0MTg1MjM0NzQ04jMxODg5NjXilQEBAgME",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "illegal tag: field number 0"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid wire type N at offset N",
+   "input": "CjEKAWoiCMEbJxmm6Wdv0T5R4GcmXyIgEJfXgM0HCgeg7b/AgMHBCgnKo6MD2/HNDV0SUQoBOBC66vjNBko/v/C/4MHgwMGgwPD4gIDgoMHB+KD4gKDg4MHggMDtgMD4wPjt+IDw8MHw4MHg7cH48KC/4ODt7cDw+ODwwaDw0AH+raO3Bsk+utNMDJxutOk=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 7 at offset 30"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CnEKCYC/oL+/oMHB4AoBYpkGp5BAsMuLXn4KQOS4reS4rc6p4oaSzqnDqfCfmofihpLihpLkuK3kuK3wn5qH5Litw6nkuK3DqeS4rc6pw6nihpLDqeKGkuS4rcMKAJoBCMm9Ec/3IQGpEJSmw93qi9yEdgpKCkDt4KCg+PDB7aDg8MDA4ODgoKDtwfjBwICgv/Cg4PCA+OCA+O3wweD4wPjBv/jg8MDBv4Dt7fiA+MCggMGAgO3wnQEBAgMEEA4dAQIDBA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid wire type N at offset N",
+   "input": "CjEKCeS4rc6p5LitzhiIwtPDBpkGHYJdGXA4acEiCe3goL/AwO2/vxhVGLHOtugHCgF7EsIDCkB8SyZseDIyNlVRPDwvIHE0LlAoYyhvVjslYiEBMXp5cUBTOENWI1x4NTBnKnJESi53NzNlQUUrbV1eS3V2eTI7RBriAgqNASDM1NXRBhJBNDYzMjE5ODAxMDAxMDAyODM2MzQ1MzA3MzQ1MjUwOTkwMTc1OeIyMDYxNjk1MDI1MeIzODE2OTA5",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 4 at offset 121"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "ChUKB8DwwaCAv/gYz+H9jeHEmNsBIgASHgoP5Litw6nwn5qH4oaS4oaSwd4fYHxdDDAG0LciAApuCj9oPwpqbHJVVWhjbyV7QSlDWHdJLm1uJ3BGdV5bNC1WUkssa0NqNHltXUl7VFU5OTg8VzVzVGk0bSE1P1REOSuZBmgAPRkuaVT/EKTJiuqV8YGxSE0BAgMECgAjCKLNydYGJBCIl9yjn4C/0QM=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 123393955445305550
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CowBCniT6tSFIygly21P3e2zNMwnck8YyNt/RXmGY6YEiPi3c9cyeAOVTo3TWBpExTee+X7FnvVfhmdPUMcEf+YxxZ/oNmY7bRre0O6vDWjHyBFgAPSHxkrDllgJ0Netile3rUpHGUkN4e+rRTmCbPeREG4fsCiPt1oSF+kQgL7mqKXx////AQoACgOg+PhLCPz/////////f0wKDgoAGJG69doGGNviyZQC",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 580022619
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CmcKKDcxMTI5OOI5NTUxNzbiNjQ4NuI1NzkwNDA2NTk4MjY2MjI4NDgyOTnJPmFvfoNzHgvqIgfwn5qHzqniwN4fgLrx3r/6////Acg+qc3DygZKD86pw6nihpLkuK3kuK3OqQoBVCIACh4KBzMzODc2NDAKB6DB4L/AwaAY7NWm0gadBgECAwSaBgjB4IC/gKDBvw==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1783212780
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz illegal tag: field number N",
+   "input": "CloKATIY/+DR5cXx////ARiAqqq12OX///8BCgMxNDQiByNiXlJVS0gKKMOp4oaWw6nihpLOqeKGkvCfmofwn5qHzqnOqcOp5Lit4oaS4oaS8J8BCgMxNDQiByNiXlJVS0gKKMOp4oaWw6nihpLOqeKGkvAKB9+SEeEfArlIwYS4qgcrGPr/////////fyyLARsg9br1wAYcjAGYBnQKKAoBUBBWEMSKgICAgIAQ1j5eIg8tVUM5RSE7fkpJbnxqNymdAQECAwQ=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "illegal tag: field number 0"
+    }
+   }
+  },
+  {
+   "name": "fuzz illegal tag: field number N",
+   "input": "CkoKA7+/7QpB4oaS4oaS4oaS5Lit4oaS8J+ah8Op4oaSw6nkuK3wn5qH4oaS5Lit4obf5Lit8J+ah/CfmofOqcOp8J+ah7itzgoAEoAGCg/ihpLkuK3OqeS4rcOp5LgiGBh8EhQNfqP3ChXocM0=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "illegal tag: field number 0"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Ch4KCb+ggL/48L/wvyIB8BjMjICAgICAECIAGCMiAe0KWQoAENy38Jj9+NDRciJAv+3BoL+/+KDA8PjA+Pj4+PCA8IDA7cHA+MDBwYC/gKDB8ICA7b+/8O2/7fjt7fjtgICAv7+A8PCg4O3w+MHwv2sQwpGAgICAgBBsmAH7/////////38=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 35
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid wire type N at offset N",
+   "input": "CjAKDzgxODc4ODc04jEw4jc3ORj2jICAgICAECIBNMk+QU9Iq2RUxfZvGQcHBwcHBw8HEqsECgE=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid wire type 7 at offset 42"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CjYKD+DBv/j4oMDg7YDw+Pjt4I0BAQIDBBiA1KWdhfT///8BIgjDqeKGksOpzhD+/////////38SLQoHTlRldjYoUCIAIhQSCg22LOBjFV+y/3gSAM0+AQIDBJoBCQUcp3ULJdM1OQpTCj+/gPigoL/B4OC/oIDgwaCA4L+g+IDwoMCgv+D44KD4wfigwb/tv8DB7fDgv6Dt4ODt+PCAwMGA8PigoMCAwO0Y15Dc0gYY+IrvkQLVPgECAwQIhozCuAI=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 574342520
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CjIKCc6p4oaSzqnOqRC+xsmZ0dqk7WeDASiAromQhPT///8BhAEQgODV25Xq////AQoBgBI4CigwMTcwMzbiOTgyODc2NjM4MuI2OeI0MDczODU4Mzg5MzA2NjE4ODA4IgAqCqMBEKrspL4GpAHNPgECAwQ=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz illegal tag: field number N",
+   "input": "BQowCg80OTEz4jcxMTQ3OTM1NDUQgKblq7nn////ARggEISH1oYDENvBvN8GEKqwmrYFYyiB+rvsBmQSrQQKP86pzqnDqc6p5Lit8J+ah86p8J+ah8Opw6nkuK3wn5qH4oaS",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "illegal tag: field number 0"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CnYKD5sxnwyeOnd7YQExCeHJoBD7/////////38iA0ZfWhCciICAgICAECJAzqnOqcOp5Lit4oaSzqnOqeKGkvCfmofOqc6p4oaSzqnihpLihpLkuK3wn5qHzqnOqeS4reS4rc6p5LiteIaSzk0BAgMEGMCFtfgGnQEBAgMExd4fAQIDBA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1863140032
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CkgKKTU5MTEzMjIx4jM5MDAxMzA4NTYyMDMxMjgwNjPiODc2MTQzN+IyMDDiGMv5laUFEIDq7fGV7P///wEYGLkBTsJYarRUVedJVFlzWt7x16WQARA=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 24
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CqABCg9aR0kwKT0udytXWWBGWWkKAAo/MTQ2NTcxODAyMjl0NDQ0NTM3NDk3NDU3NeIwNOI1MOI24jk1NTUzMjg1NjM0NjM4MjkwODE1NTEwNDQ4NzMxIgf4+O3B7fDACkE1Mjk0ODk3OTIxMjc3OTQwOTIwNzE5ODI4ODc4MuIxM5c1NzgwMjfiNDVz4jk1MDPiNTAyMDQy4jIwMzDiMOI2NGsY+f////////9/bNI+AyY5PUMjEKHpw/sDJEQ=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz illegal tag: field number N",
+   "input": "CoYBCkCpw6nwn5qHw6nihpLDqfCfmofihpLOqeKGks6pzqnOqc6p4oaSzqnkuK3kuK3DqfCfmofwn5qH4oaS4oaS5LgiATYKP/CfmofOqeKGkuS4reKGks6p5Lit8J+ah+KGkuS4rc6p8J+ah86p4oaSw6nwn5qHzqnOqcOpzvrDqfCfmofkuNI+BzkzNjcx4jEKrfCfmofihpLkuK3OqfCfmofOqeKGksOp8J+ah86pzhEKAesQkKmqyAYQ6OmBhgciAA==",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "illegal tag: field number 0"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CkIKABiA7KKQtuX///8BCig1MjYzNzA5MDA0Njk3Njc44jYxMuIyNjIyMDYzNjQ1NTg0Nzk0NDY4CgkwNDIwMTMwNzgKHQoH7w6we8V5gyIDcTZyGNScgICAgIAQSL3h0NwDCjYKD0V0ODErdSAnKUExUWhmIxCq8+TdAwoBNxCs+Y6QBRD0qpmKqZDHzQGdBgECAwStAQECAwQKHQoB8QoJNjg1NTPiOeI2CghfziMyr7Se8SIDwMHB",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 9007199254744660
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CkoKCDYzODEzNzAxENKnpJu72fG9CiIoIl45VFRsJW9BNXduLHBUL2YuWF4zM2d8MydFLnVZdk8hT2IAKUk+SSIAEJv5kLud5+6PVEoIfAHUcZBeNltZxTcwCOcXNqg=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "ChgKD1Ejfj1OYWdkWEdffTFmSxhiIgMkXGwKIwoAGJ+O4vWhqdbIdSIHw6nOqeKGkoMBEMq+xYcHhAEYIxhuCmUYgP7rjdLn////AcXeHwECAwQQ15ah2oPPh4UDIkE1NTY2NzUyMjkwMDYxNYDiNTg3MTIzMzMyMjMyOeI5OTA2NzQ4MjMyMzcyMjQxOTU3NeIy4jMwMzkzNTc1NuI3MBD7/ZCdBGsYgP+EmOXh////AWw=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 18446743236756832000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "ClAKA98mKAoAIgfihpLkuK3iCgMzMzIKCTZ1VVRCaiZQMxC08by2AiIo4oaS4oaS8J+ah8Op4oaS5Lit5Lit4oaSw6nkuK3wn5qHzqnwn5qH5MLeHz85MTXiNzY0MDA2MDYzMDQyNTI3NjE0Mzc4MTk4Mjk34jU3MDM5NzE5MTQyMeIwNzc5MjA5NzY2ODkxNzTiODY5Gj1I82iNuwI=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Ck0KAzXiMiIDMDI4IkHt4IDw4Pj4wPiA8Pi/7eDwoMHBgODg8O2A7e3goO3B8KD47eDw+MDA8PjB8KD48ODAoMC/7YDgv+DwwKDt+IDAoBJWCgnwwaDB+MHgv8AKPzUyOTMxMTA5MjU5NTgxNTMxMTkx4jc5NjYwMDA3NuI5ODc3NjYyNTniMzbiODgzNjY3ODQ4MjUyNTY2MzM0OYMBGK6uksgHhAGZAXOnj5wV1B5e",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid end group tag",
+   "input": "Cl0KQDV9YHdQWUR5I08gMjV8YlxceHpFLEZHV1AxWlsgWH08d2NSOTlTJzdUTDZaKHg6OiNkQlhVPzpTOWY5WWRXOSSdBgECAwQYpIOAgICAgBAYu92nufnUuPU7GDNKAcMjKDV8YlxceHpFLEZHV1AxWlsgWH08d2NSksDLwgYk",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid end group tag"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CiAKD+KGks6p4oaS5Lit4oaS5Bj//////////38dAQIDBJ0GAQIDBBIhCgnkuK3Dqc6pw6mZAetu3c3/6fV00D6Aoo3NpvT///8B",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 9223372036854776000
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CpgBCgGgIglgdSEsLlswbzkieIDA4Pjgv8Gg+MHBgPjtoIDBoPjwwL+Av4C/weCgwfDBgPDBoMHAv/DtgMHg+MHgv/Dg8L/gv7/w8ODtoPjA8O3twcDt+ODg7e3tv+CA+ICAwPCA7cG/8MHwwaC/8Pi/4L/wgPj47YDtv6DB4KCg7cDB8O3twO2/wBCA7M//ner///8Bwt4fATGdBgECAwSYAfn/////////fyMQgLifr4ng////ASQ=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Ci8KAEl0hJCxoW3Z6Rj309q5BiIHDH415L7GOxCA9oX09+3///8ByT4mDi3VF21y9xIQCgEyOgAKAzU0MxDFz8SuBisIgJqC76L6////ASw=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1731635703
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'header'",
+   "input": "yD5C0T7E1gQh1eQbDA==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'header'"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "ChwKACIDMjk2CgcwNUErVzJ1EOanmtbMsoD7AyIAexjL5ODyAnwSFwoDMjnixd4fAQIDBMHeH0h2WP/iaTim",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CnQKACID+PjwIigJSqlqoj/zoUkanWYWPeRZ73/jdhGe3kUHpmIEXho2PeCS0WwjKlUEGEkKP92fVwa5AcDC1GNBdpDsx3JB6ZvaqWwqnbkwk6WIo0kAPcO+D5LbF2Lu5e9QLJ1AerR7gxP4/6ecgjx9z3hF800BAgMEexBwfA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 73
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CjEKDwXQ5VhygE0+eyI6tbA2jUoA1T4BAgMEGMTTyMoGSMaAgdQGEMWl7oEHGI2xkfYGEiIKCQPWT/XY3hSQZDoFPRL8/NYyBRIDD+bYEMyYgICAgIAQyT6o4N+IKlUzwYoBD86p5Lit8J+ah/CfmoeDqQ==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1858361485
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Cl4KQDI24jE5MTM3MDc2ODgxN+IzMzk2MDUwNjExNTc1MzMxNOI54jY1NzYzMDkwMjUzNzU0MDA4NTM0MTQwNDUxOTIYhtj9pgQYgMKJma/2////ARiA7KuC++D///8BEiIKDzQ4MzHiMzgxMTQ1NDc0Mp0BAQIDBBCA5Jny8u////8BEg8KCDI2NTk3OTg4yD5UOgA=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 18446743007220398000
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      },
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CoUBCg8qck1UeSR1WV1KcT8zdkEQ0NXSogEiQEtLNThMVyEldXF8QksqXEkiV1pLRzJJOn0zYHszTGxAIGp0SFFPRyA9KTREfGF2KC1zZ2VNUFJWblkkVXxKeCoY/I6AgICAgBAKD8xMvT01TWTBwh+BT0ADYNA+vIH6rwUYgIeW0Ky0v/TAAZgG6sKRtOeLpocSSPr/////////fw==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 13900639125494923000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CmAKBzniOTE5MDcQgLK6zd/t////ARiAtNb+wvf///8BIijAoL+g+IDg4L+/v/D4waDB7fjg+Pj48MD44L+A+PDw+PDt4O3g8MHAIg/ihpLwn5qHw6nkuK3ihpIQlefC9waYBqKQt9MGCkUKCTgyNuIxMuIxNxDAgoniBhCQ6NWtrtbr4kEKKMGA+MDg7aDB8ODg7cHAoPjtwcH4gMGg8L/BoO3AoPi/4ICA8MCA8O3QPtSWgICAgIAQ",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 18446743782454303000
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'header'",
+   "input": "mQabgGWY+n09vZgBodjnggQ=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'header'"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Ch4KABim8L++tduMsA4Y0IKAfYCAgBIQIgHkGOH99cIGyNg+hPCz/QadAQECAwQ=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1750957793
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CocBCgnDqeS4reS4reIYLSJ4wfig+MDB+IDBwMHAwPigwOCgwcGAv/i/+O2/oO2A4PDBwe2/weC/gPDB8KDt4L/47YDw8O2Av7/w4MGgv7/47cDA7b/AwKDtv4DA4ODwwPDgoPjtwaCggMH47cHwwMDg+PDtwKDBwL/B8PCg8O3g8PC/v6DBv4Dwxd4fAQIDBJ0GAQIDBA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 45
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CigKCc6p4oaS8J+ahxDJ/8DGr6eHsEQQTgoP5Lit4oaS4oaSzqnOqeS4EosBCgP4v/hJyz0lKae479o6WCoAKlQKUgo/NuIxMOI3ODg3MjcxODg44jE3MjcwNDE4MTQxMeIy4jY0NzQwNTYzNTEyMjY4Njc2MzU24jM3NTLiMDQyNDQ2Cg+m/VsFF6iFuEyJNX7EWM4Q2NLq0M+KoMUrKhdaDMo+CeS4rfCfmofDqTiwjoCAgICAEGMQipWGnaf/lMYCZA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'header'",
+   "input": "U0sIr96f8LOUyPhbTFQSLwoAIhgSCg3UebZqFQH8ccydEgoN4cP94hXoaYGyIglJMcdTESJsqFIiBjCg3bTdAw==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'header'"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid varint encoding",
+   "input": "CiAKBzc1NjY5MDQQgL7mktL4/////wGYAYDci4TA9////wGdBgECAwTVPgECAwQ=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid varint encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid end group tag",
+   "input": "Cm8KCM6p4oaS5LitMyjEg4CAgICAEDQYhr/o3p2JlJkw1T4BAgMECj8xPlVcP3RKfDJIPXxiXnRJUFFmL3tASXFtdGY7Qjh4dGdzL1dHJzkwSCoyLzl2RWFEOlxsVkV7Mm1YQW4zd2rF3h8BAgMEGCISJAoIzqnihpLDqfCLARMQ/P////////9/FJQB0T7EiF1tUdibKRIXCgCLARiG7qLUBowBwN4f7I6AgICAgBA=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid end group tag"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Ci4KD1YnUkhJMEVCSXZZQ3A/RyIACg80NjQxNTU0MDc5OTM0MjkQ/f////////9/EiIKA+3gwZkBzpndI78R5Z/VPgECAwTC3h8JOn5ddyBic0R9e1Mg0NuZ+ARUfA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Co8BCgnBwO2A8IDg8MEYx/uKxQYYq6v4+gYQq9Wd6QYKKDA5NjExNDDiMzk4MDPiMzLiOTgwMuIwODQwMjAzODAyNzniOTAwMjQQJSI/OJhs1q3ZbkX793X+EklcXhLJjwO5UQ3mbBsGHxd5uj+TYjaS4zDV2sB4dgTfIupzcaCYC+PfndnV1f/VuHUfCgO/7cASKAoP8J+ah+S4rc6pw6nihpLiMgAyCgoIKCpUfW1FfVoQsJSAgICAgBDJPtWOMObZv8pE",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 1868436907
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CmoKAcMKPzE5OeIwNDU2NuI0NDjiODgyMDLiMjE0Nzc4MzA1OeI04jE1Mjk1OeI4MTMzOTM4NjUzN+IxNjE5NzfiEzAy5goHIPLrHShXgxi8l4CAgICAEBiYoqeyBSIDU2A8IgcmxOlsI5PgChkKA/j48CIAGOiSgICAgIAQGJyegICAgIAQ1T4BAgME",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 9007199254744860
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Cg4YgpmAgICAgBAKA/CfmooBKDM2Nzk5/DkxMDLiOTUyMzM3OOI1OOI0MzYyM+IyNTY5NzUwNTQyMjYjGICQ8Zv14P///wEk",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 9007199254744194
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CiUKCeKGkuS4rfCfmiIDbANQIgnOqc6p5Lit4oaYAciXgICAgIAwSUr0JsuZ/03SEmYKQVtjfj9MZVM+XSkwaCY2KjtOJC8hRHgxOy1MMyNmanY4bF1ZPClLbXJvdTAhX3xZTXwnNWRTekFnY15wIFU3MG42EPz/////////fxkHBwcHBwcHBxC24fbRBtE+0pv5m2I2ovjB3h+XrgNfI2/qtA==",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid varint encoding",
+   "input": "CnEKA+S4rcLeHwOknykQgJKs+5P0+f///wEKCfCAwOCAwL+/+BCm4pcfGMyFgICAgIAQCj/QTaxTyimoJQZxsgwxRkb0fJrpoLUoJ6n8pvxI7MydryvT5CprPW4ebXJC5XQQCj/QTaxTyimoJQZxsgwxRkb0fJrpoLUoJ6n8pvyrx1Mm++B/Z+NPpvMMax5vwZXUPsPUjZEFzT4BAgMExt4fmJuAgICAgBA=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid varint encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'header'",
+   "input": "wN4fmIaAgICAgBBrEOiTgICAgIAQbA==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'header'"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid end group tag",
+   "input": "CqYBCgPBv/gYkvrp9QIQ6I621gVhwc9D9F41ZSgbEL/2wa0GJBi+kICAgICAEMo+eLQ8t85uY4eHrXUs9XPUrSzuDkTtWHBdrzs29vQfJjqjJh2orXbZ54OV0JI05/gvrXbZ54PuE2GUwzHeKs9o2hX9It5XzaJMMuENLMgujfbTTw7xP9IoKGoUiCSu0cjKaBHF5PthyIUNOPIM+4HnTXTASCuJ/eg=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid end group tag"
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "CisKCTkzNjTiNTk1OBCArI7fjeb///8BGISGgICAgIAQEDIQ/v////////9/Cj0KKCFgYGtYfSxLVS1RZGttKXtneStBZ1AkdSo6XiNNY1ondysiWHtWd0AQlImAgICAgBAQrpyU9KKHvOIwxd4fAQIDBBIPCgHaIgCZBlJxTFSyOkBx",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 9007199254741764
+     },
+     "entity": [
+      {
+       "tripUpdate": null
+      }
+     ]
+    }
+   }
+  },
+  {
+   "name": "fuzz ok",
+   "input": "Cj8KKDcxNjkxMjgyNTM3MTc2MTYwNTI1MTLiMzEwMjQ4Njc3NTTiNzQx4jnB3h9LWYkiUejkGxD+4LDgg4D6wDNJZPP8E+67GY2aAT8wMjXiMzYxOTQzMDkwNjgxNzUzOTUzMDMyMjUxNjY3NzM4OOIx4jg5MDQ3MjE4OTk1OTI3OTMyNTI4MDkwNTZJhjauYN7GZVQ=",
+   "expect": {
+    "ok": {
+     "header": {
+      "timestamp": 0
+     },
+     "entity": []
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'header'",
+   "input": "OxiugM1CPNkBrJt9Z/IRvbI=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'header'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'header'",
+   "input": "mAHuibOv18jdgk4SHQoHRKzNT2cuLSoPCg0IgICAgICAgICAARAcCgFn",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'header'"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid end group tag",
+   "input": "CqIBCihog4J8bUmaUTi2wAIvJK1cQtkVRcsbGK5I8AuyHP0zL7vSHiPKnkfwwQooP0gqZWBHOkMobnEpUHFZdVRsUyhWMGpZdEpPP0h9eFdMLG46dWRmPmZvGICw3JK49v///wFKKDKLDy6pmxqfXhcSS938ShJcdoW4j0vj0jWgCbCdyndwrN6dr61W+8MQ8IWAgICAgBAiAMg+//////8=",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid end group tag"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid varint encoding",
+   "input": "CpkBCijkuK3OqcOp8J+ah+KGks6p4oaS4oaSw6nDqfCfmofihpLDqc6pzqnDCg9WeFQjLHFlP0E+MlI6Xz7NPgECAwQYgICAgICAgICA/yJB5Litw6nwn5qH4oaS4oaS8J+ah/CfmofkuK3wn5qHzqnDqc6pw6nwn5qHzqnwn5qH4oaS4oaS8J+ah86p9LitzqkKCHEvI2lCOXAwowEI/f///wD///9/pAHB3h+2QabWLplhGs0+AQIDBA==",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid varint encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid varint encoding",
+   "input": "Ch8KA3JjOUtjKwj7/////////38sZEwQ7cCg8IDAoPn/////////fwrlAQp44L/tv8HtgKCA4L+g4MG/gMH4wKD47YC/weD44L/A7b/w7e2/8KC/7aD4wOCA4O3BoPjA8MDggO3twYD4oID48Pig+MH44L+ggO3w8MDAv+3BoIDB7cCg8IDAoPjt8L+g8A==",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid varint encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'id'",
+   "input": "CkkKD8Op5Lit8J+ah/CfmofihhD5vP/6BBipiob6u8uCjSMY/v////////9/UyiImICAgICAEFQQ/P////////9/GIiDgICAgIAQCjEKATwYYRgICijwwb/Awb/t7e3goL/B7e3Awb/AoMC/4PCg+ODtv+DB8PDwwKDBwIC/EhYSBzc1MDk5NDM6BT3QNxvEnQYBAgME",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'id'"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid end group tag",
+   "input": "CjgKCcDtgPDwgKDA4AoP5Lit8J+ah+KGkuS4rcOpIg82Mzc1ODMxNjI4MjAxMTEQ3rTV6QEY+YztBgpUCkG4rvCAoMDgCg/kuK3wn5qH4oaS5LitC5BChqdtFHuz9/5jH07FUXUiG0y6OMRd3E0CKm4092Q296cqNbh4s+PK6jgb+2otGNSF9jyIgjM9ze/Qs0PNnQEBAgMEEICMsrrb9f///wESiAYKCfC/",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid end group tag"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid varint encoding",
+   "input": "Cs4BCgM1NTAizqnkuK3kuK3OqeKGkuKGkvCfmofkuK3kuK3DqeKGkvCfmofDqc6pzqnOqeKGkuS4rfCfmofwn5qHw6nkuK3wn5oKKDPwMVJb3kOTew==",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid varint encoding"
+    }
+   }
+  },
+  {
+   "name": "fuzz invalid end group tag",
+   "input": "CjIKAb8Y+/////////9/GOWXv6wGGJ+otZfi5rXmAhiAsO7suPL///8BGAEQJBD985WHAxLQBgoJS2A7ABiHxvziO2tTKPz/////////VGw8GqcGClkaQDYyNOIwMTA1Nzc0MzMxMTI5MTUxNTE0NTgzMDUwOTbiMTE04jIzMjTiNDg2Mw==",
+   "expect": {
+    "error": {
+     "name": "Error",
+     "message": "invalid end group tag"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'id'",
+   "input": "EgNBQkPA3gQf1umCgICAgIAQ",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'id'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'gtfsRealtimeVersion'",
+   "input": "ClYY0Pib66ux9qRGIj/ihpLwn5qH8J+ah8Op8J+ah/CfmofDqcOpw6nwn5qHzqnkuK3ihpLihpLwn5qH8J+ah+KGkuKGkuS4rcOpzqkYgOCwoIH2////AcDeHw9ICgocCgg5MjEy4jI14hjtrrTOAdA+gO7ny7Hv////AQ==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'gtfsRealtimeVersion'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'gtfsRealtimeVersion'",
+   "input": "Cg0QShCAzpfUoev///8Bx94f2berwwbNPgECAwQ=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'gtfsRealtimeVersion'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'gtfsRealtimeVersion'",
+   "input": "ChsiD01iJmoUmn169B/jYoRsUBD6/////////38KNsXeHwECAwSYAeyTgICAgIAQGK22r7ewhMKaHknBAxFEznhMQcXeHwECAwQQgPb7zfPq////AZgG/P7JoAE=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'gtfsRealtimeVersion'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'gtfsRealtimeVersion'",
+   "input": "ChMYGyIJMyJVT0pXbGA5GMiBt/UFEo4DCgM5MTQa1gIKzwEg6v/QkYea6N4uGgg4MTIz4jQz4joAOpgBGkI4ODA3MDIyNzQ3NzE3NDgwMjE54jg=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'gtfsRealtimeVersion'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'gtfsRealtimeVersion'",
+   "input": "CgoJNDQxMzlJMTcw4gpA2Xa4bK2cGl1smnTscjAgd8+vFbDWt4slvfGUhdKN4cVXR6ZYSMoMurg+4tnLc6iprOZsXKecfMCi7uA1",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'gtfsRealtimeVersion'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'gtfsRealtimeVersion'",
+   "input": "ChAQ4IWAgICAgBDIPqbeu4YDEuIUCkH+SQ==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'gtfsRealtimeVersion'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'id'",
+   "input": "Co8BCng54jPiMzc0NzY44jg2OTU1NTUwOTUwNjI1ODQ0OTE4NDg5OTg5OOIzMjI4MjIw4jg1OTI44jg5MTg0MDkwNDk5NTg0MjQxNjMwNzMzMTQwMjE0NTEzMDI34jTiNDM4NzY4OTfiMzUzODMwMzA3OTQ0NeIyMjE4MTcY1ZXigMf4j+BhnQEBAgMEEgNBQkMSEE0BAgME4AH8/////////3+dBgECAwQ=",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'id'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'longitude'",
+   "input": "ChsKCIDAv8D4wYC/GICAgICAgICAgAEQm7fj+QbVPgECAwQScwoAENPVsc7wqbSwBkk2tXbOotgVrCIYEgUNVFix8A==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'longitude'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'id'",
+   "input": "CmEKCU/jyTpZfomeuwpAgKDgv7+Awb/4+MDwv8Hgv+3g7b/woODt8PDBgO3gwMDggMC/7YDg7YCA8L/goO3twL/AoPDgoPjtwfDA7b/gwRD8/////////38Q/P////////9/EgNBQkNzGJW+toQCdGtDKICS1sr8/v///wFEbA==",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'id'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'id'",
+   "input": "ChwKDzy/nbwr5kn6frazZo4ueiIDOTIynQEBAgMEEgoSA0FCQ0oDspQaCgNBQkNOkby3mp/aw6kY",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'id'"
+    }
+   }
+  },
+  {
+   "name": "fuzz missing required 'id'",
+   "input": "ClwKKDIyNTIyNDU5MzXiMzQ5MjY2NzM3ODcwNjYwMTYwMDk4NeI2MjU0MDYiAzDiMBie9Zq8BhCu7vCep+Lkj3CDAQjonICAgICAEIQBEInFjIUHEPeAsZv4qtP3CU0BAgMEEgNBQkMI7LnMw/Tl2o8E",
+   "expect": {
+    "error": {
+     "name": "ProtocolError",
+     "message": "missing required 'id'"
+    }
+   }
+  },
+  {
+   "name": "captured MTA feed mta-123.pb",
+   "file": "mta-123.pb",
+   "expect": {
+    "okSha256": "d67e25ee57add505e9c57227ee6f1901128192d26faac973d4bea0bb7609d0f1"
+   }
+  },
+  {
+   "name": "captured MTA feed mta-nqrw.pb",
+   "file": "mta-nqrw.pb",
+   "expect": {
+    "okSha256": "03fc71dd19006327bf929a27bd48d1625be54360659c6bba8f00680428f46ed9"
+   }
+  }
+ ]
+}
