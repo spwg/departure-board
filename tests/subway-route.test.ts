@@ -24,6 +24,14 @@ afterEach(() => {
 const context = (stationId: string) => ({ params: Promise.resolve({ stationId }) }) as never;
 
 describe("Subway departures route contract", () => {
+  it("refuses more station identities than any complex has, before reading feeds", async () => {
+    getSubwayStation.mockReturnValue({ id: "any" });
+    const { GET } = await import("@/app/api/subway/departures/[stationId]/route");
+    const ids = Array.from({ length: 9 }, (_, index) => `S${index}`).join(",");
+    expect((await GET(new Request("http://test"), context(ids))).status).toBe(400);
+    expect(fetchSubwayFeedsForStation).not.toHaveBeenCalled();
+  });
+
   it("rejects unknown provider station identities", async () => {
     getSubwayStation.mockReturnValue(undefined);
     const { GET } = await import("@/app/api/subway/departures/[stationId]/route");

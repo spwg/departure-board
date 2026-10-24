@@ -31,8 +31,19 @@ const TTL_MS = 60_000;
 /** Well above the trains running at once, so real lookups never evict each other. */
 const MAX_ENTRIES = 500;
 const cache = new Map<string, { at: number; stopList: StopList }>();
+/** Loads in flight, so a burst of requests for one train makes one NJ Transit call. */
+const pending = new Map<string, Promise<StopList>>();
 
-async function getStopList(trainId: string): Promise<StopList> {
+function getStopList(trainId: string): Promise<StopList> {
+  let load = pending.get(trainId);
+  if (!load) {
+    load = loadStopList(trainId).finally(() => pending.delete(trainId));
+    pending.set(trainId, load);
+  }
+  return load;
+}
+
+async function loadStopList(trainId: string): Promise<StopList> {
   const hit = cache.get(trainId);
   const now = Date.now();
   // Every use moves a train to the end of the map, so the first key is always

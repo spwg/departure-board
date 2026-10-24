@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import type { RawDeparture } from "./departures";
 import { fixtureDepartures, fixtureStopList } from "./fixtures";
 import { fetchToken, requestDepartures, requestStopList } from "./njtApi";
+import { createCallBudget } from "./njtCallBudget";
 import { usingFixtures } from "./njtEnvironment";
 import {
   RedisUnavailableError,
@@ -101,6 +102,9 @@ export async function invalidateToken(rejectedToken: string): Promise<void> {
   }
 }
 
+/** Every data call below spends from it; over budget throws NjtCallBudgetError. */
+const callBudget = createCallBudget();
+
 /**
  * Raw departures for a station: fixture data when either credential is absent,
  * otherwise RailData's. A rejected token throws InvalidTokenError; the caller
@@ -108,11 +112,13 @@ export async function invalidateToken(rejectedToken: string): Promise<void> {
  */
 export async function fetchDepartures(stationCode: string): Promise<RawDeparture[]> {
   if (usingFixtures()) return fixtureDepartures(stationCode);
+  callBudget.take();
   return requestDepartures(await getToken(), stationCode);
 }
 
 /** The stops a train makes, by train number. */
 export async function fetchStopList(trainId: string): Promise<RawStopList> {
   if (usingFixtures()) return fixtureStopList(trainId);
+  callBudget.take();
   return requestStopList(await getToken(), trainId);
 }

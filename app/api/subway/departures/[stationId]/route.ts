@@ -1,6 +1,9 @@
 import { decodeSubwayBoard, fetchSubwayFeedsForStation, getSubwayStation, subwayMetadata } from "@/lib/subway";
 import { decodeRouteParam } from "@/lib/routeParams";
 
+/** The largest station complex has five members; anything longer is not a real request. */
+const MAX_STATION_IDS = 8;
+
 /**
  * A live board for one MTA station complex, given as a comma-separated list
  * when the caller intentionally requests several complex members. Their
@@ -11,8 +14,11 @@ export async function GET(
   context: { params: Promise<{ stationId: string }> },
 ) {
   const { stationId } = await context.params;
-  const stationIds = decodeRouteParam(stationId).split(",").filter(Boolean);
+  const stationIds = [...new Set(decodeRouteParam(stationId).split(",").filter(Boolean))];
   const exact = new URL(request.url).searchParams.get("exact") === "true";
+  if (stationIds.length > MAX_STATION_IDS) {
+    return Response.json({ error: "Too many Subway stations" }, { status: 400 });
+  }
   if (stationIds.length === 0 || !stationIds.every(getSubwayStation)) {
     return Response.json({ error: `Unknown Subway station: ${stationId}` }, { status: 404 });
   }

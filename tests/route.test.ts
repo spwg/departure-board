@@ -38,6 +38,14 @@ describe("departures route contract", () => {
     getStation.mockReturnValue({ code: "NW", name: "Newark" }); await GET(new Request("http://test"), context("NW"));
     expect(warn).toHaveBeenCalledTimes(1); expect(warn.mock.calls[0][0]).toContain('"38611"');
   });
+  it("makes one NJ Transit call for concurrent requests for one station", async () => {
+    getStation.mockReturnValue({ code: "NP", name: "Newark Penn Station" }); usingFixtures.mockReturnValue(false); normalizeDepartures.mockReturnValue([]);
+    let release!: (items: unknown[]) => void; fetchDepartures.mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+    const { GET } = await import("@/app/api/departures/[code]/route");
+    const responses = Promise.all([GET(new Request("http://test"), context("NP")), GET(new Request("http://test"), context("NP"))]);
+    await Promise.resolve(); release([]);
+    expect((await responses).map((response) => response.status)).toEqual([200, 200]); expect(fetchDepartures).toHaveBeenCalledTimes(1);
+  });
   it("refreshes a rejected token once and turns unrecoverable failures into 502", async () => {
     getStation.mockReturnValue({ code: "NY", name: "New York Penn Station" }); fetchDepartures.mockRejectedValueOnce(new InvalidTokenError()).mockResolvedValueOnce([]); normalizeDepartures.mockReturnValue([]); usingFixtures.mockReturnValue(false);
     const { GET } = await import("@/app/api/departures/[code]/route"); expect((await GET(new Request("http://test"), context("NY"))).status).toBe(200); expect(invalidateToken).toHaveBeenCalledWith("rejected-token"); expect(revalidateTag).toHaveBeenCalledWith("njt-token", { expire: 0 });

@@ -1,6 +1,9 @@
 import { getServiceAdvisorySnapshot } from "@/lib/serviceAdvisorySource";
 import { getStation } from "@/lib/stations";
 
+/** A page asks for one line; a few covers any future caller. */
+const MAX_LINE_CODES = 4;
+
 /**
  * Returns contextual official RSS notices for one view. The RSS adapter owns
  * its short server cache; this response remains uncached so a browser never
@@ -10,10 +13,16 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const station = searchParams.get("station");
   const stationEntry = station ? getStation(station) : undefined;
-  const lineCodes = searchParams
-    .getAll("line")
-    .map((line) => line.trim().toUpperCase())
-    .filter(Boolean);
+  // Each code is matched against every notice, so only a few short ones, each
+  // once: an unbounded list would be unbounded work.
+  const lineCodes = [
+    ...new Set(
+      searchParams
+        .getAll("line")
+        .map((line) => line.trim().toUpperCase())
+        .filter((line) => /^[A-Z0-9]{1,4}$/.test(line)),
+    ),
+  ].slice(0, MAX_LINE_CODES);
 
   try {
     const snapshot = await getServiceAdvisorySnapshot(

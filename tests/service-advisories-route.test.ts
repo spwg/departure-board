@@ -11,6 +11,15 @@ afterEach(() => {
 });
 
 describe("service-advisories route contract", () => {
+  it("passes on only a few well-formed line codes, each once", async () => {
+    getStation.mockReturnValue(undefined);
+    getServiceAdvisorySnapshot.mockResolvedValue({ advisories: [], authoritativeRevisions: {} });
+    const { GET } = await import("@/app/api/service-advisories/route");
+    const lines = ["ne", "NE", "not a line", "NC", "ME", "ML", "PR", "RV"].map((line) => `line=${encodeURIComponent(line)}`).join("&");
+    await GET(new Request(`http://test/api/service-advisories?${lines}`));
+    expect(getServiceAdvisorySnapshot).toHaveBeenCalledWith({ lineCodes: ["NE", "NC", "ME", "ML"] });
+  });
+
   it("asks the server source for a station context and prevents browser caching", async () => {
     getStation.mockReturnValue({ code: "NY", name: "New York Penn Station", lines: ["NE"] });
     getServiceAdvisorySnapshot.mockResolvedValue({
