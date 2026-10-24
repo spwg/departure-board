@@ -1,4 +1,10 @@
 import type { NextConfig } from "next";
+import { njtEnvironment, usingFixtures } from "./lib/njtEnvironment";
+
+// With NJ Transit credentials set, NJT_ENV must name their backend. Checking
+// here fails the build or server start, not a rider's request: a deployment
+// missing it never goes live.
+if (!usingFixtures()) njtEnvironment();
 
 /**
  * Only the policy directives that restrict nothing the app itself loads: no

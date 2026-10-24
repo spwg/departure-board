@@ -1,6 +1,7 @@
 import type { Departure } from "@/lib/departures";
 import { getDepartures } from "@/lib/departureBoard";
 import { usingFixtures } from "@/lib/njtClient";
+import { njtFailureResponse } from "@/lib/njtFailure";
 import { getStation } from "@/lib/stations";
 
 
@@ -14,7 +15,8 @@ export type DeparturesResponse = {
 
 /**
  * Returns an uncached normalized board for a known station code. Unknown codes
- * return 404; an upstream failure after at most one token refresh returns 502.
+ * return 404; an upstream failure after at most one token refresh returns 502,
+ * or 503 while NJ Transit sign-in is paused (lib/njtFailure).
  */
 export async function GET(
   _request: Request,
@@ -35,10 +37,7 @@ export async function GET(
     departures = await getDepartures(station.code);
   } catch (error) {
     console.error(`Departures for ${station.code} failed:`, error);
-    return Response.json(
-      { error: "Could not reach NJ Transit" },
-      { status: 502 },
-    );
+    return njtFailureResponse(error);
   }
 
   const body: DeparturesResponse = {

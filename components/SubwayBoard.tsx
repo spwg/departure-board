@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
+import {
+  LoadFailureError,
+  failureFromError,
+  failureFromResponse,
+  type LoadFailure,
+} from "@/lib/loadFailure";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { LoadFailureNotice } from "./LoadFailureNotice";
 
 const REFRESH_MS = 30_000;
 
@@ -23,7 +30,7 @@ export function SubwayBoard({
   expandComplex?: boolean;
 }) {
   const [board, setBoard] = useState<Board | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<LoadFailure | null>(null);
   const [stale, setStale] = useState(false);
   const [now, setNow] = useState(0);
   const loaded = useRef(false);
@@ -32,10 +39,10 @@ export function SubwayBoard({
     try {
       const exactQuery = expandComplex ? "" : "?exact=true";
       const response = await fetch(`/api/subway/departures/${stationId}${exactQuery}`, { cache: "no-store", signal });
-      if (!response.ok) throw new Error(String(response.status));
+      if (!response.ok) throw new LoadFailureError(await failureFromResponse(response));
       const next: Board = await response.json();
       setBoard(next);
-      setFailed(false);
+      setFailure(null);
       setStale(Date.now() - Date.parse(next.sourceTimestamp) > 60_000);
       setNow(Date.now());
       loaded.current = true;
@@ -43,7 +50,7 @@ export function SubwayBoard({
       if (signal?.aborted) return;
       console.error(`Could not load Subway departures for ${stationId}:`, error);
       if (loaded.current) setStale(true);
-      else setFailed(true);
+      else setFailure(failureFromError(error));
     }
   }, [expandComplex, stationId]);
 
@@ -58,12 +65,13 @@ export function SubwayBoard({
     return () => { controller.abort(); window.clearInterval(poll); window.clearInterval(tick); };
   }, [load]);
 
-  if (!board) return failed ? (
-    <div className="px-5 py-16 text-center">
-      <p className="font-medium">Couldn&apos;t load departures.</p>
-      <p className="mt-1 text-sm text-muted">MTA realtime data may be unavailable.</p>
-      <button className="mt-5 rounded-full border border-edge px-4 py-2 text-sm font-medium" onClick={() => { setFailed(false); void load(); }}>Try again</button>
-    </div>
+  if (!board) return failure ? (
+    <LoadFailureNotice
+      failure={failure}
+      provider="MTA"
+      subject="departures"
+      onRetry={() => { setFailure(null); void load(); }}
+    />
   ) : <p className="px-5 py-16 text-center text-muted">Loading live departures…</p>;
 
   const groups = [...new Set(board.departures.map((departure) => departure.direction))]

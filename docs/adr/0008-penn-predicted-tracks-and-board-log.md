@@ -70,9 +70,20 @@ their precision or recall.
 - Upstash free tier (256 MB, 500K commands and 10 GB bandwidth a month):
   entries measure about 600 bytes for a first appearance, 460 for a change and
   110 for leaving, roughly 3 KB per train a day. At about 400 Penn departures a
-  day that is about 1.3 MB a day, about 120 MB over 90 days. The collector
-  spends 3 commands a minute (token read, history script, log script), about
-  130K a month counting each EVAL as one, plus one read per fresh NY board.
+  day that is about 1.3 MB a day, about 120 MB over 90 days. Upstash bills a
+  Lua script as one command plus one per `redis.call` it runs, not as one: the
+  first collector, which read and wrote the board state per train, spent about
+  36 commands a minute (1.56M a month) and used up the free allowance by the
+  10th of October 2026. It now reads its state as one value and writes each
+  collection in one script whose commands do not grow with the board: about 7
+  a minute, 300K a month, measured against a real Redis. Each newly recorded
+  pairing adds 2, and the first run of each Eastern day ages the history (about
+  32). Readers add one GET per fresh NY board per app instance.
+- When Upstash is unavailable — down, or out of its monthly allowance — boards
+  keep working: the app reads no predictions for 5 minutes at a time, and mints
+  and keeps the NJ Transit token in Next's Data Cache without Redis. The
+  collector stops until Redis returns, so it makes no NJ Transit calls in the
+  meantime.
 - Cloudflare Workers free plan: one cron trigger of the five allowed, 1,440
   runs a day, 10 ms of CPU per run. Parsing the system-wide vehicle feed is
   the heaviest step; if runs start exceeding the CPU limit, Workers Paid

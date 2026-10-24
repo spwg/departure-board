@@ -4,8 +4,15 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import { type Departure } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
+import {
+  LoadFailureError,
+  failureFromError,
+  failureFromResponse,
+  type LoadFailure,
+} from "@/lib/loadFailure";
 import { DepartureRow } from "./DepartureRow";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { LoadFailureNotice } from "./LoadFailureNotice";
 
 
 const REFRESH_MS = 30_000;
@@ -14,14 +21,15 @@ const TICK_MS = 15_000;
 
 /**
  * Polls the station endpoint for `code`. Until a first result it shows loading
- * or a retryable error; later failures retain the last board and mark it stale.
+ * or why it could not load (LoadFailureNotice); later failures retain the last
+ * board and mark it stale.
  */
 export function DepartureBoard({ code }: { code: string }) {
   const [departures, setDepartures] = useState<Departure[] | null>(null);
   const [fixtures, setFixtures] = useState(false);
   const [stale, setStale] = useState(false);
   const [lastLiveAt, setLastLiveAt] = useState<number | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [failure, setFailure] = useState<LoadFailure | null>(null);
   // Left at 0 until after mount: reading the clock during render is
   // non-deterministic and would break prerendering. Every path that supplies
   // departures also sets this, so no row is ever rendered against 0.
@@ -37,7 +45,7 @@ export function DepartureBoard({ code }: { code: string }) {
           signal,
           cache: "no-store",
         });
-        if (!response.ok) throw new Error(String(response.status));
+        if (!response.ok) throw new LoadFailureError(await failureFromResponse(response));
 
         const data: DeparturesResponse = await response.json();
         const fromCache = response.headers.get("X-From-Cache") === "1";
@@ -51,7 +59,7 @@ export function DepartureBoard({ code }: { code: string }) {
               ? responseLiveTime(response)
               : Date.now(),
         );
-        setLoadFailed(false);
+        setFailure(null);
         setNow(Date.now());
         loadedOnce.current = true;
       } catch (error) {
@@ -61,7 +69,7 @@ export function DepartureBoard({ code }: { code: string }) {
         // page is worse than slightly old times when you are on a platform
         // with bad signal.
         if (loadedOnce.current) setStale(true);
-        else setLoadFailed(true);
+        else setFailure(failureFromError(error));
       }
     },
     [code],
@@ -99,24 +107,17 @@ export function DepartureBoard({ code }: { code: string }) {
 
   let content: ReactNode;
   if (departures === null) {
-    if (loadFailed) {
+    if (failure) {
       content = (
-        <div className="px-5 py-16 text-center">
-          <p className="font-medium text-text">Couldn&apos;t load departures.</p>
-          <p className="mt-1 text-sm text-muted">
-            NJ Transit may be unavailable. Check your connection and try again.
-          </p>
-          <button
-            type="button"
-            className="mt-5 rounded-full border border-edge px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-            onClick={() => {
-              setLoadFailed(false);
-              void load();
-            }}
-          >
-            Try again
-          </button>
-        </div>
+        <LoadFailureNotice
+          failure={failure}
+          provider="NJ Transit"
+          subject="departures"
+          onRetry={() => {
+            setFailure(null);
+            void load();
+          }}
+        />
       );
     } else {
       content = <BoardSkeleton />;

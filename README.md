@@ -36,12 +36,17 @@ NJT_API_PASSWORD=
 NJT_USE_FIXTURES=
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
-# Leave unset for production RailData; npm run dev:njt-test supplies this.
-# NJT_API_BASE_URL=https://testraildata.njtransit.com/api
+# production or test; npm run dev:njt-test supplies test.
+NJT_ENV=
 ```
 
 The Redis variables are required when NJ Transit credentials are configured;
-they provide shared token storage and locking. The Subway integration uses
+they provide shared token storage and locking. So is `NJT_ENV`, which names the
+NJ Transit backend: `production` or `test`. It picks both the RailData host and
+the Redis keys the token is stored under, because each backend rejects the
+other's tokens. It has no default: with credentials set, an unset or unknown
+value stops `next dev`, `next build` and `next start` with an error, so a
+deployment that lacks it never goes live. The Subway integration uses
 official MTA GTFS-Realtime feeds and does not require project credentials.
 
 ## NJ Transit test backend
@@ -53,10 +58,11 @@ Transit's test backend:
 npm run dev:njt-test
 ```
 
-This starts the same app with
-`NJT_API_BASE_URL=https://testraildata.njtransit.com/api`. It still reads
-`NJT_API_USERNAME`, `NJT_API_PASSWORD`, and the Upstash variables from your
-ignored `.env.local`; do not commit credentials. Start a fresh dev server after
+This starts the same app with `NJT_ENV=test`, which calls
+`https://testraildata.njtransit.com/api` and keeps its token under its own
+Redis keys, so it never disturbs production's token even in a shared Upstash
+database. It still reads `NJT_API_USERNAME`, `NJT_API_PASSWORD`, and the Upstash
+variables from your ignored `.env.local`; do not commit credentials. Start a fresh dev server after
 changing environment variables. Verify it with:
 
 ```bash
@@ -119,7 +125,8 @@ then connect the repository under Settings → Builds with the settings above.
 automatic builds are ever disconnected.
 
 Use the same NJ Transit and Upstash values as the Vercel project, so both share
-one NJ Transit token. Runs in the minute or two before the secrets are set fail
+one NJ Transit token. `NJT_ENV = "production"` is set in
+`collector/wrangler.toml`, not as a secret. Runs in the minute or two before the secrets are set fail
 harmlessly and are logged. `collector/wrangler.toml` holds no secrets and is
 committed; secrets live only in Cloudflare. Each run logs a one-line JSON summary
 (`"event":"penn-collect"`) to Workers Logs. To run it locally, put the same
@@ -156,6 +163,17 @@ several tokens. Next's Data Cache sits in front to avoid a Redis read on every
 board refresh. The token is replaced only when NJ Transit reports that it has
 gone bad.
 
+A failed `getToken` starts a cooldown, kept in Redis, during which nobody tries
+again: an hour after NJ Transit refuses (the daily limit, or credentials it
+does not accept), two minutes after a network failure. Meanwhile NJ Transit
+boards say live data is paused and when it resumes. If Redis itself is
+unavailable, the app mints the token without it and keeps it in the Data Cache,
+so boards keep loading; only predicted tracks wait for Redis to return.
+
+Upstash bills each command a Lua script runs, not just the script; the
+collector's budget is in
+`docs/adr/0008-penn-predicted-tracks-and-board-log.md`.
+
 Create a **Free** Upstash Redis database and set
 `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in local development and
 in the deployed application's environment. Avoid putting credentials in
@@ -185,6 +203,7 @@ Set the following in the deployment environment for live NJ Transit data:
 - `NJT_API_PASSWORD`
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
+- `NJT_ENV=production`
 
 Do not commit `.env.local` or expose any of these values through a
 `NEXT_PUBLIC_` variable.

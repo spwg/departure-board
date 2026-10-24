@@ -141,6 +141,11 @@ export function changeEvent(at: string, source: BoardLogSource, snapshot: TrainS
   return { kind: "change", v: BOARD_LOG_VERSION, at, source, model: CONFIDENCE_MODEL, ...(change as TrainChange) };
 }
 
+/** A train's last entry, once it has left the board. */
+export function goneEvent(at: string, source: BoardLogSource, id: string): BoardLogEvent {
+  return { kind: "gone", v: BOARD_LOG_VERSION, at, source, id };
+}
+
 /** The Eastern minute of the day, 0–1439, a collection is counted under. */
 export function logMinute(at: string): number {
   const { hour, minute } = easternClock(new Date(at));

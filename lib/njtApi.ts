@@ -1,4 +1,5 @@
 import type { RawDeparture } from "./departures";
+import { njtEnvironment } from "./njtEnvironment";
 import type { RawStopList } from "./stops";
 import type { RawVehicle } from "./trainPositions";
 
@@ -9,15 +10,6 @@ import type { RawVehicle } from "./trainPositions";
  */
 
 const UPSTREAM_TIMEOUT_MS = 10_000;
-
-/**
- * NJ Transit's developer portal documents raildata.njt.gov, but that name has
- * no A record yet — it is presumably staged for a move to the .gov domain.
- * njtransit.com is the host that actually serves traffic, and the one NJ
- * Transit's own DepartureVision site calls. Switch via NJT_API_BASE_URL once
- * the .gov host comes up.
- */
-const DEFAULT_BASE_URL = "https://raildata.njtransit.com/api";
 
 /** Thrown when NJT rejects the cached token, so the caller can refresh and retry. */
 export class InvalidTokenError extends Error {
@@ -31,8 +23,20 @@ export class InvalidTokenError extends Error {
   }
 }
 
+/**
+ * NJ Transit answered getToken but refused: the daily limit, or credentials it
+ * does not accept. Unlike a network failure, trying again soon will not help.
+ */
+export class NjtAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NjtAuthError";
+  }
+}
+
+/** The host is NJT_ENV's backend (lib/njtEnvironment), which has no default. */
 function baseUrl(): string {
-  return process.env.NJT_API_BASE_URL?.replace(/\/$/, "") ?? DEFAULT_BASE_URL;
+  return njtEnvironment().baseUrl;
 }
 
 /** The API takes all parameters as multipart form fields, even the token. */
@@ -99,12 +103,12 @@ export async function fetchToken(): Promise<string> {
     // being reused across requests, so say so rather than leaving a bare
     // "daily usage limit" to puzzle over.
     if (/daily usage limit/i.test(error)) {
-      throw new Error(
+      throw new NjtAuthError(
         `NJT authentication failed: ${error}. The token cache is not holding ` +
           `between requests — see the caching note in README.md.`,
       );
     }
-    throw new Error(`NJT authentication failed: ${error}`);
+    throw new NjtAuthError(`NJT authentication failed: ${error}`);
   }
 
   const token =
@@ -115,7 +119,7 @@ export async function fetchToken(): Promise<string> {
   if (!token) {
     // getToken answers with an empty body or Authenticated:"False" when the
     // account exists but is not provisioned for this API.
-    throw new Error(
+    throw new NjtAuthError(
       "NJT authentication failed: no token returned. Check that " +
         "NJT_API_USERNAME/NJT_API_PASSWORD are the API credentials emailed on " +
         "registration rather than a njtransit.com website login.",

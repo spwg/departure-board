@@ -14,6 +14,12 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = false
 preview_urls = false
 
+# Which NJ Transit backend, and so which token keys (lib/njtEnvironment). Not
+# a secret. For a local `wrangler dev`, NJT_ENV in collector/.dev.vars
+# overrides it.
+[vars]
+NJT_ENV = "production"
+
 [triggers]
 crons = ["* * * * *"]
 

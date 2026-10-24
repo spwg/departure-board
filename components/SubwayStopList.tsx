@@ -7,7 +7,14 @@ import { useClockFormat } from "@/lib/clockFormat";
 import { getBoardListing } from "@/lib/boardDirectory";
 import { subwayBoardChoice } from "@/lib/boardChoices";
 import { subwayRouteColor, type SubwayTrip } from "@/lib/subway";
+import {
+  LoadFailureError,
+  failureFromError,
+  failureFromResponse,
+  type LoadFailure,
+} from "@/lib/loadFailure";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { LoadFailureNotice } from "./LoadFailureNotice";
 import { useReportSubwayTrain } from "./SubwayTrainHeader";
 import { TransferLinks } from "./TransferLinks";
 
@@ -28,6 +35,7 @@ type Status = "loading" | "ready" | "missing" | "error";
 export function SubwayStopList({ tripId }: { tripId: string }) {
   const [trip, setTrip] = useState<SubwayTrip | null>(null);
   const [status, setStatus] = useState<Status>("loading");
+  const [failure, setFailure] = useState<LoadFailure>({ kind: "network" });
   const [stale, setStale] = useState(false);
   const { use24Hour } = useClockFormat();
   const loadedOnce = useRef(false);
@@ -48,7 +56,7 @@ export function SubwayStopList({ tripId }: { tripId: string }) {
         setStatus("missing");
         return;
       }
-      if (!response.ok) throw new Error(String(response.status));
+      if (!response.ok) throw new LoadFailureError(await failureFromResponse(response));
 
       const data: SubwayTrip = await response.json();
       setTrip(data);
@@ -61,7 +69,10 @@ export function SubwayStopList({ tripId }: { tripId: string }) {
       // Keep the last good route on screen and mark it stale rather than
       // blanking the page underground.
       if (loadedOnce.current) setStale(true);
-      else setStatus("error");
+      else {
+        setFailure(failureFromError(error));
+        setStatus("error");
+      }
     }
   }, [tripId]);
 
@@ -89,17 +100,12 @@ export function SubwayStopList({ tripId }: { tripId: string }) {
 
   if (status === "error" && !trip) {
     return (
-      <div className="px-5 py-16 text-center">
-        <p className="font-medium">Couldn&apos;t load this train.</p>
-        <p className="mt-1 text-sm text-muted">MTA realtime data may be unavailable.</p>
-        <button
-          type="button"
-          className="mt-5 rounded-full border border-edge px-4 py-2 text-sm font-medium transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-          onClick={() => { setStatus("loading"); void load(); }}
-        >
-          Try again
-        </button>
-      </div>
+      <LoadFailureNotice
+        failure={failure}
+        provider="MTA"
+        subject="this train"
+        onRetry={() => { setStatus("loading"); void load(); }}
+      />
     );
   }
 

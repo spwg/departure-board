@@ -11,13 +11,16 @@ const unstableCache = vi.fn((fn: (...args: unknown[]) => unknown) =>
   },
 );
 vi.mock("next/cache", () => ({ unstable_cache: unstableCache }));
-vi.mock("@/lib/njtTokenStore", () => ({
-  getOrCreateStoredToken: (mint: () => Promise<string>) => mint(),
-  invalidateStoredToken: vi.fn(),
+const getOrCreateStoredToken = vi.fn((mint: () => Promise<string>) => mint());
+const invalidateStoredToken = vi.fn();
+vi.mock("@/lib/njtTokenStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/njtTokenStore")>()),
+  getOrCreateStoredToken,
+  invalidateStoredToken,
 }));
 vi.mock("server-only", () => ({}));
 
-afterEach(() => { delete process.env.NJT_API_USERNAME; delete process.env.NJT_API_PASSWORD; delete process.env.NJT_API_BASE_URL; delete process.env.NJT_USE_FIXTURES; cachedResults.clear(); unstableCache.mockClear(); vi.unstubAllGlobals(); vi.resetModules(); });
+afterEach(() => { delete process.env.NJT_API_USERNAME; delete process.env.NJT_API_PASSWORD; delete process.env.NJT_ENV; delete process.env.NJT_USE_FIXTURES; cachedResults.clear(); unstableCache.mockClear(); getOrCreateStoredToken.mockReset().mockImplementation((mint) => mint()); invalidateStoredToken.mockReset(); vi.unstubAllGlobals(); vi.resetModules(); });
 
 describe("NJT client contract", () => {
   it("uses fixtures while credentials are absent", async () => {
@@ -31,12 +34,12 @@ describe("NJT client contract", () => {
     expect(usingFixtures()).toBe(true); expect((await fetchDepartures("NY")).length).toBeGreaterThan(4); expect(fetchMock).not.toHaveBeenCalled();
   });
   it("requests vehicle positions with a given token, accepting an empty list but not a missing one", async () => {
-    process.env.NJT_API_BASE_URL = "https://api.example";
+    process.env.NJT_ENV = "test";
     const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify([{ ID: "6647", ICS_TRACK_CKT: "X" }]))).mockResolvedValueOnce(new Response("[]")).mockResolvedValueOnce(new Response("")).mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }))).mockResolvedValueOnce(new Response(JSON.stringify({ errorMessage: "Invalid token" })));
     vi.stubGlobal("fetch", fetchMock);
     const { requestVehicles, InvalidTokenError } = await import("@/lib/njtApi");
     expect(await requestVehicles("token")).toEqual([{ ID: "6647", ICS_TRACK_CKT: "X" }]);
-    expect(fetchMock.mock.calls[0][0]).toBe("https://api.example/TrainData/getVehicleData");
+    expect(fetchMock.mock.calls[0][0]).toBe("https://testraildata.njtransit.com/api/TrainData/getVehicleData");
     expect((fetchMock.mock.calls[0][1].body as FormData).get("token")).toBe("token");
     expect(await requestVehicles("token")).toEqual([]);
     await expect(requestVehicles("token")).rejects.toThrow("no vehicle list");
@@ -52,17 +55,52 @@ describe("NJT client contract", () => {
     expect(JSON.stringify(error)).not.toContain("secret-token");
   });
   it("authenticates and sends a multipart schedule request when configured", async () => {
-    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_API_BASE_URL = "https://api.example/";
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_ENV = "production";
     const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ UserToken: "token" }))).mockResolvedValueOnce(new Response(JSON.stringify({ ITEMS: [{ TRAIN_ID: "1" }] })));
     vi.stubGlobal("fetch", fetchMock);
     const { fetchDepartures } = await import("@/lib/njtClient");
     expect(await fetchDepartures("ny")).toEqual([{ TRAIN_ID: "1" }]);
-    expect(fetchMock.mock.calls[0][0]).toBe("https://api.example/TrainData/getToken"); expect(fetchMock.mock.calls[1][0]).toBe("https://api.example/TrainData/getTrainSchedule19Rec");
+    expect(fetchMock.mock.calls[0][0]).toBe("https://raildata.njtransit.com/api/TrainData/getToken"); expect(fetchMock.mock.calls[1][0]).toBe("https://raildata.njtransit.com/api/TrainData/getTrainSchedule19Rec");
   });
   it("identifies rejected schedule tokens and reports malformed upstream data", async () => {
-    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass";
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_ENV = "production";
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ UserToken: "token" }))).mockResolvedValueOnce(new Response(JSON.stringify({ errorMessage: "Invalid token" }))));
     const { fetchDepartures, InvalidTokenError } = await import("@/lib/njtClient");
     await expect(fetchDepartures("NY")).rejects.toBeInstanceOf(InvalidTokenError);
+  });
+
+  it("keeps boards working while Redis is unavailable, minting once and caching durably", async () => {
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_ENV = "production";
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { RedisUnavailableError } = await import("@/lib/njtTokenStore");
+    getOrCreateStoredToken.mockRejectedValue(new RedisUnavailableError("ERR max requests limit exceeded"));
+    invalidateStoredToken.mockRejectedValue(new RedisUnavailableError("ERR max requests limit exceeded"));
+    const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith("getToken") ? { UserToken: "token" } : { ITEMS: [{ TRAIN_ID: "1" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const { fetchDepartures, invalidateToken } = await import("@/lib/njtClient");
+    expect(await fetchDepartures("NY")).toEqual([{ TRAIN_ID: "1" }]);
+    expect(await fetchDepartures("NP")).toEqual([{ TRAIN_ID: "1" }]);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("getToken"))).toHaveLength(1);
+    // Dropping a rejected token does not fail just because Redis cannot be reached.
+    await expect(invalidateToken("token")).resolves.toBeUndefined();
+  });
+  it("stops minting without Redis for a while after NJ Transit refuses", async () => {
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass"; process.env.NJT_ENV = "production";
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { RedisUnavailableError, TokenCooldownError } = await import("@/lib/njtTokenStore");
+    getOrCreateStoredToken.mockRejectedValue(new RedisUnavailableError("down"));
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ errorMessage: "Daily usage limit reached" })));
+    vi.stubGlobal("fetch", fetchMock);
+    const { fetchDepartures } = await import("@/lib/njtClient");
+    await expect(fetchDepartures("NY")).rejects.toThrow(/daily usage limit/i);
+    await expect(fetchDepartures("NY")).rejects.toBeInstanceOf(TokenCooldownError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+  it("refuses to call NJ Transit while NJT_ENV is unset, rather than guess a backend", async () => {
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass";
+    const fetchMock = vi.fn(); vi.stubGlobal("fetch", fetchMock);
+    const { fetchDepartures } = await import("@/lib/njtClient");
+    await expect(fetchDepartures("NY")).rejects.toThrow(/NJT_ENV must be "production" or "test", but it is unset/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -16,7 +16,15 @@ import { addToTable, readingsByTrain, withTrainPositions, type CircuitTable } fr
 
 /** How long an instance reuses the predictions; the collector publishes every minute. */
 const CACHE_MS = 15_000;
+/**
+ * How long an instance stops asking after a failed read. Predictions are
+ * optional, so an unavailable Redis — down, or out of its monthly allowance —
+ * costs one failed read and one log line per instance every few minutes, not
+ * one per board.
+ */
+const FAILURE_BACKOFF_MS = 5 * 60_000;
 let cached: { at: number; snapshot: PredictionSnapshot | null } | null = null;
+let failedAt: number | null = null;
 
 /**
  * Adds each published prediction to its unposted departure. Posted tracks
@@ -50,13 +58,16 @@ function fixtureSnapshot(departures: Departure[], now: number): PredictionSnapsh
 export async function addPredictions(departures: Departure[]): Promise<Departure[]> {
   const now = Date.now();
   if (usingFixtures()) return applyPredictions(departures, fixtureSnapshot(departures, now), now);
+  if (failedAt !== null && now - failedAt < FAILURE_BACKOFF_MS) return departures;
   try {
     if (!cached || now - cached.at > CACHE_MS) {
       cached = { at: now, snapshot: await loadPredictions(redisCommand) };
     }
+    failedAt = null;
     return applyPredictions(departures, cached.snapshot, now);
   } catch (error) {
-    console.error("Penn predictions unavailable:", error);
+    failedAt = now;
+    console.warn(`Penn predictions unavailable; retrying in ${FAILURE_BACKOFF_MS / 60_000} minutes:`, error instanceof Error ? error.message : error);
     return departures;
   }
 }
