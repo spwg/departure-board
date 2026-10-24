@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import type { RawDeparture } from "./departures";
 import { fixtureDepartures, fixtureStopList } from "./fixtures";
 import { fetchToken, requestDepartures, requestStopList } from "./njtApi";
+import { usingFixtures } from "./njtEnvironment";
 import {
   RedisUnavailableError,
   TokenCooldownError,
@@ -30,10 +31,7 @@ export { TokenCooldownError } from "./njtTokenStore";
 
 export const TOKEN_TAG = "njt-token";
 
-/** True when fixtures are forced or API credentials are incomplete. */
-export function usingFixtures(): boolean {
-  return process.env.NJT_USE_FIXTURES === "true" || !process.env.NJT_API_USERNAME || !process.env.NJT_API_PASSWORD;
-}
+export { usingFixtures };
 
 /** This instance's minting while Redis is unavailable: one at a time, and a cooldown after a failure. */
 let localMint: Promise<string> | null = null;

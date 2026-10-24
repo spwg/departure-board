@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NjtAuthError } from "../lib/njtApi";
+import { njtEnvironment } from "../lib/njtEnvironment";
 import {
   createTokenStore,
   createUpstashTokenStore,
@@ -96,7 +97,7 @@ test("the Redis lock has a finite eviction time", async () => {
   const redis = createUpstashTokenStore(async <T>(...command: Array<string | number>) => {
     commands.push(command);
     return "OK" as T;
-  });
+  }, () => njtEnvironment("production"));
 
   assert.equal(await redis.tryAcquireTokenLock(), true);
   assert.deepEqual(commands, [
@@ -235,5 +236,32 @@ test("a minted token is returned even when storing it fails", async () => {
     assert.equal(await store.getOrCreateStoredToken(async () => "minted"), "minted");
   } finally {
     console.error = original;
+  }
+});
+
+test("each NJ Transit backend keeps its token under its own key", async () => {
+  const keysUsed: Array<string | number> = [];
+  const record = async <T>(...command: Array<string | number>) => {
+    keysUsed.push(command[1]);
+    return null as T;
+  };
+  await createUpstashTokenStore(record, () => njtEnvironment("production")).getToken();
+  await createUpstashTokenStore(record, () => njtEnvironment("test")).getToken();
+  assert.deepEqual(keysUsed, ["departure-board:njt-token:v1", "departure-board:test:njt-token:v1"]);
+});
+
+test("the store refuses to touch Redis while NJT_ENV is unset", async () => {
+  const previous = process.env.NJT_ENV;
+  delete process.env.NJT_ENV;
+  let called = false;
+  try {
+    const store = createUpstashTokenStore(async <T>() => {
+      called = true;
+      return null as T;
+    });
+    await assert.rejects(store.getToken(), /NJT_ENV must be/);
+    assert.equal(called, false);
+  } finally {
+    if (previous !== undefined) process.env.NJT_ENV = previous;
   }
 });

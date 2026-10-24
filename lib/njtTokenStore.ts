@@ -1,8 +1,6 @@
 import { NjtAuthError } from "./njtApi";
+import { njtEnvironment, type NjtEnvironment } from "./njtEnvironment";
 
-const REDIS_TOKEN_KEY = "departure-board:njt-token:v1";
-const REDIS_LOCK_KEY = "departure-board:njt-token-lock:v1";
-const REDIS_COOLDOWN_KEY = "departure-board:njt-token-cooldown:v1";
 export const TOKEN_LOCK_SECONDS = 30;
 const TOKEN_WAIT_MS = 1_000;
 const TOKEN_WAIT_TIMEOUT_MS = 10_000;
@@ -107,21 +105,29 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-/** Connects the token store's small interface to Upstash's REST command API. */
+type TokenKeys = Pick<NjtEnvironment, "tokenKey" | "lockKey" | "cooldownKey">;
+
+/**
+ * Connects the token store's small interface to Upstash's REST command API,
+ * under NJT_ENV's keys (lib/njtEnvironment) so each backend keeps its own
+ * token. The keys are read per command, so merely importing this never
+ * requires NJT_ENV.
+ */
 export function createUpstashTokenStore(
   command: RedisCommand = redisCommand,
+  keys: () => TokenKeys = () => njtEnvironment(),
 ): TokenStoreRedis {
   return {
     async getToken() {
-      return command<string | null>("GET", REDIS_TOKEN_KEY);
+      return command<string | null>("GET", keys().tokenKey);
     },
     async setToken(token) {
-      await command<"OK">("SET", REDIS_TOKEN_KEY, token);
+      await command<"OK">("SET", keys().tokenKey, token);
     },
     async tryAcquireTokenLock() {
       const lock = await command<"OK" | null>(
         "SET",
-        REDIS_LOCK_KEY,
+        keys().lockKey,
         crypto.randomUUID(),
         "NX",
         "EX",
@@ -130,15 +136,15 @@ export function createUpstashTokenStore(
       return lock === "OK";
     },
     async releaseTokenLock() {
-      await command<number>("DEL", REDIS_LOCK_KEY);
+      await command<number>("DEL", keys().lockKey);
     },
     async getMintCooldown() {
-      const retryAt = Number(await command<string | null>("GET", REDIS_COOLDOWN_KEY));
+      const retryAt = Number(await command<string | null>("GET", keys().cooldownKey));
       return retryAt > Date.now() ? retryAt : null;
     },
     async setMintCooldown(retryAt) {
       const seconds = Math.max(1, Math.ceil((retryAt - Date.now()) / 1000));
-      await command<"OK">("SET", REDIS_COOLDOWN_KEY, retryAt, "EX", seconds);
+      await command<"OK">("SET", keys().cooldownKey, retryAt, "EX", seconds);
     },
     async deleteTokenIfEqual(token) {
       const compareAndDelete =
@@ -148,7 +154,7 @@ export function createUpstashTokenStore(
         "EVAL",
         compareAndDelete,
         1,
-        REDIS_TOKEN_KEY,
+        keys().tokenKey,
         token,
       );
     },

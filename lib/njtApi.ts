@@ -1,4 +1,5 @@
 import type { RawDeparture } from "./departures";
+import { njtEnvironment } from "./njtEnvironment";
 import type { RawStopList } from "./stops";
 import type { RawVehicle } from "./trainPositions";
 
@@ -9,15 +10,6 @@ import type { RawVehicle } from "./trainPositions";
  */
 
 const UPSTREAM_TIMEOUT_MS = 10_000;
-
-/**
- * NJ Transit's developer portal documents raildata.njt.gov, but that name has
- * no A record yet — it is presumably staged for a move to the .gov domain.
- * njtransit.com is the host that actually serves traffic, and the one NJ
- * Transit's own DepartureVision site calls. Switch via NJT_API_BASE_URL once
- * the .gov host comes up.
- */
-const DEFAULT_BASE_URL = "https://raildata.njtransit.com/api";
 
 /** Thrown when NJT rejects the cached token, so the caller can refresh and retry. */
 export class InvalidTokenError extends Error {
@@ -42,8 +34,9 @@ export class NjtAuthError extends Error {
   }
 }
 
+/** The host is NJT_ENV's backend (lib/njtEnvironment), which has no default. */
 function baseUrl(): string {
-  return process.env.NJT_API_BASE_URL?.replace(/\/$/, "") ?? DEFAULT_BASE_URL;
+  return njtEnvironment().baseUrl;
 }
 
 /** The API takes all parameters as multipart form fields, even the token. */

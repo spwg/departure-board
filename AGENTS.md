@@ -12,13 +12,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 For local integration testing, prefer NJ Transit's test backend so production
 `getToken` quota is not consumed. Start it with `npm run dev:njt-test`, which
-sets `NJT_API_BASE_URL=https://testraildata.njtransit.com/api` while reading
+sets `NJT_ENV=test` (the test host, and token keys of its own) while reading
 credentials from ignored `.env.local`. Do not place credentials in tracked
 files or expose them in command output. Restart the dev server after changing
 environment variables, then verify one station with
 `curl http://127.0.0.1:3000/api/departures/NY`; a live test response reports
-`"fixtures":false`. Use `npm run dev` only when production RailData behavior
-is specifically required.
+`"fixtures":false`. Use `npm run dev` with `NJT_ENV=production` only when
+production RailData behavior is specifically required; `NJT_ENV` has no
+default.
 
 ## Agent skills
 

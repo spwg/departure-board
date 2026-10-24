@@ -7,8 +7,9 @@
  *
  * Secrets (wrangler secret put): NJT_API_USERNAME, NJT_API_PASSWORD,
  * UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, and optionally
- * HEALTHCHECK_URL. With the nodejs_compat flag they arrive in process.env,
- * which the shared modules read.
+ * HEALTHCHECK_URL. NJT_ENV, which picks the NJ Transit backend, is a plain
+ * variable in wrangler.toml. With the nodejs_compat flag they arrive in
+ * process.env, which the shared modules read.
  */
 import { fetchToken, requestDepartures, requestVehicles } from "../lib/njtApi";
 import { getOrCreateStoredToken, invalidateStoredToken, redisCommand } from "../lib/njtTokenStore";
