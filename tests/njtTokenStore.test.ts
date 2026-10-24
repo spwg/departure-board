@@ -158,7 +158,6 @@ test("a timed-out contender leaves minting to a later request after lock expiry"
 
 test("a failed mint starts a cooldown that makes every caller fail fast", async () => {
   let cooldown: number | null = null;
-  let lockHeld = true;
   let attempts = 0;
   const redis: TokenStoreRedis = {
     async getToken() {
@@ -166,7 +165,7 @@ test("a failed mint starts a cooldown that makes every caller fail fast", async 
     },
     async setToken() {},
     async tryAcquireTokenLock() {
-      return lockHeld;
+      return true;
     },
     async getMintCooldown() {
       return cooldown;
