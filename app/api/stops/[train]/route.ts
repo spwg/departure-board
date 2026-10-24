@@ -7,6 +7,7 @@ import {
   invalidateToken,
   usingFixtures,
 } from "@/lib/njtClient";
+import { njtFailureResponse } from "@/lib/njtFailure";
 import { normalizeStopList, type StopList } from "@/lib/stops";
 import { decodeRouteParam } from "@/lib/routeParams";
 
@@ -81,10 +82,7 @@ export async function GET(
     stopList = await getStopList(trainId);
   } catch (error) {
     console.error(`Stops for ${trainId} failed:`, error);
-    return Response.json(
-      { error: "Could not reach NJ Transit" },
-      { status: 502 },
-    );
+    return njtFailureResponse(error);
   }
 
   const body: StopsResponse = {

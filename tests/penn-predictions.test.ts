@@ -41,12 +41,21 @@ describe("Penn predictions on the board", () => {
     expect(redisCommand).toHaveBeenCalledWith("GET", "departure-board:penn-predictions:v1");
   });
 
-  it("shows the board without predictions when Redis fails", async () => {
-    usingFixtures.mockReturnValue(false); vi.spyOn(console, "error").mockImplementation(() => {});
-    redisCommand.mockRejectedValue(new Error("redis down"));
+  it("shows the board without predictions when Redis fails, and stops asking for a while", async () => {
+    usingFixtures.mockReturnValue(false); vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers(); vi.setSystemTime(NOW);
+    redisCommand.mockReset().mockRejectedValue(new Error("ERR max requests limit exceeded"));
     const { addPredictions } = await import("@/lib/pennPredictions");
     const departures = [base];
     expect(await addPredictions(departures)).toBe(departures);
+    vi.setSystemTime(NOW + 60_000);
+    expect(await addPredictions(departures)).toBe(departures);
+    expect(redisCommand).toHaveBeenCalledTimes(1);
+    // Once the backoff passes, a recovered Redis brings predictions back.
+    redisCommand.mockResolvedValue(JSON.stringify(snapshot(new Date(NOW + 5 * 60_000).toISOString())));
+    vi.setSystemTime(NOW + 5 * 60_000 + 1);
+    expect((await addPredictions(departures))[0].position).toEqual(position);
+    expect(redisCommand).toHaveBeenCalledTimes(2);
   });
 
   it("predicts from canned vehicles and history for fixtures, without Redis", async () => {

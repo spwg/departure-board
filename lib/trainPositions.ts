@@ -221,6 +221,15 @@ export function parseCircuitTable(flat: string[] | null | undefined): CircuitTab
   return table;
 }
 
+/** The inverse of parseCircuitTable: a table as HGETALL's flat reply. */
+export function flattenCircuitTable(table: CircuitTable): string[] {
+  const flat: string[] = [];
+  for (const [circuit, counts] of table) {
+    for (const [track, count] of counts) flat.push(circuitField(circuit, track), String(count));
+  }
+  return flat;
+}
+
 export function addToTable(
   table: CircuitTable,
   circuit: string,

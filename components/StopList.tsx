@@ -5,10 +5,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { StopsResponse } from "@/app/api/stops/[train]/route";
 import { formatClock } from "@/lib/departures";
 import { responseLiveTime } from "@/lib/freshness";
+import {
+  LoadFailureError,
+  failureFromError,
+  failureFromResponse,
+  type LoadFailure,
+} from "@/lib/loadFailure";
 import { useClockFormat } from "@/lib/clockFormat";
 import { getStation, lineColor } from "@/lib/stations";
 import type { Stop, StopList as StopListData } from "@/lib/stops";
 import { FreshnessWarning } from "./FreshnessWarning";
+import { LoadFailureNotice } from "./LoadFailureNotice";
 import { TransferLinks } from "./TransferLinks";
 import { useReportTrainLine } from "./TrainServiceStatus";
 
@@ -24,6 +31,7 @@ type Status = "loading" | "ready" | "missing" | "error";
 export function StopList({ train, from }: { train: string; from: string }) {
   const [stopList, setStopList] = useState<StopListData | null>(null);
   const [status, setStatus] = useState<Status>("loading");
+  const [failure, setFailure] = useState<LoadFailure>({ kind: "network" });
   const [fixtures, setFixtures] = useState(false);
   const [stale, setStale] = useState(false);
   const [lastLiveAt, setLastLiveAt] = useState<number | null>(null);
@@ -45,7 +53,7 @@ export function StopList({ train, from }: { train: string; from: string }) {
           setStatus("missing");
           return;
         }
-        if (!response.ok) throw new Error(String(response.status));
+        if (!response.ok) throw new LoadFailureError(await failureFromResponse(response));
 
         const data: StopsResponse = await response.json();
         const fromCache = response.headers.get("X-From-Cache") === "1";
@@ -61,12 +69,15 @@ export function StopList({ train, from }: { train: string; from: string }) {
               : Date.now(),
         );
         loadedOnce.current = true;
-      } catch {
+      } catch (error) {
         if (signal?.aborted) return;
         // Keep the last good list on screen and mark it stale rather than
         // blanking the page on a platform with bad signal.
         if (loadedOnce.current) setStale(true);
-        else setStatus("error");
+        else {
+          setFailure(failureFromError(error));
+          setStatus("error");
+        }
       }
     },
     [train],
@@ -100,22 +111,15 @@ export function StopList({ train, from }: { train: string; from: string }) {
 
   if (status === "error") {
     return (
-      <div className="px-5 py-16 text-center">
-        <p className="font-medium text-text">Couldn&apos;t load stops.</p>
-        <p className="mt-1 text-sm text-muted">
-          NJ Transit may be unavailable. Check your connection and try again.
-        </p>
-        <button
-          type="button"
-          className="mt-5 rounded-full border border-edge px-4 py-2 text-sm font-medium text-text transition-colors hover:bg-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-          onClick={() => {
-            setStatus("loading");
-            void load();
-          }}
-        >
-          Try again
-        </button>
-      </div>
+      <LoadFailureNotice
+        failure={failure}
+        provider="NJ Transit"
+        subject="stops"
+        onRetry={() => {
+          setStatus("loading");
+          void load();
+        }}
+      />
     );
   }
 

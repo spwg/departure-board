@@ -11,13 +11,16 @@ const unstableCache = vi.fn((fn: (...args: unknown[]) => unknown) =>
   },
 );
 vi.mock("next/cache", () => ({ unstable_cache: unstableCache }));
-vi.mock("@/lib/njtTokenStore", () => ({
-  getOrCreateStoredToken: (mint: () => Promise<string>) => mint(),
-  invalidateStoredToken: vi.fn(),
+const getOrCreateStoredToken = vi.fn((mint: () => Promise<string>) => mint());
+const invalidateStoredToken = vi.fn();
+vi.mock("@/lib/njtTokenStore", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/njtTokenStore")>()),
+  getOrCreateStoredToken,
+  invalidateStoredToken,
 }));
 vi.mock("server-only", () => ({}));
 
-afterEach(() => { delete process.env.NJT_API_USERNAME; delete process.env.NJT_API_PASSWORD; delete process.env.NJT_API_BASE_URL; delete process.env.NJT_USE_FIXTURES; cachedResults.clear(); unstableCache.mockClear(); vi.unstubAllGlobals(); vi.resetModules(); });
+afterEach(() => { delete process.env.NJT_API_USERNAME; delete process.env.NJT_API_PASSWORD; delete process.env.NJT_API_BASE_URL; delete process.env.NJT_USE_FIXTURES; cachedResults.clear(); unstableCache.mockClear(); getOrCreateStoredToken.mockReset().mockImplementation((mint) => mint()); invalidateStoredToken.mockReset(); vi.unstubAllGlobals(); vi.resetModules(); });
 
 describe("NJT client contract", () => {
   it("uses fixtures while credentials are absent", async () => {
@@ -64,5 +67,33 @@ describe("NJT client contract", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ UserToken: "token" }))).mockResolvedValueOnce(new Response(JSON.stringify({ errorMessage: "Invalid token" }))));
     const { fetchDepartures, InvalidTokenError } = await import("@/lib/njtClient");
     await expect(fetchDepartures("NY")).rejects.toBeInstanceOf(InvalidTokenError);
+  });
+
+  it("keeps boards working while Redis is unavailable, minting once and caching durably", async () => {
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass";
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { RedisUnavailableError } = await import("@/lib/njtTokenStore");
+    getOrCreateStoredToken.mockRejectedValue(new RedisUnavailableError("ERR max requests limit exceeded"));
+    invalidateStoredToken.mockRejectedValue(new RedisUnavailableError("ERR max requests limit exceeded"));
+    const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith("getToken") ? { UserToken: "token" } : { ITEMS: [{ TRAIN_ID: "1" }] })));
+    vi.stubGlobal("fetch", fetchMock);
+    const { fetchDepartures, invalidateToken } = await import("@/lib/njtClient");
+    expect(await fetchDepartures("NY")).toEqual([{ TRAIN_ID: "1" }]);
+    expect(await fetchDepartures("NP")).toEqual([{ TRAIN_ID: "1" }]);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("getToken"))).toHaveLength(1);
+    // Dropping a rejected token does not fail just because Redis cannot be reached.
+    await expect(invalidateToken("token")).resolves.toBeUndefined();
+  });
+  it("stops minting without Redis for a while after NJ Transit refuses", async () => {
+    process.env.NJT_API_USERNAME = "user"; process.env.NJT_API_PASSWORD = "pass";
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { RedisUnavailableError, TokenCooldownError } = await import("@/lib/njtTokenStore");
+    getOrCreateStoredToken.mockRejectedValue(new RedisUnavailableError("down"));
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ errorMessage: "Daily usage limit reached" })));
+    vi.stubGlobal("fetch", fetchMock);
+    const { fetchDepartures } = await import("@/lib/njtClient");
+    await expect(fetchDepartures("NY")).rejects.toThrow(/daily usage limit/i);
+    await expect(fetchDepartures("NY")).rejects.toBeInstanceOf(TokenCooldownError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

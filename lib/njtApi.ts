@@ -31,6 +31,17 @@ export class InvalidTokenError extends Error {
   }
 }
 
+/**
+ * NJ Transit answered getToken but refused: the daily limit, or credentials it
+ * does not accept. Unlike a network failure, trying again soon will not help.
+ */
+export class NjtAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NjtAuthError";
+  }
+}
+
 function baseUrl(): string {
   return process.env.NJT_API_BASE_URL?.replace(/\/$/, "") ?? DEFAULT_BASE_URL;
 }
@@ -99,12 +110,12 @@ export async function fetchToken(): Promise<string> {
     // being reused across requests, so say so rather than leaving a bare
     // "daily usage limit" to puzzle over.
     if (/daily usage limit/i.test(error)) {
-      throw new Error(
+      throw new NjtAuthError(
         `NJT authentication failed: ${error}. The token cache is not holding ` +
           `between requests — see the caching note in README.md.`,
       );
     }
-    throw new Error(`NJT authentication failed: ${error}`);
+    throw new NjtAuthError(`NJT authentication failed: ${error}`);
   }
 
   const token =
@@ -115,7 +126,7 @@ export async function fetchToken(): Promise<string> {
   if (!token) {
     // getToken answers with an empty body or Authenticated:"False" when the
     // account exists but is not provisioned for this API.
-    throw new Error(
+    throw new NjtAuthError(
       "NJT authentication failed: no token returned. Check that " +
         "NJT_API_USERNAME/NJT_API_PASSWORD are the API credentials emailed on " +
         "registration rather than a njtransit.com website login.",

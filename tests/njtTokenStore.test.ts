@@ -1,11 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { NjtAuthError } from "../lib/njtApi";
 import {
   createTokenStore,
   createUpstashTokenStore,
+  FAILED_MINT_COOLDOWN_MS,
+  REFUSED_MINT_COOLDOWN_MS,
   TOKEN_LOCK_SECONDS,
+  TokenCooldownError,
   type TokenStoreRedis,
 } from "../lib/njtTokenStore";
+
+/** The parts of the store a test does not care about. */
+const idle = {
+  async releaseTokenLock() {},
+  async getMintCooldown() {
+    return null;
+  },
+  async setMintCooldown() {},
+};
 
 function deferred<T = void>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -27,6 +40,7 @@ test("a contender waits for the writer to store its token", { timeout: 1_000 }, 
   const releaseSecondPoll = deferred();
 
   const redis: TokenStoreRedis = {
+    ...idle,
     async getToken() {
       return token;
     },
@@ -102,6 +116,7 @@ test("a timed-out contender leaves minting to a later request after lock expiry"
   let tokensMinted = 0;
   let lockEvicted = false;
   const redis: TokenStoreRedis = {
+    ...idle,
     async getToken() {
       return null;
     },
@@ -139,4 +154,86 @@ test("a timed-out contender leaves minting to a later request after lock expiry"
     "replacement",
   );
   assert.equal(tokensMinted, 1);
+});
+
+test("a failed mint starts a cooldown that makes every caller fail fast", async () => {
+  let cooldown: number | null = null;
+  let lockHeld = true;
+  let attempts = 0;
+  const redis: TokenStoreRedis = {
+    async getToken() {
+      return null;
+    },
+    async setToken() {},
+    async tryAcquireTokenLock() {
+      return lockHeld;
+    },
+    async releaseTokenLock() {
+      lockHeld = true;
+    },
+    async getMintCooldown() {
+      return cooldown;
+    },
+    async setMintCooldown(retryAt) {
+      cooldown = retryAt;
+    },
+    async deleteTokenIfEqual() {},
+  };
+  const store = createTokenStore(redis, { now: () => 1_000 });
+  const refuse = async () => {
+    attempts += 1;
+    throw new NjtAuthError("NJT authentication failed: Daily usage limit reached");
+  };
+
+  await assert.rejects(store.getOrCreateStoredToken(refuse), /Daily usage limit/);
+  assert.equal(cooldown, 1_000 + REFUSED_MINT_COOLDOWN_MS);
+  await assert.rejects(store.getOrCreateStoredToken(refuse), TokenCooldownError);
+  assert.equal(attempts, 1, "nobody tries getToken again during the cooldown");
+});
+
+test("a network failure cools down for less time than a refusal", async () => {
+  let cooldown: number | null = null;
+  const redis: TokenStoreRedis = {
+    ...idle,
+    async getToken() {
+      return null;
+    },
+    async setToken() {},
+    async tryAcquireTokenLock() {
+      return true;
+    },
+    async setMintCooldown(retryAt) {
+      cooldown = retryAt;
+    },
+    async deleteTokenIfEqual() {},
+  };
+  const store = createTokenStore(redis, { now: () => 0 });
+  await assert.rejects(store.getOrCreateStoredToken(async () => {
+    throw new Error("fetch failed");
+  }));
+  assert.equal(cooldown, FAILED_MINT_COOLDOWN_MS);
+});
+
+test("a minted token is returned even when storing it fails", async () => {
+  const redis: TokenStoreRedis = {
+    ...idle,
+    async getToken() {
+      return null;
+    },
+    async setToken() {
+      throw new Error("ERR max requests limit exceeded");
+    },
+    async tryAcquireTokenLock() {
+      return true;
+    },
+    async deleteTokenIfEqual() {},
+  };
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const store = createTokenStore(redis);
+    assert.equal(await store.getOrCreateStoredToken(async () => "minted"), "minted");
+  } finally {
+    console.error = original;
+  }
 });

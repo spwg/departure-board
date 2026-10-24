@@ -156,6 +156,17 @@ several tokens. Next's Data Cache sits in front to avoid a Redis read on every
 board refresh. The token is replaced only when NJ Transit reports that it has
 gone bad.
 
+A failed `getToken` starts a cooldown, kept in Redis, during which nobody tries
+again: an hour after NJ Transit refuses (the daily limit, or credentials it
+does not accept), two minutes after a network failure. Meanwhile NJ Transit
+boards say live data is paused and when it resumes. If Redis itself is
+unavailable, the app mints the token without it and keeps it in the Data Cache,
+so boards keep loading; only predicted tracks wait for Redis to return.
+
+Upstash bills each command a Lua script runs, not just the script; the
+collector's budget is in
+`docs/adr/0008-penn-predicted-tracks-and-board-log.md`.
+
 Create a **Free** Upstash Redis database and set
 `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in local development and
 in the deployed application's environment. Avoid putting credentials in
