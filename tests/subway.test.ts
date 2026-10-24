@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { transit_realtime } from "gtfs-realtime-bindings";
 import {
   decodeSubwayBoard,
   decodeSubwayTrip,
@@ -11,11 +10,12 @@ import {
   subwayRouteColor,
   type FeedFamily,
 } from "@/lib/subway";
+import { encodeFeed } from "./gtfsRealtimeEncode";
 
 const snapshot = (bytes: Uint8Array, family: FeedFamily = "numbered") => ({ family, bytes });
 
 function fixture() {
-  return transit_realtime.FeedMessage.encode({
+  return encodeFeed({
     header: { gtfsRealtimeVersion: "2.0", timestamp: 1_786_000_000 },
     entity: [
       {
@@ -58,7 +58,7 @@ function fixture() {
         },
       },
     ],
-  }).finish();
+  });
 }
 
 describe("MTA realtime board contract", () => {
@@ -94,7 +94,7 @@ describe("MTA realtime board contract", () => {
   });
 
   it("can project exact provider stations without expanding their complex", () => {
-    const feed = transit_realtime.FeedMessage.encode({
+    const feed = encodeFeed({
       header: { gtfsRealtimeVersion: "2.0", timestamp: 1_786_000_000 },
       entity: [
         {
@@ -118,7 +118,7 @@ describe("MTA realtime board contract", () => {
           },
         },
       ],
-    }).finish();
+    });
     const metadata = {
       stopNames: { "101": "Van Cortlandt Park-242 St", A27: "42 St-Port Authority Bus Terminal" },
       stations: [
@@ -137,7 +137,7 @@ describe("MTA realtime board contract", () => {
   it("rejects malformed protobuf and a missing source timestamp", () => {
     const metadata = { stopNames: {}, stations: [{ id: "128", name: "Penn", complexId: "318", routes: ["1"], latitude: 0, longitude: 0, directions: { N: "Uptown", S: "Downtown" } }] };
     expect(() => decodeSubwayBoard([snapshot(Uint8Array.of(255))], ["128"], metadata)).toThrow();
-    const noTimestamp = transit_realtime.FeedMessage.encode({ header: { gtfsRealtimeVersion: "2.0" }, entity: [] }).finish();
+    const noTimestamp = encodeFeed({ header: { gtfsRealtimeVersion: "2.0" }, entity: [] });
     expect(() => decodeSubwayBoard([snapshot(noTimestamp)], ["128"], metadata)).toThrow("timestamp");
   });
 
@@ -146,14 +146,14 @@ describe("MTA realtime board contract", () => {
     expect(getSubwayStation("127")?.name).toBe("Times Sq-42 St");
     expect(subwayMetadata.stations.length).toBeGreaterThan(450);
 
-    const feed = transit_realtime.FeedMessage.encode({
+    const feed = encodeFeed({
       header: { gtfsRealtimeVersion: "2.0", timestamp: 1_786_000_000 },
       entity: [
         { id: "broadway", tripUpdate: { trip: { tripId: "n", routeId: "N" }, stopTimeUpdate: [{ stopId: "R20N", departure: { time: 1_786_000_100 } }, { stopId: "R01N", arrival: { time: 1_786_001_000 } }] } },
         { id: "lex", tripUpdate: { trip: { tripId: "4", routeId: "4" }, stopTimeUpdate: [{ stopId: "635N", departure: { time: 1_786_000_200 } }, { stopId: "401N", arrival: { time: 1_786_001_000 } }] } },
         { id: "canarsie", tripUpdate: { trip: { tripId: "l", routeId: "L" }, stopTimeUpdate: [{ stopId: "L03N", departure: { time: 1_786_000_300 } }, { stopId: "L01N", arrival: { time: 1_786_001_000 } }] } },
       ],
-    }).finish();
+    });
     const board = decodeSubwayBoard([snapshot(feed, "nqrw")], ["R20"], subwayMetadata);
     expect(board.station.memberIds).toEqual(expect.arrayContaining(["R20", "635", "L03"]));
     expect(board.departures.map(({ route, direction }) => [route, direction])).toEqual([
@@ -174,10 +174,10 @@ describe("MTA realtime board contract", () => {
   });
 
   it("uses provider-native destinations when a station direction label is absent", () => {
-    const feed = transit_realtime.FeedMessage.encode({
+    const feed = encodeFeed({
       header: { gtfsRealtimeVersion: "2.0", timestamp: 1_786_000_000 },
       entity: [{ id: "terminal", tripUpdate: { trip: { tripId: "r", routeId: "R" }, stopTimeUpdate: [{ stopId: "R01S", departure: { time: 1_786_000_100 } }, { stopId: "R27S", arrival: { time: 1_786_001_000 } }] } }],
-    }).finish();
+    });
     const station = getSubwayStation("R01")!;
     const board = decodeSubwayBoard([snapshot(feed, "nqrw")], ["R01"], {
       ...subwayMetadata,
@@ -239,10 +239,10 @@ describe("MTA realtime board contract", () => {
   });
 
   it("retains cross-family reroutes without filtering on assignment or movement confidence", () => {
-    const feed = transit_realtime.FeedMessage.encode({
+    const feed = encodeFeed({
       header: { gtfsRealtimeVersion: "2.0", timestamp: 1_786_000_000 },
       entity: [{ id: "reroute", tripUpdate: { trip: { tripId: "f-reroute", routeId: "F" }, stopTimeUpdate: [{ stopId: "A28N", departure: { time: 1_786_000_100 } }, { stopId: "D13N", arrival: { time: 1_786_001_000 } }] } }],
-    }).finish();
+    });
     const board = decodeSubwayBoard([snapshot(feed, "bdfm")], ["A28"], subwayMetadata);
     expect(board.departures[0]).toMatchObject({ id: "mta:bdfm:f-reroute:A28", route: "F", direction: "Uptown" });
     expect(board.feedTimestamps.bdfm).toBe(board.sourceTimestamp);
