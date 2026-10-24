@@ -168,8 +168,9 @@ response's `Date` header and would show old times as current.
 
 ### Supply chain
 
-- Runtime dependencies are few: Next.js, React, `gtfs-realtime-bindings`, and
-  Vercel's analytics. `package-lock.json` pins every transitive version.
+- Runtime dependencies are few: Next.js, React and Vercel's analytics.
+  MTA's GTFS-Realtime feeds are decoded in-repo (`lib/gtfsRealtime.ts`), not
+  by a protobuf library. `package-lock.json` pins every transitive version.
 - `.github/dependabot.yml` limits Dependabot to security updates, for npm and
   GitHub Actions.
 - CI's actions are pinned to full commit SHAs, so a moved or compromised tag
@@ -179,11 +180,10 @@ response's `Date` header and would show old times as current.
   update `main`, and blocks force pushes and deletion. GitHub Apps, deploy
   keys, Actions and any collaborator can push branches but not `main`, and the
   owner can still push to it directly.
-- Several dependencies run install scripts during Vercel's build, and
-  `gtfs-realtime-bindings` brings its code-generation tooling into the
-  production install. Only modules the app imports reach the deployed bundle,
-  but any installed package with an install script runs it during the build,
-  with access to the build's environment variables. Keeping the dependency list short, and taking only security
+- Every installed package, development tooling included, is present during
+  Vercel's build, and any with an install script runs it there, with access
+  to the build's environment variables. Only modules the app imports reach the
+  deployed bundle. Keeping the dependency list short, and taking only security
   updates rather than every release, limits that exposure.
 
 ## Residual risks
