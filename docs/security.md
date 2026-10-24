@@ -1,134 +1,181 @@
 # Security
 
-How the site is protected, what a review on 2026-10-24 found and fixed, and
-the settings outside this repository that matter as much as its code.
+What the site has worth protecting, who could attack it and how, and which
+controls stop each attack. Some of those controls live in this repository and
+some in the platforms it deploys to; both are described here, because removing
+either kind reopens the same attack.
+
+## What there is to protect
+
+The site has no accounts, cookies or write endpoints, and stores nothing about
+its visitors on a server: favorites and preferences stay in the browser's
+`localStorage`. So the assets are few:
+
+- **NJ Transit's daily allowance.** RailData allows 10 `getToken` calls and
+  40,000 data calls a day for the whole account. Spending either takes every
+  board down until midnight. This is the asset most exposed to attack.
+- **Credentials.** The NJ Transit RailData username and password, and the
+  Upstash Redis REST token. They live in Vercel's and Cloudflare's environment
+  settings and in an ignored `.env.local`.
+- **The integrity of what riders see.** A rider acting on a board that has
+  been tampered with, or that passes old times off as current, could miss a
+  train.
+- **The deployment pipeline.** Pushes to `main` deploy both the app (Vercel)
+  and the collector Worker (Cloudflare Workers Builds).
 
 ## Attack surface
 
-The site has no accounts, cookies or write endpoints. Everything a visitor can
-reach is a GET: prerendered pages and six JSON routes under `app/api/` that
-read NJ Transit RailData, NJ Transit's advisory RSS feed, and MTA's
-GTFS-Realtime feeds. Preferences and favorites stay in the browser's
-`localStorage`. The Penn collector (`collector/`) is a Cloudflare Worker with
-a cron trigger only: it has no HTTP handler and no public URL.
+- **Pages.** Prerendered App Router pages. They take only route segments
+  (station codes, train numbers, Subway station and trip IDs) as input.
+- **Six JSON routes under `app/api/`**, all `GET`. They read NJ Transit
+  RailData, NJ Transit's advisory RSS feed, and MTA's GTFS-Realtime feeds.
+- **The service worker** (`public/sw.js`), which caches same-origin `GET`
+  responses for offline use.
+- **The collector** (`collector/`), a Cloudflare Worker with a cron trigger
+  and no HTTP handler. With `workers_dev = false` and `preview_urls = false`
+  it has no public URL, so it cannot be reached from outside.
+- **Upstream feeds.** NJ Transit's and MTA's responses are untrusted input:
+  their text is shown to riders, and an advisory carries a link.
 
-The secrets are NJ Transit's API username and password and the Upstash Redis
-REST token. They live in Vercel's and Cloudflare's environment settings and in
-an ignored `.env.local`, never in the repository.
+Trust boundaries: the visitor's browser and the upstream feeds are untrusted.
+The app, the collector, Upstash, and the Vercel and Cloudflare accounts that
+hold the credentials are trusted.
 
-So the risks that matter are:
+## Threats and controls
 
-1. **Spending NJ Transit's quota.** RailData allows 10 `getToken` calls and
-   40,000 data calls a day for the whole account. Exhausting either takes the
-   site down for every rider until midnight.
-2. **Leaking a secret** through code, logs, error responses or CI.
-3. **Script injection** through upstream text shown on a page.
-4. **The supply chain**: npm dependencies, GitHub Actions, and the accounts
-   that deploy `main` automatically.
+### Spending NJ Transit's allowance
 
-## What the review found
+Every request that misses the cache becomes a RailData call, and the inputs
+are cheap to vary: 167 station codes and 9,999 valid train numbers.
+Looping over `/api/stops/1` … `/api/stops/9999` from one machine would spend
+the day's 40,000 calls in minutes.
 
-| # | Finding | Severity | Status |
-|---|---|---|---|
-| 1 | Any client could spend the day's NJ Transit data calls in minutes by requesting `/api/stops/1` … `/api/stops/9999`: every train number is its own cache entry. | High | Mitigated in code. Also needs a platform rate limit (below). |
-| 2 | Concurrent requests that missed the departures or stops cache each called NJ Transit. | Medium | Fixed: one call per station or train at a time. |
-| 3 | `/api/subway/departures/` took any number of comma-separated station IDs, and `/api/service-advisories` any number of `line` parameters. Each costs CPU per item. | Low | Fixed: at most 8 station IDs (the largest complex has 5) and 4 short line codes, deduplicated. |
-| 4 | The Content Security Policy did not restrict script sources, so injected markup could load a script from anywhere. | Medium | Fixed: every fetch directive is `'self'`. |
-| 5 | No `Strict-Transport-Security`, `Permissions-Policy` or `Cross-Origin-Opener-Policy`; `X-Powered-By` advertised Next.js. | Low | Fixed. |
-| 6 | `npm audit` reported 7 advisories (5 high) in transitive packages: `undici`, `vite`, `vitest`, `zod`, `markdown-it`, `source-map-js`. All are build, lint or test tooling, not reachable from a request. | Low | Fixed in `package-lock.json`; `npm audit` reports none. |
-| 7 | CI used actions by movable tag and left the checkout token in `.git/config` while dependency install scripts and tests ran. | Low | Fixed: pinned to commit SHAs, `persist-credentials: false`. |
+Controls, outermost first:
 
-### Checked and sound
+1. **Vercel Firewall rate limit on `/api/`**, per IP. This is the control that
+   stops a flood. It is a dashboard setting, not code.
+2. **Vercel Authentication on preview deployments** (Standard Protection).
+   Previews run with the production NJ Transit credentials, so an open preview
+   URL would be a second way in that skips the production domain. Only
+   logged-in members of the Vercel team can open one.
+3. **Per-instance call budget** (`lib/njtCallBudget.ts`). Each app instance
+   may make 40 RailData data calls at once and 20 a minute sustained. Past
+   that, a cache miss answers 503 with `Retry-After` and `kind: "upstream"`,
+   so the page offers to try again. Fixture mode and the collector are not
+   counted.
+4. **Short shared caches with single-flight loading.** A station's board is
+   shared for 20 seconds and a train's stops for 60, and concurrent misses for
+   the same station or train wait on one call (`lib/departureBoard.ts`,
+   `app/api/stops/[train]/route.ts`). An unknown train number is cached like
+   any other, so repeating one costs nothing.
+5. **Input validation before any upstream call.** Station codes must be in the
+   station list, train numbers must match `/^\d{1,4}$/`, and Subway station
+   and trip IDs must exist in MTA metadata. Anything else is a 404 that never
+   reaches NJ Transit or MTA.
 
-- **No XSS sinks.** The only `dangerouslySetInnerHTML` is the static theme
-  script in `app/layout.tsx`, built from constants. Advisory and alert text is
-  rendered as React text, and advisory links are kept only if they are
-  `http:` or `https:` (`webLink` in `components/ServiceStatus.tsx`). External
-  links use `rel="noreferrer"`.
-- **No SSRF.** Every upstream URL is a constant. Request input only becomes a
-  form field or a lookup key, and each route validates it first: station codes
-  against the station list, train numbers against `/^\d{1,4}$/`, Subway
-  stations and routes against MTA metadata.
-- **No secrets in responses or logs.** Error responses are generic. Upstream
-  error bodies are logged (truncated) but never returned. The rejected token
-  on `InvalidTokenError` is non-enumerable, so logging the error leaves it
-  out. A scan of the tree and its git history found no committed credentials.
-- **Redis keys are fixed.** Request input never becomes a Redis key or a Lua
-  argument.
-- **The token's 10 a day** is guarded by an Upstash lock and a shared cooldown
-  (`lib/njtTokenStore.ts`). A visitor cannot force a mint: only NJ Transit
-  rejecting the token starts one.
-- **The service worker** caches same-origin GETs only.
+`getToken`'s 10 a day is protected separately (`lib/njtTokenStore.ts`): one
+token is shared by every instance and the collector, minted only under an
+Upstash lock, and a failed attempt starts a shared cooldown. A visitor cannot
+cause a mint; only NJ Transit rejecting the token does.
 
-## Protections in code
+### Exhausting server resources
 
-- **NJ Transit call budget** (`lib/njtCallBudget.ts`). Each app instance may
-  make 40 RailData data calls at once and 20 a minute sustained. Beyond that,
-  a request that misses the cache gets a 503 with `Retry-After` and
-  `kind: "upstream"`, so the page offers to try again. Fixture mode and the
-  collector are not counted. The budget is per instance: it limits the damage
-  but cannot prevent it, because a flood that spreads across many instances
-  gets each one's allowance. The platform rate limit below is what stops it.
-- **Single-flight caches** in `lib/departureBoard.ts` and
-  `app/api/stops/[train]/route.ts`.
-- **Input bounds** on every API route.
-- **Headers** (`next.config.ts`): CSP, HSTS, `Permissions-Policy` (location
-  for this site only, for nearby stations), COOP, `X-Frame-Options`,
-  `nosniff`, `Referrer-Policy`.
+Two routes take lists, and each item costs CPU: `/api/subway/departures/`
+(comma-separated station IDs) and `/api/service-advisories` (repeated `line`
+parameters). Both are deduplicated and capped, at 8 station IDs (the largest
+complex has 5) and 4 line codes of up to 4 characters. MTA's feeds are fetched
+once per feed family however many stations ask, and every upstream call has a
+10-second timeout.
 
-  Inline scripts remain allowed. A nonce would block them, but nonces need
-  every page rendered per request, which gives up the prerendering Cache
-  Components provides. Next's experimental Subresource Integrity support
-  (`experimental.sri`) is the path to removing `'unsafe-inline'` later.
+### Script injection
 
-## Settings outside this repository
+Text from NJ Transit and MTA reaches the page, so the feeds are the realistic
+source of injected markup.
 
-These are not in the code, and some matter more than anything above. They
-were not checked in this review because they live in Vercel, Cloudflare,
-Upstash and GitHub.
+- React escapes everything rendered. The only `dangerouslySetInnerHTML` is the
+  theme script in `app/layout.tsx`, which is built from constants.
+- Advisory links are kept only when their scheme is `http:` or `https:`
+  (`webLink` in `components/ServiceStatus.tsx`), so a feed cannot plant a
+  `javascript:` link. External links open with `rel="noreferrer"`.
+- The Content Security Policy (`next.config.ts`) limits every fetch directive
+  to `'self'`, so even injected markup cannot load a script, frame, font or
+  stylesheet from another origin, or send data to one.
 
-### Vercel (the app)
+### Clickjacking and cross-origin interference
 
-- **Add a rate limit on `/api/`** under Firewall → Rules: for example, 60
-  requests a minute per IP, answered with 429. A rider polls each board about
-  twice a minute, so normal use stays well under this. This rule is what
-  prevents finding 1; the in-code budget only limits it.
-- Keep **Attack Challenge Mode** in mind for an active flood.
-- **Deployment Protection** on preview deployments: if previews have the
-  production NJ Transit and Upstash credentials, a public preview URL is another way
-  to spend the same quota.
-- Keep production and preview credentials in Vercel's **sensitive**
-  environment variables, so they cannot be read back from the dashboard.
-- The CSP blocks the Vercel Toolbar's scripts, which come from
-  `vercel.live`. If you use the Toolbar on previews, allow that origin for
-  preview builds only (`VERCEL_ENV=preview`).
+`frame-ancestors 'none'` and `X-Frame-Options: DENY` stop other sites from
+framing the board. `Cross-Origin-Opener-Policy: same-origin` cuts the link to
+any window the site is opened from or opens. `Permissions-Policy` grants
+location to this origin only, for nearby stations, and denies camera,
+microphone, payment and USB.
 
-### Upstash
+### Request forgery
 
-- The app and the collector share one REST token with full access. Upstash's
-  ACL can issue each its own credential, limited to the commands and
-  `departure-board:*` keys it uses, so that a leak of either can be revoked
-  without the other.
-- Rotate the token if it was ever pasted into a terminal, chat or issue.
+None of the endpoints change anything and the site sets no cookies, so a
+forged request has nothing to act on and no session to ride.
 
-### Cloudflare (the collector)
+### Server-side request forgery
 
-- Keep `workers_dev = false` and `preview_urls = false` (set in
-  `collector/wrangler.toml`), so the Worker never gets a public URL.
-- Workers Builds deploys every push to `main`. Use a Cloudflare API token
-  scoped to this Worker, and require two-factor authentication on the account.
+Every upstream URL is a constant. Request input only becomes a form field sent
+to NJ Transit, or a key to look up in local metadata, and only after the
+validation above. No request can choose where the server connects.
 
-### GitHub
+### Credential exposure
 
+- `.env*` (except `.env.example`), `.dev.vars*` and `.wrangler/` are ignored.
+  The repository and its history hold no credentials.
+- Error responses are generic. Upstream error bodies are logged, truncated to
+  200 characters, but never returned to the browser.
+- `InvalidTokenError` keeps the rejected token in a non-enumerable property,
+  so logging the error leaves the token out.
+- Request input never becomes a Redis key or a Lua argument; every key is a
+  constant.
+- CI checks out with `persist-credentials: false`, so the GitHub token is not
+  on disk while dependency install scripts and tests run.
+
+### Stale data presented as live
+
+The service worker answers from its cache only when the network fails, and it
+marks those responses `X-From-Cache` with the time they were last live, so the
+board labels them as stale. Over the call budget the app answers 503 rather
+than serving an older board, because the client judges freshness from the
+response's `Date` header and would show old times as current.
+
+### Supply chain
+
+- Runtime dependencies are few: Next.js, React, `gtfs-realtime-bindings`, and
+  Vercel's analytics. `package-lock.json` pins every transitive version.
+- `.github/dependabot.yml` limits Dependabot to security updates, for npm and
+  GitHub Actions.
+- CI's actions are pinned to full commit SHAs, so a moved or compromised tag
+  cannot change what runs.
 - Both Vercel and Cloudflare deploy `main` automatically, so whoever can push
-  to `main` controls production. Protect it with a ruleset: pull requests
-  only, the CI check required, no force pushes.
-- Turn on **secret scanning with push protection**, Dependabot alerts and
-  Dependabot security updates. `.github/dependabot.yml` opens security
-  updates only; they also cover the SHA-pinned actions in CI.
-- Require two-factor authentication on accounts with write access.
+  to it controls production. Its GitHub branch protection (pull requests only,
+  CI required, no force pushes) is part of the site's security, not only a
+  workflow convenience.
 
-### NJ Transit
+## Residual risks
 
-- If the RailData password was ever shared or committed elsewhere, change it
-  on the developer portal and update Vercel and Cloudflare together.
+These are accepted, or depend on a decision not yet taken.
+
+- **Inline scripts are allowed.** The CSP includes `script-src
+  'unsafe-inline'`. Removing it needs per-request nonces, which would give up
+  the prerendered pages Cache Components provides. Next's experimental
+  Subresource Integrity support (`experimental.sri`) is the likely path. Until
+  then, an injected inline script would run; the defense is that React escapes
+  upstream text, so markup cannot become a script in the first place.
+- **The call budget is per instance.** A flood spread across many instances
+  gets each one's allowance. The Vercel rate limit is what bounds the total.
+  The rate limit is per IP, so a distributed flood could still get through;
+  Vercel's Attack Challenge Mode is the response to one in progress.
+- **Previews share production's NJ Transit allowance.** Strangers cannot reach
+  a preview, but team members testing on one spend the same daily calls as the
+  live site. Pointing previews at the test backend (`NJT_ENV=test` with test
+  credentials) or at fixtures (`NJT_USE_FIXTURES=true`) would separate them.
+- **One Upstash token, full access.** The app and the collector share a REST
+  token that can run any command on the database. A leak of either exposes
+  both, and revoking it stops both. Upstash's ACL can issue each a credential
+  limited to its own commands and the `departure-board:*` keys.
+- **The CSP blocks the Vercel Toolbar** on previews, since its scripts come
+  from `vercel.live`. That origin would have to be allowed for preview builds
+  only (`VERCEL_ENV=preview`) to use it.
