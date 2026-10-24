@@ -54,7 +54,6 @@ export interface TokenStoreRedis {
   getToken(): Promise<string | null>;
   setToken(token: string): Promise<void>;
   tryAcquireTokenLock(): Promise<boolean>;
-  releaseTokenLock(): Promise<void>;
   deleteTokenIfEqual(token: string): Promise<void>;
   /** When minting may be tried again, or null when it may be tried now. */
   getMintCooldown(): Promise<number | null>;
@@ -135,9 +134,6 @@ export function createUpstashTokenStore(
       );
       return lock === "OK";
     },
-    async releaseTokenLock() {
-      await command<number>("DEL", keys().lockKey);
-    },
     async getMintCooldown() {
       const retryAt = Number(await command<string | null>("GET", keys().cooldownKey));
       return retryAt > Date.now() ? retryAt : null;
@@ -167,7 +163,10 @@ export function createUpstashTokenStore(
  * SET NX lets exactly one Vercel instance become the writer. Contenders poll
  * for that writer's result rather than minting their own token. A failed mint
  * starts a cooldown (mintCooldownMs) during which every caller fails fast with
- * TokenCooldownError instead of trying getToken again.
+ * TokenCooldownError instead of trying getToken again. The failed writer keeps
+ * the lock until it expires: a contender that read "no cooldown" just before
+ * the failure then cannot take the lock and mint, and on its next poll finds
+ * the cooldown, which always outlasts the lock.
  */
 export function createTokenStore(
   redis: TokenStoreRedis,
@@ -197,7 +196,6 @@ export function createTokenStore(
         } catch (error) {
           // Best-effort: the mint's own error is the one worth reporting.
           await redis.setMintCooldown(now() + mintCooldownMs(error)).catch(() => {});
-          await redis.releaseTokenLock().catch(() => {});
           throw error;
         }
         // The token is good even if storing it fails; minting it again would

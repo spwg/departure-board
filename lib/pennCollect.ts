@@ -36,6 +36,8 @@ import {
 export const PENN_STATION = "NY";
 
 const SOURCE: BoardLogSource = "collector";
+/** A train number recurs daily; record its pairing again on a later day. */
+const SEEN_MS = 12 * 60 * 60 * 1000;
 
 export type CollectDeps = {
   redis: RedisCommand;
@@ -100,7 +102,12 @@ export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
   const readings: Map<string, VehicleReading> = rawVehicles ? readingsByTrain(rawVehicles, boardTrains) : new Map();
 
   const previous = await loadCollectorState(deps.redis);
-  const state: CollectorState = { ...previous, trains: {} };
+  const now = Date.parse(at);
+  const state: CollectorState = {
+    ...previous,
+    trains: {},
+    seen: Object.fromEntries(Object.entries(previous.seen).filter(([, until]) => until > now)),
+  };
 
   // The history is only needed to predict, so only when the vehicle feed
   // answered. It is aged out of its window on the day's first such run and
@@ -110,24 +117,21 @@ export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
   let table: CircuitTable = new Map();
   if (rawVehicles) {
     if (previous.table === null || previous.tableDay !== today) {
-      state.table = await ageHistory(deps.redis, Date.parse(at));
+      state.table = await ageHistory(deps.redis, now);
       state.tableDay = today;
     }
     table = parseCircuitTable(state.table);
   }
 
-  // Each pairing is recorded once per train, however many minutes it stands there.
+  // Each pairing is recorded once per train per day, however many minutes it
+  // stands there and even if it drops off the board in between.
   const pairings: string[] = [];
-  const seen = new Map<string, string[]>();
-  for (const observation of circuitObservations(departures, readings)) {
-    const id = trainId(observation);
-    const field = circuitField(observation.circuit, observation.track);
-    const fields = seen.get(id) ?? previous.trains[id]?.seen ?? [];
-    if (!fields.includes(field)) {
-      pairings.push(field);
-      addToTable(table, observation.circuit, observation.track);
-    }
-    seen.set(id, fields.includes(field) ? fields : [...fields, field]);
+  for (const { trainNumber, circuit, track } of circuitObservations(departures, readings)) {
+    const pairing = `${trainNumber}|${circuit}|${track}`;
+    if (state.seen[pairing]) continue;
+    state.seen[pairing] = now + SEEN_MS;
+    pairings.push(circuitField(circuit, track));
+    addToTable(table, circuit, track);
   }
   if (rawVehicles) state.table = flattenCircuitTable(table);
 
@@ -145,7 +149,7 @@ export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
     const key = hashKey(changeKey(snapshot));
     if (!last) entries.push(JSON.stringify(firstEvent(at, SOURCE, snapshot)));
     else if (last.key !== key) entries.push(JSON.stringify(changeEvent(at, SOURCE, snapshot)));
-    state.trains[snapshot.id] = { key, seen: seen.get(snapshot.id) ?? last?.seen ?? [] };
+    state.trains[snapshot.id] = { key };
   }
   for (const id of Object.keys(previous.trains)) {
     if (!state.trains[id]) entries.push(JSON.stringify(goneEvent(at, SOURCE, id)));

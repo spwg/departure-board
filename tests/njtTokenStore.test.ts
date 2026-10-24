@@ -14,7 +14,6 @@ import {
 
 /** The parts of the store a test does not care about. */
 const idle = {
-  async releaseTokenLock() {},
   async getMintCooldown() {
     return null;
   },
@@ -169,9 +168,6 @@ test("a failed mint starts a cooldown that makes every caller fail fast", async 
     async tryAcquireTokenLock() {
       return lockHeld;
     },
-    async releaseTokenLock() {
-      lockHeld = true;
-    },
     async getMintCooldown() {
       return cooldown;
     },
@@ -264,4 +260,52 @@ test("the store refuses to touch Redis while NJT_ENV is unset", async () => {
   } finally {
     if (previous !== undefined) process.env.NJT_ENV = previous;
   }
+});
+
+test("a contender that missed the cooldown cannot mint while the failed writer's lock stands", async () => {
+  // The contender read "no cooldown" before the writer failed; it then finds
+  // the lock still held, and the cooldown on its next poll.
+  let cooldown: number | null = null;
+  let lockFree = true;
+  let cooldownReads = 0;
+  let contenderMinted = false;
+  const writerFailing = deferred();
+  const redis: TokenStoreRedis = {
+    async getToken() {
+      return null;
+    },
+    async setToken() {},
+    async tryAcquireTokenLock() {
+      if (!lockFree) return false;
+      lockFree = false;
+      return true;
+    },
+    async getMintCooldown() {
+      cooldownReads += 1;
+      return cooldown;
+    },
+    async setMintCooldown(retryAt) {
+      cooldown = retryAt;
+    },
+    async deleteTokenIfEqual() {},
+  };
+  const store = createTokenStore(redis, { now: () => 0, wait: async () => {} });
+  const writer = store.getOrCreateStoredToken(async () => {
+    await writerFailing.promise;
+    throw new Error("fetch failed");
+  });
+  const contender = store.getOrCreateStoredToken(async () => {
+    contenderMinted = true;
+    return "should not mint";
+  });
+  writerFailing.resolve();
+  await assert.rejects(writer, /fetch failed/);
+  await assert.rejects(contender, TokenCooldownError);
+  assert.equal(contenderMinted, false);
+  assert.ok(cooldownReads >= 2);
+});
+
+test("every cooldown outlasts the mint lock", () => {
+  assert.ok(FAILED_MINT_COOLDOWN_MS > TOKEN_LOCK_SECONDS * 1000);
+  assert.ok(REFUSED_MINT_COOLDOWN_MS > TOKEN_LOCK_SECONDS * 1000);
 });

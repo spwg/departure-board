@@ -50,8 +50,15 @@ export const PREDICTIONS_TTL = 3 * 60;
 /** What the collector remembers between runs. */
 export type CollectorState = {
   v: 1;
-  /** Per train id on the board: its last logged change key, hashed, and the pairing fields already recorded for it. */
-  trains: Record<string, { key: number; seen: string[] }>;
+  /** Per train id on the board: its last logged change key, hashed. */
+  trains: Record<string, { key: number }>;
+  /**
+   * Pairings already recorded, as "train number|circuit|track", with when
+   * each may be recorded again. Kept apart from `trains` so a train that
+   * briefly leaves the board (a full-screen station alert empties it) is not
+   * counted twice when it returns.
+   */
+  seen: Record<string, number>;
   /** The running history counts as HGETALL returns them, as of the last collection. */
   table: string[] | null;
   /** The Eastern day `table` was last aged and reloaded on. */
@@ -63,7 +70,7 @@ export type CollectorState = {
 };
 
 export function emptyCollectorState(): CollectorState {
-  return { v: 1, trains: {}, table: null, tableDay: null, pollsDay: null, pairingsDay: null };
+  return { v: 1, trains: {}, seen: {}, table: null, tableDay: null, pollsDay: null, pairingsDay: null };
 }
 
 /** The collector's state from its last run, or a fresh one when none is current. */
@@ -72,7 +79,9 @@ export async function loadCollectorState(redis: RedisCommand): Promise<Collector
   if (!raw) return emptyCollectorState();
   try {
     const parsed = JSON.parse(raw) as CollectorState;
-    return parsed?.v === 1 && parsed.trains && typeof parsed.trains === "object" ? parsed : emptyCollectorState();
+    return parsed?.v === 1 && parsed.trains && typeof parsed.trains === "object"
+      ? { ...parsed, seen: parsed.seen && typeof parsed.seen === "object" ? parsed.seen : {} }
+      : emptyCollectorState();
   } catch {
     return emptyCollectorState();
   }

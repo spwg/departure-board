@@ -120,6 +120,25 @@ describe("Penn collector", () => {
     expect(Object.keys(third.state.trains)).toEqual(["3861|2026-09-28T20:10:00.000Z"]);
   });
 
+  it("does not record a pairing twice when its train briefly leaves the board", async () => {
+    const d = deps();
+    await collectPenn(d);
+    expect(saved(saves(d.redis)[0]).pairings).toEqual(["P7\t7"]);
+    // A full-screen station alert empties the board for a minute.
+    const board = d.njt.departures;
+    d.njt.departures = vi.fn(async () => []);
+    await collectPenn({ ...d, now: () => NOW + 60_000 });
+    d.njt.departures = board;
+    await collectPenn({ ...d, now: () => NOW + 120_000 });
+    const back = saved(saves(d.redis)[2]);
+    expect(back.pairings).toEqual([]);
+    // The trains are logged afresh, as when they first appeared.
+    expect(back.entries.map((entry) => entry.kind)).toEqual(["first", "first"]);
+    // A day later the same train number is a new run, and is recorded again.
+    await collectPenn({ ...d, now: () => NOW + 13 * 60 * 60_000 });
+    expect(saved(saves(d.redis).at(-1)!).pairings).toEqual(["P7\t7"]);
+  });
+
   it("still logs the board, marked unable to predict, when the vehicle feed fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const d = deps({ njt: { departures: vi.fn(async () => [raw("3861", "", 10)]), vehicles: vi.fn(async () => { throw new Error("down"); }) } });
