@@ -24,6 +24,8 @@ const CACHE_MS = 15_000;
  */
 const FAILURE_BACKOFF_MS = 5 * 60_000;
 let cached: { at: number; snapshot: PredictionSnapshot | null } | null = null;
+/** The read in flight, so a burst of New York boards makes one Redis call. */
+let loading: Promise<PredictionSnapshot | null> | null = null;
 let failedAt: number | null = null;
 
 /**
@@ -61,7 +63,10 @@ export async function addPredictions(departures: Departure[]): Promise<Departure
   if (failedAt !== null && now - failedAt < FAILURE_BACKOFF_MS) return departures;
   try {
     if (!cached || now - cached.at > CACHE_MS) {
-      cached = { at: now, snapshot: await loadPredictions(redisCommand) };
+      loading ??= loadPredictions(redisCommand).finally(() => {
+        loading = null;
+      });
+      cached = { at: now, snapshot: await loading };
     }
     failedAt = null;
     return applyPredictions(departures, cached.snapshot, now);

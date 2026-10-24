@@ -70,11 +70,11 @@ describe("service-advisory source", () => {
     expect(matchServiceAdvisories(advisories, { lineCodes: ["PR"] }).map((notice) => notice.id)).toEqual(["dinky-1"]);
   });
 
-  it("briefly caches successful RSS responses without caching external failures", async () => {
+  it("briefly caches successful RSS responses, and external failures only for seconds", async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(new Response(feed))
       .mockResolvedValueOnce(new Response("down", { status: 503 }))
-      .mockResolvedValueOnce(new Response("down", { status: 503 }));
+      .mockResolvedValueOnce(new Response(feed));
     let now = 0;
     const source = createServiceAdvisorySource(fetcher, () => now);
 
@@ -86,6 +86,10 @@ describe("service-advisory source", () => {
     now = 120_000;
     await expect(source.get()).rejects.toThrow("Rail advisory RSS failed: 503");
     await expect(source.get()).rejects.toThrow("Rail advisory RSS failed: 503");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+
+    now = 135_000;
+    await expect(source.get()).resolves.toHaveLength(4);
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
 

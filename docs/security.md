@@ -78,14 +78,39 @@ token is shared by every instance and the collector, minted only under an
 Upstash lock, and a failed attempt starts a shared cooldown. A visitor cannot
 cause a mint; only NJ Transit rejecting the token does.
 
-### Exhausting server resources
+### Spending the other upstreams and the hosting
+
+MTA, NJ Transit's advisory RSS feed, Upstash and Vercel are not metered as
+tightly as RailData, but a flood that reached them per request would still
+cost money, hit a free tier's limit, or get the site blocked upstream. So no
+visitor request reaches them directly:
+
+- **Pages never call an upstream while rendering.** Only the `/api/` routes
+  do, and those sit behind the rate limit. Most pages are prerendered; the
+  train pages render per request, which costs Vercel function time but
+  nothing upstream.
+- **Every upstream is read through an instance-wide cache** that does not
+  depend on request input: MTA's GTFS-Realtime feeds for 30 seconds per feed
+  family, its alerts and NJ Transit's advisory feed for 90 seconds, and the
+  collector's Penn predictions in Upstash for 15 seconds. However many
+  stations, routes or trains are asked for, each instance makes at most one
+  call per resource per interval, and concurrent misses wait on that one call
+  (`lib/sharedLoader.ts`, `fetchSubwayFeed` in `lib/subway.ts`,
+  `lib/pennPredictions.ts`).
+- **Failures are remembered briefly.** While an upstream is down, the alert
+  and advisory feeds are asked again only every 15 seconds and the
+  predictions every 5 minutes, rather than on every request, and each call
+  has a 10-second timeout. An outage therefore neither hammers the upstream
+  nor holds Vercel functions open waiting on it. MTA's train feeds serve the
+  last good copy instead, when they have one.
+- **Upstash sees no visitor traffic beyond that.** The NJ Transit token is
+  read from Next's Data Cache and goes to Redis only when the cache is empty
+  or NJ Transit rejects the token. Request input never becomes a Redis key.
 
 Two routes take lists, and each item costs CPU: `/api/subway/departures/`
 (comma-separated station IDs) and `/api/service-advisories` (repeated `line`
 parameters). Both are deduplicated and capped, at 8 station IDs (the largest
-complex has 5) and 4 line codes of up to 4 characters. MTA's feeds are fetched
-once per feed family however many stations ask, and every upstream call has a
-10-second timeout.
+complex has 5) and 4 line codes of up to 4 characters.
 
 ### Script injection
 
@@ -150,9 +175,16 @@ response's `Date` header and would show old times as current.
 - CI's actions are pinned to full commit SHAs, so a moved or compromised tag
   cannot change what runs.
 - Both Vercel and Cloudflare deploy `main` automatically, so whoever can push
-  to it controls production. Its GitHub branch protection (pull requests only,
-  CI required, no force pushes) is part of the site's security, not only a
-  workflow convenience.
+  to it controls production. A GitHub ruleset lets only the repository admin
+  update `main`, and blocks force pushes and deletion. GitHub Apps, deploy
+  keys, Actions and any collaborator can push branches but not `main`, and the
+  owner can still push to it directly.
+- Several dependencies run install scripts during Vercel's build, and
+  `gtfs-realtime-bindings` brings its code-generation tooling into the
+  production install. Only modules the app imports reach the deployed bundle,
+  but any installed package with an install script runs it during the build,
+  with access to the build's environment variables. Keeping the dependency list short, and taking only security
+  updates rather than every release, limits that exposure.
 
 ## Residual risks
 
