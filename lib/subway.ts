@@ -1,4 +1,4 @@
-import { transit_realtime } from "gtfs-realtime-bindings";
+import { decodeFeedMessage } from "./gtfsRealtime";
 import subwayHeadsigns from "./subway-headsigns.json";
 import subwayStations from "./subway-stations.json";
 import subwayStopNames from "./subway-stops.json";
@@ -122,9 +122,8 @@ export function getSubwayStationRoutes(stationIds: string[]): string[] {
   ];
 }
 
-function seconds(value: number | { toNumber(): number } | null | undefined): number | null {
-  if (value == null) return null;
-  return typeof value === "number" ? value : value.toNumber();
+function seconds(value: number | null | undefined): number | null {
+  return value ?? null;
 }
 
 function parentStopId(stopId: string): string {
@@ -162,7 +161,7 @@ export function decodeSubwayBoard(
     throw new Error(`Unknown Subway station: ${stationIds.join(",")}`);
   }
   const memberById = new Map(members.map((station) => [station.id, station]));
-  const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: transit_realtime.FeedMessage.decode(bytes) }));
+  const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: decodeFeedMessage(bytes) }));
   const generated = feeds.map(({ feed }) => seconds(feed.header.timestamp));
   if (generated.some((timestamp) => !timestamp || !Number.isFinite(timestamp))) {
     throw new Error("Missing MTA feed timestamp");
@@ -263,7 +262,7 @@ export function decodeSubwayTrip(
 
   for (const { family, bytes } of feedSnapshots) {
     if (family !== parsed.family) continue;
-    const feed = transit_realtime.FeedMessage.decode(bytes);
+    const feed = decodeFeedMessage(bytes);
     const timestamp = seconds(feed.header.timestamp);
     if (!timestamp || !Number.isFinite(timestamp)) {
       throw new Error("Missing MTA feed timestamp");
@@ -331,7 +330,7 @@ const feedCache = new Map<FeedFamily, { at: number; bytes: Uint8Array }>();
 const pendingFeeds = new Map<FeedFamily, Promise<Uint8Array>>();
 
 function validateFeed(bytes: Uint8Array): void {
-  const feed = transit_realtime.FeedMessage.decode(bytes);
+  const feed = decodeFeedMessage(bytes);
   const timestamp = seconds(feed.header.timestamp);
   if (!timestamp || !Number.isFinite(timestamp)) throw new Error("Missing MTA feed timestamp");
 }
