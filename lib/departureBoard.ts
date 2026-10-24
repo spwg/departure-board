@@ -22,6 +22,8 @@ import { addPredictions } from "./pennPredictions";
  */
 const TTL_MS = 20_000;
 const cache = new Map<string, { at: number; departures: Departure[] }>();
+/** Loads in flight, so a burst of requests for one station makes one NJ Transit call. */
+const pending = new Map<string, Promise<Departure[]>>();
 
 /** Train ids already reported by warnUnexpectedTrainIds, so each is logged once per instance. */
 const warnedTrainIds = new Set<string>();
@@ -46,9 +48,18 @@ function warnUnexpectedTrainIds(stationCode: string, departures: Departure[]): v
  */
 export async function getDepartures(stationCode: string): Promise<Departure[]> {
   const hit = cache.get(stationCode);
-  const now = Date.now();
-  if (hit && now - hit.at < TTL_MS) return hit.departures;
+  if (hit && Date.now() - hit.at < TTL_MS) return hit.departures;
 
+  let load = pending.get(stationCode);
+  if (!load) {
+    load = loadDepartures(stationCode).finally(() => pending.delete(stationCode));
+    pending.set(stationCode, load);
+  }
+  return load;
+}
+
+async function loadDepartures(stationCode: string): Promise<Departure[]> {
+  const now = Date.now();
   const withFreshToken = async <T>(fetcher: () => Promise<T>): Promise<T> => {
     try {
       return await fetcher();

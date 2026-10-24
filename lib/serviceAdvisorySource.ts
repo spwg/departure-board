@@ -1,4 +1,5 @@
 import "server-only";
+import { createSharedLoader } from "./sharedLoader";
 import { lineName } from "./stations";
 import {
   advisoryRevision,
@@ -8,6 +9,8 @@ import {
 const RAIL_ADVISORIES_URL =
   "https://www.njtransit.com/rss/RailAdvisories_feed.xml";
 const CACHE_MS = 90_000;
+/** How long a failed fetch is remembered before NJ Transit's feed is asked again. */
+const FAILURE_BACKOFF_MS = 15_000;
 
 export type AdvisoryMatch = {
   /** Provide station only for a station board. Train pages use lineCodes only. */
@@ -140,29 +143,28 @@ export function matchServiceAdvisories(
   );
 }
 
-/** Builds an injectable briefly cached RSS source so failures never poison it. */
+/**
+ * Builds an injectable, briefly cached RSS source. A failure is remembered for
+ * only a few seconds (lib/sharedLoader), so it never outlives a short blip.
+ */
 export function createServiceAdvisorySource(
   fetcher: Fetcher = fetch,
   clock: () => number = Date.now,
 ) {
-  let cached: { at: number; notices: ServiceAdvisory[] } | null = null;
-
-  const get = async (): Promise<ServiceAdvisory[]> => {
-    const now = clock();
-    if (cached && now - cached.at < CACHE_MS) return cached.notices;
-
-    const response = await fetcher(RAIL_ADVISORIES_URL, {
-      headers: { accept: "application/rss+xml, application/xml;q=0.9" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) {
-      throw new Error(`Rail advisory RSS failed: ${response.status}`);
-    }
-    const notices = parseServiceAdvisories(await response.text());
-    cached = { at: now, notices };
-    return notices;
-  };
+  const get = createSharedLoader(
+    async (): Promise<ServiceAdvisory[]> => {
+      const response = await fetcher(RAIL_ADVISORIES_URL, {
+        headers: { accept: "application/rss+xml, application/xml;q=0.9" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) {
+        throw new Error(`Rail advisory RSS failed: ${response.status}`);
+      }
+      return parseServiceAdvisories(await response.text());
+    },
+    { ttlMs: CACHE_MS, failureBackoffMs: FAILURE_BACKOFF_MS, clock },
+  );
 
   return {
     get,

@@ -1,4 +1,5 @@
 import "server-only";
+import { createSharedLoader } from "./sharedLoader";
 import type { ServiceAdvisory } from "./serviceAdvisories";
 import type { ServiceAdvisorySnapshot } from "./serviceAdvisorySource";
 import { matchSubwayAlerts, parseSubwayAlerts, type SubwayAlert, type SubwayAlertFeed } from "./subwayAlerts";
@@ -7,31 +8,32 @@ import { matchSubwayAlerts, parseSubwayAlerts, type SubwayAlert, type SubwayAler
 const SUBWAY_ALERTS_URL =
   "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/camsys%2Fsubway-alerts.json";
 const CACHE_MS = 90_000;
+/** How long a failed fetch is remembered before MTA's feed is asked again. */
+const FAILURE_BACKOFF_MS = 15_000;
 
 type Fetcher = typeof fetch;
 
-/** Builds an injectable, briefly cached alerts source so failures never poison it. */
+/**
+ * Builds an injectable, briefly cached alerts source. A failure is remembered
+ * for only a few seconds (lib/sharedLoader), so it never outlives a short blip.
+ */
 export function createSubwayAlertSource(
   fetcher: Fetcher = fetch,
   clock: () => number = Date.now,
 ) {
-  let cached: { at: number; alerts: SubwayAlert[] } | null = null;
-
-  const get = async (): Promise<SubwayAlert[]> => {
-    const now = clock();
-    if (cached && now - cached.at < CACHE_MS) return cached.alerts;
-
-    const response = await fetcher(SUBWAY_ALERTS_URL, {
-      headers: { accept: "application/json" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!response.ok) throw new Error(`Subway alerts failed: ${response.status}`);
-    const feed: SubwayAlertFeed = await response.json();
-    const alerts = parseSubwayAlerts(feed, now);
-    cached = { at: now, alerts };
-    return alerts;
-  };
+  const get = createSharedLoader(
+    async (): Promise<SubwayAlert[]> => {
+      const response = await fetcher(SUBWAY_ALERTS_URL, {
+        headers: { accept: "application/json" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok) throw new Error(`Subway alerts failed: ${response.status}`);
+      const feed: SubwayAlertFeed = await response.json();
+      return parseSubwayAlerts(feed, clock());
+    },
+    { ttlMs: CACHE_MS, failureBackoffMs: FAILURE_BACKOFF_MS, clock },
+  );
 
   return {
     /**
