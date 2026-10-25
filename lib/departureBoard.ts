@@ -9,6 +9,7 @@ import {
 } from "./njtClient";
 import { PENN_STATION } from "./pennCollect";
 import { addPredictions } from "./pennPredictions";
+import { note } from "./requestTiming";
 
 /**
  * Briefly shares departures between everyone watching the same station.
@@ -48,10 +49,15 @@ function warnUnexpectedTrainIds(stationCode: string, departures: Departure[]): v
  */
 export async function getDepartures(stationCode: string): Promise<Departure[]> {
   const hit = cache.get(stationCode);
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.departures;
+  if (hit && Date.now() - hit.at < TTL_MS) {
+    note("cache", "hit");
+    return hit.departures;
+  }
 
   let load = pending.get(stationCode);
-  if (!load) {
+  if (load) note("cache", "joined");
+  else {
+    note("cache", "miss");
     load = loadDepartures(stationCode).finally(() => pending.delete(stationCode));
     pending.set(stationCode, load);
   }

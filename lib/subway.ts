@@ -1,19 +1,13 @@
 import { transit_realtime } from "gtfs-realtime-bindings";
 import subwayHeadsigns from "./subway-headsigns.json";
-import subwayStations from "./subway-stations.json";
 import subwayStopNames from "./subway-stops.json";
+import { note } from "./requestTiming";
+import { SUBWAY_STATIONS, type SubwayStation } from "./subwayStations";
 
-export type SubwayStation = {
-  id: string;
-  name: string;
-  complexId: string;
-  routes: string[];
-  latitude: number;
-  longitude: number;
-  directions: Partial<Record<"N" | "S", string>>;
-};
-
-export const SUBWAY_STATIONS = subwayStations as SubwayStation[];
+// Re-exported so server code keeps one import. Client components import the
+// small modules directly: this one carries the protobuf decoder and feed data.
+export { isSubwayRoute, subwayRouteColor } from "./subwayRoutes";
+export { SUBWAY_STATIONS, getSubwayStation, type SubwayStation } from "./subwayStations";
 
 export const PENN_123 = {
   id: "128",
@@ -79,31 +73,6 @@ export type SubwayMetadata = {
   stations: SubwayStation[];
   headsigns?: Record<string, string>;
 };
-
-const ROUTE_COLORS: Record<string, string> = {
-  "1": "#EE352E", "2": "#EE352E", "3": "#EE352E",
-  "4": "#00933C", "5": "#00933C", "6": "#00933C", "6X": "#00933C",
-  "7": "#B933AD", "7X": "#B933AD",
-  A: "#0039A6", C: "#0039A6", E: "#0039A6",
-  B: "#FF6319", D: "#FF6319", F: "#FF6319", FX: "#FF6319", M: "#FF6319",
-  G: "#6CBE45", J: "#996633", Z: "#996633", L: "#A7A9AC",
-  N: "#FCCC0A", Q: "#FCCC0A", R: "#FCCC0A", W: "#FCCC0A",
-  S: "#808183", FS: "#808183", GS: "#808183", H: "#808183",
-  SI: "#0039A6", SIR: "#0039A6",
-};
-
-export function subwayRouteColor(route: string): string {
-  return ROUTE_COLORS[route] ?? "#808183";
-}
-
-/** Whether a route id is one of MTA's Subway routes. */
-export function isSubwayRoute(route: string): boolean {
-  return Object.hasOwn(ROUTE_COLORS, route);
-}
-
-export function getSubwayStation(stationId: string): SubwayStation | undefined {
-  return SUBWAY_STATIONS.find((station) => station.id === stationId);
-}
 
 export function getSubwayStationMembers(stationId: string, metadata: SubwayMetadata = subwayMetadata): SubwayStation[] {
   const selected = metadata.stations.find((station) => station.id === stationId);
@@ -342,6 +311,7 @@ export async function fetchSubwayFeed(family: FeedFamily): Promise<Uint8Array> {
   if (cached && now - cached.at < TTL_MS) return cached.bytes;
   const pending = pendingFeeds.get(family);
   if (pending) return pending;
+  note("cache", "miss");
   const request = fetch(SUBWAY_FEEDS[family], { cache: "no-store", signal: AbortSignal.timeout(10_000) })
     .then(async (response) => {
       if (!response.ok) throw new Error(`MTA ${family} feed returned ${response.status}`);

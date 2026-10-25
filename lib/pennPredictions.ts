@@ -5,6 +5,7 @@ import { fixturePositionHistory, fixtureVehicles } from "./fixtures";
 import { usingFixtures } from "./njtClient";
 import { redisCommand } from "./njtTokenStore";
 import { PREDICTIONS_TTL, loadPredictions, type PredictionSnapshot } from "./pennStore";
+import { timed } from "./requestTiming";
 import { addToTable, readingsByTrain, withTrainPositions, type CircuitTable } from "./trainPositions";
 
 /**
@@ -63,7 +64,7 @@ export async function addPredictions(departures: Departure[]): Promise<Departure
   if (failedAt !== null && now - failedAt < FAILURE_BACKOFF_MS) return departures;
   try {
     if (!cached || now - cached.at > CACHE_MS) {
-      loading ??= loadPredictions(redisCommand).finally(() => {
+      loading ??= timed("predictions", () => loadPredictions(redisCommand)).finally(() => {
         loading = null;
       });
       cached = { at: now, snapshot: await loading };

@@ -5,7 +5,7 @@ import {
   type BoardChoice,
 } from "./boardChoices";
 import { distanceKm, normalizeStationName, stations } from "./stations";
-import { SUBWAY_STATIONS } from "./subway";
+import { SUBWAY_STATIONS } from "./subwayStations";
 
 /**
  * The one directory Home searches: every station board either system can open,

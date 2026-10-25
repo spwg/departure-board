@@ -10,6 +10,7 @@ import {
 import { njtFailureResponse } from "@/lib/njtFailure";
 import { normalizeStopList, type StopList } from "@/lib/stops";
 import { decodeRouteParam } from "@/lib/routeParams";
+import { note, withRequestTiming } from "@/lib/requestTiming";
 
 export type StopsResponse = {
   stopList: StopList;
@@ -36,7 +37,8 @@ const pending = new Map<string, Promise<StopList>>();
 
 function getStopList(trainId: string): Promise<StopList> {
   let load = pending.get(trainId);
-  if (!load) {
+  if (load) note("cache", "joined");
+  else {
     load = loadStopList(trainId).finally(() => pending.delete(trainId));
     pending.set(trainId, load);
   }
@@ -51,8 +53,10 @@ async function loadStopList(trainId: string): Promise<StopList> {
   cache.delete(trainId);
   if (hit && now - hit.at < TTL_MS) {
     cache.set(trainId, hit);
+    note("cache", "hit");
     return hit.stopList;
   }
+  note("cache", "miss");
 
   let raw;
   try {
@@ -78,6 +82,10 @@ export async function GET(
 ) {
   const { train } = await context.params;
   const trainId = decodeRouteParam(train).trim();
+  return withRequestTiming("stops", { train: trainId.slice(0, 16) }, () => stopsResponse(trainId));
+}
+
+async function stopsResponse(trainId: string): Promise<Response> {
 
   // Reached by URL rather than by tapping a row, so the board's filters have
   // to be applied again here — this app shows NJ Transit trains only.

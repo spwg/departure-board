@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
+import type { SubwayBoard as Board } from "@/lib/subway";
+import { reportBoardReady } from "@/lib/boardTiming";
+import { takeEarlyBoardFetch } from "@/lib/earlyBoardFetch";
+import { subwayRouteColor } from "@/lib/subwayRoutes";
 import {
   LoadFailureError,
   failureFromError,
@@ -35,10 +38,12 @@ export function SubwayBoard({
   const [now, setNow] = useState(0);
   const loaded = useRef(false);
 
+  const apiPath = `/api/subway/departures/${stationId}${expandComplex ? "" : "?exact=true"}`;
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
-      const exactQuery = expandComplex ? "" : "?exact=true";
-      const response = await fetch(`/api/subway/departures/${stationId}${exactQuery}`, { cache: "no-store", signal });
+      const response = await (takeEarlyBoardFetch(apiPath) ?? fetch(apiPath, { cache: "no-store", signal }));
+      // The early request ignores `signal`, so check it here.
+      signal?.throwIfAborted();
       if (!response.ok) throw new LoadFailureError(await failureFromResponse(response));
       const next: Board = await response.json();
       setBoard(next);
@@ -52,7 +57,7 @@ export function SubwayBoard({
       if (loaded.current) setStale(true);
       else setFailure(failureFromError(error));
     }
-  }, [expandComplex, stationId]);
+  }, [apiPath, stationId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -64,6 +69,14 @@ export function SubwayBoard({
     const tick = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => { controller.abort(); window.clearInterval(poll); window.clearInterval(tick); };
   }, [load]);
+
+  // Once the first departures are on screen: how long the rider waited.
+  const reported = useRef(false);
+  useEffect(() => {
+    if (board === null || reported.current) return;
+    reported.current = true;
+    reportBoardReady("subway", apiPath);
+  }, [board, apiPath]);
 
   if (!board) return failure ? (
     <LoadFailureNotice

@@ -6,7 +6,7 @@ import {
   type TransitSystem,
 } from "./boardChoices";
 import subwayTransfers from "./subway-transfers.json";
-import { SUBWAY_STATIONS } from "./subway";
+import { SUBWAY_STATIONS } from "./subwayStations";
 
 /** One station board that a rider can open from a departure's stop. */
 export type TransferTarget = {

@@ -12,6 +12,7 @@ import {
   invalidateStoredToken,
   mintCooldownMs,
 } from "./njtTokenStore";
+import { timed } from "./requestTiming";
 import type { RawStopList } from "./stops";
 
 export { InvalidTokenError } from "./njtApi";
@@ -113,12 +114,14 @@ const callBudget = createCallBudget();
 export async function fetchDepartures(stationCode: string): Promise<RawDeparture[]> {
   if (usingFixtures()) return fixtureDepartures(stationCode);
   callBudget.take();
-  return requestDepartures(await getToken(), stationCode);
+  const token = await timed("token", getToken);
+  return timed("njt", () => requestDepartures(token, stationCode));
 }
 
 /** The stops a train makes, by train number. */
 export async function fetchStopList(trainId: string): Promise<RawStopList> {
   if (usingFixtures()) return fixtureStopList(trainId);
   callBudget.take();
-  return requestStopList(await getToken(), trainId);
+  const token = await timed("token", getToken);
+  return timed("njt", () => requestStopList(token, trainId));
 }

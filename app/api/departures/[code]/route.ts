@@ -2,6 +2,7 @@ import type { Departure } from "@/lib/departures";
 import { getDepartures } from "@/lib/departureBoard";
 import { usingFixtures } from "@/lib/njtClient";
 import { njtFailureResponse } from "@/lib/njtFailure";
+import { withRequestTiming } from "@/lib/requestTiming";
 import { getStation } from "@/lib/stations";
 
 
@@ -23,6 +24,10 @@ export async function GET(
   context: RouteContext<"/api/departures/[code]">,
 ) {
   const { code } = await context.params;
+  return withRequestTiming("departures", { station: code.slice(0, 16) }, () => departuresResponse(code));
+}
+
+async function departuresResponse(code: string): Promise<Response> {
   const station = getStation(code);
 
   if (!station) {
