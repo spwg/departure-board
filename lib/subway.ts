@@ -1,19 +1,13 @@
 import { transit_realtime } from "gtfs-realtime-bindings";
 import subwayHeadsigns from "./subway-headsigns.json";
-import subwayStations from "./subway-stations.json";
 import subwayStopNames from "./subway-stops.json";
+import { note } from "./requestTiming";
+import { SUBWAY_STATIONS, type SubwayStation } from "./subwayStations";
 
-export type SubwayStation = {
-  id: string;
-  name: string;
-  complexId: string;
-  routes: string[];
-  latitude: number;
-  longitude: number;
-  directions: Partial<Record<"N" | "S", string>>;
-};
-
-export const SUBWAY_STATIONS = subwayStations as SubwayStation[];
+// Re-exported so server code keeps one import. Client components import the
+// small modules directly: this one carries the protobuf decoder and feed data.
+export { isSubwayRoute, subwayRouteColor } from "./subwayRoutes";
+export { SUBWAY_STATIONS, getSubwayStation, type SubwayStation } from "./subwayStations";
 
 export const PENN_123 = {
   id: "128",
@@ -80,31 +74,6 @@ export type SubwayMetadata = {
   headsigns?: Record<string, string>;
 };
 
-const ROUTE_COLORS: Record<string, string> = {
-  "1": "#EE352E", "2": "#EE352E", "3": "#EE352E",
-  "4": "#00933C", "5": "#00933C", "6": "#00933C", "6X": "#00933C",
-  "7": "#B933AD", "7X": "#B933AD",
-  A: "#0039A6", C: "#0039A6", E: "#0039A6",
-  B: "#FF6319", D: "#FF6319", F: "#FF6319", FX: "#FF6319", M: "#FF6319",
-  G: "#6CBE45", J: "#996633", Z: "#996633", L: "#A7A9AC",
-  N: "#FCCC0A", Q: "#FCCC0A", R: "#FCCC0A", W: "#FCCC0A",
-  S: "#808183", FS: "#808183", GS: "#808183", H: "#808183",
-  SI: "#0039A6", SIR: "#0039A6",
-};
-
-export function subwayRouteColor(route: string): string {
-  return ROUTE_COLORS[route] ?? "#808183";
-}
-
-/** Whether a route id is one of MTA's Subway routes. */
-export function isSubwayRoute(route: string): boolean {
-  return Object.hasOwn(ROUTE_COLORS, route);
-}
-
-export function getSubwayStation(stationId: string): SubwayStation | undefined {
-  return SUBWAY_STATIONS.find((station) => station.id === stationId);
-}
-
 export function getSubwayStationMembers(stationId: string, metadata: SubwayMetadata = subwayMetadata): SubwayStation[] {
   const selected = metadata.stations.find((station) => station.id === stationId);
   if (!selected) return [];
@@ -120,6 +89,24 @@ export function getSubwayStationRoutes(stationIds: string[]): string[] {
       ),
     ),
   ];
+}
+
+/**
+ * Decoded feeds, by the bytes they came from. A feed's bytes are one object
+ * for as long as fetchSubwayFeed caches them, so every board and trip request
+ * in those 30 seconds reuses a single decode rather than decoding each feed
+ * again; decoding is most of a warm request's time. Callers only read the
+ * decoded messages.
+ */
+const decodedFeeds = new WeakMap<Uint8Array, transit_realtime.FeedMessage>();
+
+function decodeFeed(bytes: Uint8Array): transit_realtime.FeedMessage {
+  let feed = decodedFeeds.get(bytes);
+  if (!feed) {
+    feed = transit_realtime.FeedMessage.decode(bytes);
+    decodedFeeds.set(bytes, feed);
+  }
+  return feed;
 }
 
 function seconds(value: number | { toNumber(): number } | null | undefined): number | null {
@@ -162,7 +149,7 @@ export function decodeSubwayBoard(
     throw new Error(`Unknown Subway station: ${stationIds.join(",")}`);
   }
   const memberById = new Map(members.map((station) => [station.id, station]));
-  const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: transit_realtime.FeedMessage.decode(bytes) }));
+  const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: decodeFeed(bytes) }));
   const generated = feeds.map(({ feed }) => seconds(feed.header.timestamp));
   if (generated.some((timestamp) => !timestamp || !Number.isFinite(timestamp))) {
     throw new Error("Missing MTA feed timestamp");
@@ -263,7 +250,7 @@ export function decodeSubwayTrip(
 
   for (const { family, bytes } of feedSnapshots) {
     if (family !== parsed.family) continue;
-    const feed = transit_realtime.FeedMessage.decode(bytes);
+    const feed = decodeFeed(bytes);
     const timestamp = seconds(feed.header.timestamp);
     if (!timestamp || !Number.isFinite(timestamp)) {
       throw new Error("Missing MTA feed timestamp");
@@ -331,7 +318,7 @@ const feedCache = new Map<FeedFamily, { at: number; bytes: Uint8Array }>();
 const pendingFeeds = new Map<FeedFamily, Promise<Uint8Array>>();
 
 function validateFeed(bytes: Uint8Array): void {
-  const feed = transit_realtime.FeedMessage.decode(bytes);
+  const feed = decodeFeed(bytes);
   const timestamp = seconds(feed.header.timestamp);
   if (!timestamp || !Number.isFinite(timestamp)) throw new Error("Missing MTA feed timestamp");
 }
@@ -342,6 +329,7 @@ export async function fetchSubwayFeed(family: FeedFamily): Promise<Uint8Array> {
   if (cached && now - cached.at < TTL_MS) return cached.bytes;
   const pending = pendingFeeds.get(family);
   if (pending) return pending;
+  note("cache", "miss");
   const request = fetch(SUBWAY_FEEDS[family], { cache: "no-store", signal: AbortSignal.timeout(10_000) })
     .then(async (response) => {
       if (!response.ok) throw new Error(`MTA ${family} feed returned ${response.status}`);

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { DeparturesResponse } from "@/app/api/departures/[code]/route";
 import { type Departure } from "@/lib/departures";
+import { takeEarlyBoardFetch } from "@/lib/earlyBoardFetch";
 import { responseLiveTime } from "@/lib/freshness";
 import {
   LoadFailureError,
@@ -41,10 +42,10 @@ export function DepartureBoard({ code }: { code: string }) {
   const load = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const response = await fetch(`/api/departures/${code}`, {
-          signal,
-          cache: "no-store",
-        });
+        const path = `/api/departures/${code}`;
+        const response = await (takeEarlyBoardFetch(path) ?? fetch(path, { signal, cache: "no-store" }));
+        // The early request ignores `signal`, so check it here.
+        signal?.throwIfAborted();
         if (!response.ok) throw new LoadFailureError(await failureFromResponse(response));
 
         const data: DeparturesResponse = await response.json();

@@ -1,4 +1,4 @@
-import { subwayRouteColor } from "@/lib/subway";
+import { subwayRouteColor } from "@/lib/subwayRoutes";
 
 // MTA's yellow route bullets need dark lettering; the other route colors use
 // the provider's standard white lettering, including the red 1/2/3 and gray L.

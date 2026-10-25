@@ -1,5 +1,6 @@
 import { decodeSubwayBoard, fetchSubwayFeedsForStation, getSubwayStation, subwayMetadata } from "@/lib/subway";
 import { decodeRouteParam } from "@/lib/routeParams";
+import { timed, withRequestTiming } from "@/lib/requestTiming";
 
 /** The largest station complex has five members; anything longer is not a real request. */
 const MAX_STATION_IDS = 8;
@@ -14,6 +15,10 @@ export async function GET(
   context: { params: Promise<{ stationId: string }> },
 ) {
   const { stationId } = await context.params;
+  return withRequestTiming("subway-departures", { station: stationId.slice(0, 40) }, () => boardResponse(request, stationId));
+}
+
+async function boardResponse(request: Request, stationId: string): Promise<Response> {
   const stationIds = [...new Set(decodeRouteParam(stationId).split(",").filter(Boolean))];
   const exact = new URL(request.url).searchParams.get("exact") === "true";
   if (stationIds.length > MAX_STATION_IDS) {
@@ -23,9 +28,9 @@ export async function GET(
     return Response.json({ error: `Unknown Subway station: ${stationId}` }, { status: 404 });
   }
   try {
-    const batch = await fetchSubwayFeedsForStation(stationIds);
+    const batch = await timed("mta", () => fetchSubwayFeedsForStation(stationIds));
     const board = {
-      ...decodeSubwayBoard(batch.feeds, stationIds, subwayMetadata, { expandComplex: !exact }),
+      ...await timed("decode", () => decodeSubwayBoard(batch.feeds, stationIds, subwayMetadata, { expandComplex: !exact })),
       unavailableFeedFamilies: batch.unavailableFamilies,
     };
     return Response.json(board, { headers: { "Cache-Control": "no-store" } });

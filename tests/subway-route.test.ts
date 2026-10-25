@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("server-only", () => ({}));
+
 const decodeSubwayBoard = vi.fn();
 const decodeSubwayTrip = vi.fn();
 const fetchSubwayFeed = vi.fn();

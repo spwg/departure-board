@@ -208,6 +208,22 @@ Set the following in the deployment environment for live NJ Transit data:
 Do not commit `.env.local` or expose any of these values through a
 `NEXT_PUBLIC_` variable.
 
+## Performance
+
+Page loads are covered by Vercel Speed Insights (Core Web Vitals) and Web
+Analytics (page views). Neither sees the wait riders actually notice: the
+departures load from `/api` after the page does. Every departures and stops
+response carries a `Server-Timing` header that splits its time into NJ
+Transit, token, Redis predictions, MTA feeds and decoding, and says whether
+the instance's cache answered (`cache;desc="hit"`). DevTools shows it under
+the request's Timing tab. Each request that called upstream, failed or took
+over a second also writes one `api_timing` JSON line to the function logs;
+search Vercel's logs for `api_timing` (`lib/requestTiming.ts`).
+
+A station page opened directly starts its departures request from
+`instrumentation-client.ts`, before React hydrates, rather than after
+(`lib/earlyBoardFetch.ts`).
+
 ## Scripts
 
 - `npm run dev` — start the local dev server

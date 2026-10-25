@@ -12,6 +12,8 @@ import {
   type FeedFamily,
 } from "@/lib/subway";
 
+vi.mock("server-only", () => ({}));
+
 const snapshot = (bytes: Uint8Array, family: FeedFamily = "numbered") => ({ family, bytes });
 
 function fixture() {
@@ -63,6 +65,19 @@ function fixture() {
 
 describe("MTA realtime board contract", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it("decodes a feed's bytes once however many boards and trips read them", () => {
+    const bytes = fixture();
+    const decode = vi.spyOn(transit_realtime.FeedMessage, "decode");
+
+    const first = decodeSubwayBoard([snapshot(bytes)], ["128"], subwayMetadata);
+    const second = decodeSubwayBoard([snapshot(bytes)], ["127", "128"], subwayMetadata);
+    decodeSubwayTrip([snapshot(bytes)], first.departures[0]!.id, subwayMetadata);
+
+    expect(decode).toHaveBeenCalledOnce();
+    expect(second.departures.length).toBeGreaterThan(0);
+    decode.mockRestore();
+  });
+
   it("decodes a captured official numbered-line feed against official station metadata", () => {
     const board = decodeSubwayBoard([snapshot(readFileSync("tests/fixtures/mta-123.pb"))], ["127"], subwayMetadata);
     expect(Date.parse(board.sourceTimestamp)).toBeGreaterThan(0);

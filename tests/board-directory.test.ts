@@ -9,7 +9,7 @@ import {
   searchBoardListings,
 } from "@/lib/boardDirectory";
 import { stations } from "@/lib/stations";
-import { SUBWAY_STATIONS } from "@/lib/subway";
+import { SUBWAY_STATIONS } from "@/lib/subwayStations";
 
 describe("combined board directory", () => {
   it("offers every NJT station and every Subway provider station as one board choice each", () => {

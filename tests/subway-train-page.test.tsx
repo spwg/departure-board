@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import SubwayTrainPage from "@/app/subway/train/[id]/page";
+
+vi.mock("server-only", () => ({}));
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 

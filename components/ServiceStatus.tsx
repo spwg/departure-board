@@ -7,7 +7,7 @@ import {
   visibleServiceAdvisories,
 } from "@/lib/serviceAdvisoryDismissals";
 import type { ServiceAdvisory } from "@/lib/serviceAdvisories";
-import { isSubwayRoute, subwayRouteColor } from "@/lib/subway";
+import { isSubwayRoute, subwayRouteColor } from "@/lib/subwayRoutes";
 
 const REFRESH_MS = 90_000;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { isSubwayRoute, subwayRouteColor } from "@/lib/subway";
+import { isSubwayRoute, subwayRouteColor } from "@/lib/subwayRoutes";
 import { ServiceStatusButton } from "./ServiceStatus";
 
 /** What the header shows for a Subway train, known once its trip loads. */

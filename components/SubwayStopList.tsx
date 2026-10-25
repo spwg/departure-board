@@ -6,7 +6,8 @@ import { formatClock } from "@/lib/departures";
 import { useClockFormat } from "@/lib/clockFormat";
 import { getBoardListing } from "@/lib/boardDirectory";
 import { subwayBoardChoice } from "@/lib/boardChoices";
-import { subwayRouteColor, type SubwayTrip } from "@/lib/subway";
+import type { SubwayTrip } from "@/lib/subway";
+import { subwayRouteColor } from "@/lib/subwayRoutes";
 import {
   LoadFailureError,
   failureFromError,
