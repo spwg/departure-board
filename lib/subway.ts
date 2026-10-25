@@ -91,6 +91,24 @@ export function getSubwayStationRoutes(stationIds: string[]): string[] {
   ];
 }
 
+/**
+ * Decoded feeds, by the bytes they came from. A feed's bytes are one object
+ * for as long as fetchSubwayFeed caches them, so every board and trip request
+ * in those 30 seconds reuses a single decode rather than decoding each feed
+ * again; decoding is most of a warm request's time. Callers only read the
+ * decoded messages.
+ */
+const decodedFeeds = new WeakMap<Uint8Array, transit_realtime.FeedMessage>();
+
+function decodeFeed(bytes: Uint8Array): transit_realtime.FeedMessage {
+  let feed = decodedFeeds.get(bytes);
+  if (!feed) {
+    feed = transit_realtime.FeedMessage.decode(bytes);
+    decodedFeeds.set(bytes, feed);
+  }
+  return feed;
+}
+
 function seconds(value: number | { toNumber(): number } | null | undefined): number | null {
   if (value == null) return null;
   return typeof value === "number" ? value : value.toNumber();
@@ -131,7 +149,7 @@ export function decodeSubwayBoard(
     throw new Error(`Unknown Subway station: ${stationIds.join(",")}`);
   }
   const memberById = new Map(members.map((station) => [station.id, station]));
-  const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: transit_realtime.FeedMessage.decode(bytes) }));
+  const feeds = feedSnapshots.map(({ family, bytes }) => ({ family, feed: decodeFeed(bytes) }));
   const generated = feeds.map(({ feed }) => seconds(feed.header.timestamp));
   if (generated.some((timestamp) => !timestamp || !Number.isFinite(timestamp))) {
     throw new Error("Missing MTA feed timestamp");
@@ -232,7 +250,7 @@ export function decodeSubwayTrip(
 
   for (const { family, bytes } of feedSnapshots) {
     if (family !== parsed.family) continue;
-    const feed = transit_realtime.FeedMessage.decode(bytes);
+    const feed = decodeFeed(bytes);
     const timestamp = seconds(feed.header.timestamp);
     if (!timestamp || !Number.isFinite(timestamp)) {
       throw new Error("Missing MTA feed timestamp");
@@ -300,7 +318,7 @@ const feedCache = new Map<FeedFamily, { at: number; bytes: Uint8Array }>();
 const pendingFeeds = new Map<FeedFamily, Promise<Uint8Array>>();
 
 function validateFeed(bytes: Uint8Array): void {
-  const feed = transit_realtime.FeedMessage.decode(bytes);
+  const feed = decodeFeed(bytes);
   const timestamp = seconds(feed.header.timestamp);
   if (!timestamp || !Number.isFinite(timestamp)) throw new Error("Missing MTA feed timestamp");
 }

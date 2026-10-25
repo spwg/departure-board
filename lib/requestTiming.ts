@@ -9,8 +9,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
  *
  * The result goes two places:
  *  - a Server-Timing header, which DevTools shows under the request's Timing
- *    tab and the board reads back (lib/boardTiming) to split a rider's wait
- *    into server time and network time;
+ *    tab;
  *  - one JSON log line per request that called upstream (`note("cache",
  *    "miss")`), failed, or was slow, so a slow board can be traced in Vercel's
  *    logs. Requests an instance's cache answered are not logged: they are

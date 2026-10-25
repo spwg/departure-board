@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SubwayBoard as Board } from "@/lib/subway";
-import { reportBoardReady } from "@/lib/boardTiming";
 import { takeEarlyBoardFetch } from "@/lib/earlyBoardFetch";
 import { subwayRouteColor } from "@/lib/subwayRoutes";
 import {
@@ -69,14 +68,6 @@ export function SubwayBoard({
     const tick = window.setInterval(() => setNow(Date.now()), 15_000);
     return () => { controller.abort(); window.clearInterval(poll); window.clearInterval(tick); };
   }, [load]);
-
-  // Once the first departures are on screen: how long the rider waited.
-  const reported = useRef(false);
-  useEffect(() => {
-    if (board === null || reported.current) return;
-    reported.current = true;
-    reportBoardReady("subway", apiPath);
-  }, [board, apiPath]);
 
   if (!board) return failure ? (
     <LoadFailureNotice
