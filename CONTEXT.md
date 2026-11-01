@@ -101,7 +101,7 @@ The home-page selection screen for both rail and subway departure boards. It ope
 _Avoid_: Default station, launch redirect
 
 **Nearby stations**:
-Provider-qualified board choices whose published coordinates are within two miles of the rider's current location, ordered closest first. Home lists the closest five, with the rest behind "Show more", and a favorite that is nearby stays under Favorites with its distance. Home looks the location up unasked only when the browser already allows it; otherwise the section is grayed out with one button that asks, and a refusal leaves it grayed out. Riders can hide the section in Settings.
+Provider-qualified board choices whose published coordinates are within two miles of the rider's current location, ordered closest first. Home lists the closest five, with the rest behind "Show more", and a favorite that is nearby stays under Favorites with its distance. Home automatically looks up location when the browser allows it or the rider previously opted in. The opt-in is remembered locally without an app expiry; browser denial clears it. Other riders see a grayed-out section with one button that asks. Positions may be reused from the browser cache for at most five minutes. Riders can hide the section in Settings.
 _Avoid_: Closest station only, merged station
 
 **Recent stations**:

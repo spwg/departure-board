@@ -20,11 +20,30 @@ export type LocationState =
   | { status: "unavailable" }
   | { status: "found"; coordinates: Coordinates };
 
+const OPT_IN_KEY = "departure-board:location-enabled";
+
+function rememberedOptIn(): boolean {
+  try {
+    return window.localStorage.getItem(OPT_IN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function rememberOptIn(enabled: boolean): void {
+  try {
+    if (enabled) window.localStorage.setItem(OPT_IN_KEY, "true");
+    else window.localStorage.removeItem(OPT_IN_KEY);
+  } catch {
+    // Location still works when browser storage is unavailable.
+  }
+}
+
 /**
- * The rider's location for Nearby. It is looked up without asking only when
- * the browser already allows it; otherwise nothing happens until the rider
- * taps, and the browser decides whether to prompt. The app stores nothing,
- * so the browser's own permission is the only memory.
+ * The rider's location for Nearby. Remember an opt-in across visits, including
+ * browsers whose permission remains "prompt" or cannot be queried. Browser
+ * permission is still authoritative; a refusal clears the opt-in. Reuse a
+ * browser-cached position for at most five minutes, never an old saved fix.
  */
 export function useCurrentLocation(enabled: boolean) {
   const [state, setState] = useState<LocationState>({ status: "checking" });
@@ -34,6 +53,7 @@ export function useCurrentLocation(enabled: boolean) {
       setState({ status: "off" });
       return;
     }
+    rememberOptIn(true);
     setState({ status: "locating" });
     navigator.geolocation.getCurrentPosition(
       (position) => setState({
@@ -45,7 +65,10 @@ export function useCurrentLocation(enabled: boolean) {
       }),
       // A refusal, from the prompt or a setting, turns Nearby off; anything
       // else (no fix underground, a timeout) is worth another try.
-      (error) => setState({ status: error.code === 1 ? "off" : "unavailable" }),
+      (error) => {
+        if (error.code === 1) rememberOptIn(false);
+        setState({ status: error.code === 1 ? "off" : "unavailable" });
+      },
       { timeout: 8000, maximumAge: 5 * 60_000 },
     );
   }, []);
@@ -53,17 +76,22 @@ export function useCurrentLocation(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
-    // Only "granted" is trusted: Safari reports "prompt" even for a site the
-    // rider has denied, so anything else waits for a tap.
+    // An explicit denial wins over our remembered preference. With "prompt"
+    // or no Permissions API, a returning opted-in rider still wants a lookup.
     const permissions = "permissions" in navigator ? navigator.permissions : undefined;
     (permissions?.query({ name: "geolocation" }) ?? Promise.reject())
       .then((status) => {
         if (cancelled) return;
-        if (status.state === "granted") locate();
+        if (status.state === "denied") {
+          rememberOptIn(false);
+          setState({ status: "off" });
+        } else if (status.state === "granted" || rememberedOptIn()) locate();
         else setState({ status: "off" });
       })
       .catch(() => {
-        if (!cancelled) setState({ status: "off" });
+        if (cancelled) return;
+        if (rememberedOptIn()) locate();
+        else setState({ status: "off" });
       });
     return () => {
       cancelled = true;

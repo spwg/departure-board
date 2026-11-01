@@ -842,6 +842,40 @@ describe("interactive component contract", () => {
     expect(within(nearby).queryByRole("button", { name: /more/ })).toBeNull();
   });
 
+  it.each(["prompt", undefined] as const)("remembers location opt-in when permission is %s", async (permission) => {
+    const getCurrentPosition = stubGeolocation(permission, nearPenn);
+    render(<StationPicker />);
+    fireEvent.click(await screen.findByRole("button", { name: "Enable location" }));
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem("departure-board:location-enabled")).toBe("true");
+    cleanup();
+
+    render(<StationPicker />);
+    await waitFor(() => expect(getCurrentPosition).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("button", { name: "Enable location" })).toBeNull();
+  });
+
+  it("clears remembered opt-in on an explicit browser denial without asking again", async () => {
+    window.localStorage.setItem("departure-board:location-enabled", "true");
+    const getCurrentPosition = stubGeolocation("denied", nearPenn);
+    render(<StationPicker />);
+    await screen.findByRole("button", { name: "Enable location" });
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("departure-board:location-enabled")).toBeNull();
+  });
+
+  it("stops automatic retries after a returning rider refuses the browser prompt", async () => {
+    window.localStorage.setItem("departure-board:location-enabled", "true");
+    const getCurrentPosition = stubGeolocation("prompt", (_success, error) => error({ code: 1 } as GeolocationPositionError));
+    render(<StationPicker />);
+    await screen.findByRole("button", { name: "Enable location" });
+    expect(window.localStorage.getItem("departure-board:location-enabled")).toBeNull();
+    cleanup();
+    render(<StationPicker />);
+    await screen.findByRole("button", { name: "Enable location" });
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+  });
+
   it("grays Nearby out until the rider taps, whether never asked or denied", async () => {
     const getCurrentPosition = stubGeolocation("prompt", (_onSuccess, onError) => onError({
       code: 1,
