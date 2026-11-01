@@ -20,8 +20,10 @@ preview_urls = false
 [vars]
 NJT_ENV = "production"
 
+# Every minute: collect. Once a day: the Upstash usage check, which
+# collector/worker.ts tells apart by USAGE_CRON (keep the two in step).
 [triggers]
-crons = ["* * * * *"]
+crons = ["* * * * *", "17 12 * * *"]
 
 # Keeps each run's one-line summary in Workers Logs.
 [observability]

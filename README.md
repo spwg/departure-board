@@ -143,6 +143,22 @@ with its ping URL. You are emailed when pings stop for any reason — errors,
 outages, the CPU limit, or a cron that never fires — and again when they
 resume.
 
+**Upstash usage alerts.** The free Upstash plan allows 500,000 commands a
+month. Once a day (12:17 UTC) the same Worker reads this month's and today's
+command counts from Upstash's Developer API, projects the month's total at the
+faster of the month's and today's pace, and pings a second Healthchecks.io
+check (`lib/upstashUsage.ts`). Projected over 450,000, or stats it cannot
+read, ping the check's `/fail` URL, which alerts at once with the figures or
+the error; a check that never runs alerts when its period lapses. To set it
+up, create a check with a period of 1 day and a grace time of 3 hours, create
+a Developer API key in the Upstash console under Account → API Keys, and put
+four secrets with
+`npx wrangler@4 secret put <NAME> --config collector/wrangler.toml`:
+`USAGE_HEALTHCHECK_URL` (the new check's ping URL), `UPSTASH_EMAIL` (the
+account's email), `UPSTASH_API_KEY` and `UPSTASH_DATABASE_ID` (the id in the
+database's console URL). The Developer API key can manage the whole Upstash
+account, so it lives only in the Worker, never in the Vercel app.
+
 ### Measuring accuracy
 
 ```bash
