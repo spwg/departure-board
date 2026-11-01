@@ -70,7 +70,9 @@ async function loadStopList(trainId: string): Promise<StopList> {
     raw = await fetchStopList(trainId);
   }
 
-  const stopList = normalizeStopList(raw);
+  const stopList = normalizeStopList(raw, (count) => {
+    note("duplicateStopsRemoved", String(count));
+  });
   cache.set(trainId, { at: now, stopList });
   if (cache.size > MAX_ENTRIES) cache.delete(cache.keys().next().value!);
   return stopList;

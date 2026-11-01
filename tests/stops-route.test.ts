@@ -5,7 +5,6 @@ class InvalidTokenError extends Error {}
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidateTag: vi.fn() }));
 vi.mock("@/lib/njtClient", () => ({ fetchStopList, invalidateToken: vi.fn(), usingFixtures: () => true, InvalidTokenError, TOKEN_TAG: "njt-token" }));
-vi.mock("@/lib/stops", () => ({ normalizeStopList: (raw: unknown) => raw }));
 afterEach(() => { vi.clearAllMocks(); vi.resetModules(); });
 const context = (train: string) => ({ params: Promise.resolve({ train }) }) as never;
 
@@ -23,6 +22,21 @@ describe("stops route contract", () => {
     const { GET } = await import("@/app/api/stops/[train]/route");
     expect((await GET(new Request("http://test"), context("3861"))).status).toBe(200);
     expect((await GET(new Request("http://test"), context("3861"))).status).toBe(200);
+    expect(fetchStopList).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes duplicate upstream stops before caching and records the count", async () => {
+    const stop = {
+      STATION_2CHAR: "LS", STATIONNAME: "Little Silver", TIME: "01-Nov-2026 08:30:18 AM",
+      PICKUP: "", DROPOFF: "", DEPARTED: "YES", STOP_STATUS: "",
+    };
+    fetchStopList.mockResolvedValue({ TRAIN_ID: "7216", STOPS: [stop, { ...stop }] });
+    const { GET } = await import("@/app/api/stops/[train]/route");
+    const response = await GET(new Request("http://test"), context("7216"));
+    expect((await response.json()).stopList.stops).toHaveLength(1);
+    expect(response.headers.get("Server-Timing")).toContain('duplicateStopsRemoved;desc="1"');
+    const cached = await GET(new Request("http://test"), context("7216"));
+    expect((await cached.json()).stopList.stops).toHaveLength(1);
     expect(fetchStopList).toHaveBeenCalledTimes(1);
   });
 
