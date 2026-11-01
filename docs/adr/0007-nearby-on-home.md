@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: amended by 0009
 ---
 
 # Put Nearby back on Home, and leave location memory to the browser
