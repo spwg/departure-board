@@ -105,16 +105,40 @@ export function normalizeStop(item: RawStop): Stop | null {
  * calls at them. Unlike the board there is nothing sensible to sort by: the
  * later stops have no time to sort on.
  */
-export function normalizeStopList(raw: RawStopList): StopList {
+export function normalizeStopList(
+  raw: RawStopList,
+  onDuplicatesRemoved?: (count: number) => void,
+): StopList {
   const stops = Array.isArray(raw?.STOPS) ? raw.STOPS : [];
+  const seen = new Set<string>();
+  const normalized: Stop[] = [];
+  let duplicatesRemoved = 0;
+
+  for (const item of stops) {
+    const stop = normalizeStop(item);
+    if (!stop) continue;
+
+    // RailData can repeat a whole stretch of stops (7216 repeated all 16
+    // stops after Long Branch). Only collapse exact normalized records with
+    // an identity and ETA: a station revisited later or a conflicting status
+    // is not an exact duplicate, and missing ETAs cannot identify a visit.
+    if (stop.code && stop.time) {
+      const key = JSON.stringify(stop);
+      if (seen.has(key)) {
+        duplicatesRemoved += 1;
+        continue;
+      }
+      seen.add(key);
+    }
+    normalized.push(stop);
+  }
+  if (duplicatesRemoved > 0) onDuplicatesRemoved?.(duplicatesRemoved);
 
   return {
     trainNumber: (raw?.TRAIN_ID ?? "").trim(),
     lineCode: (raw?.LINECODE ?? "").trim().toUpperCase(),
     destination: normalizeNjtDestination(raw?.DESTINATION ?? "").destination,
     transferAt: decodeEntities(raw?.TRANSFERAT ?? ""),
-    stops: stops
-      .map((item) => normalizeStop(item))
-      .filter((stop): stop is Stop => stop !== null),
+    stops: normalized,
   };
 }
