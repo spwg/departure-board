@@ -12,6 +12,8 @@ import {
   type FeedFamily,
 } from "@/lib/subway";
 
+vi.mock("server-only", () => ({}));
+
 const snapshot = (bytes: Uint8Array, family: FeedFamily = "numbered") => ({ family, bytes });
 
 function fixture() {

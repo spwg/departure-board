@@ -2,7 +2,7 @@ import Link from "next/link";
 import { boardChoiceKey } from "@/lib/boardChoices";
 import type { BoardListing } from "@/lib/boardDirectory";
 import { lineColor } from "@/lib/stations";
-import { subwayRouteColor } from "@/lib/subway";
+import { subwayRouteColor } from "@/lib/subwayDirectory";
 
 export type BoardListingListItem = {
   listing: BoardListing;

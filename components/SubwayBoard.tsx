@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { subwayRouteColor, type SubwayBoard as Board } from "@/lib/subway";
+import type { SubwayBoard as Board } from "@/lib/subway";
+import { subwayRouteColor } from "@/lib/subwayDirectory";
 import { FreshnessWarning } from "./FreshnessWarning";
 
 const REFRESH_MS = 30_000;
