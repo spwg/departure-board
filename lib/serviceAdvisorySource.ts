@@ -63,9 +63,6 @@ function rssTagText(item: string, name: string): string | null {
 export function parseServiceAdvisories(xml: string): ServiceAdvisory[] {
   const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) ?? [];
   const seen = new Set<string>();
-  // NJ Transit sometimes posts the same notice twice under different ids;
-  // riders should read it once, at the higher of the two severities.
-  const byText = new Map<string, number>();
   const notices: ServiceAdvisory[] = [];
 
   for (const item of items) {
@@ -81,25 +78,39 @@ export function parseServiceAdvisories(xml: string): ServiceAdvisory[] {
     const severity = rssTagText(item, "advisoryAlert") === "0"
       ? "disruption"
       : "advisory";
-    const notice: ServiceAdvisory = {
+    notices.push({
       id,
       text,
       url,
       severity,
       publishedAt,
       revision: advisoryRevision(id, text, url, severity, publishedAt),
-    };
-    const textKey = text.toLowerCase();
-    const duplicate = byText.get(textKey);
-    if (duplicate === undefined) {
-      byText.set(textKey, notices.length);
-      notices.push(notice);
-    } else if (severity === "disruption" && notices[duplicate].severity !== "disruption") {
-      notices[duplicate] = notice;
-    }
+    });
   }
 
   return notices;
+}
+
+/**
+ * NJ Transit sometimes posts the same notice twice under different ids;
+ * riders should read it once, at the higher of the two severities. Only what
+ * is displayed is narrowed: every id stays in the authoritative revision map,
+ * so hiding a duplicate never invalidates a rider's dismissal of it.
+ */
+export function withoutDuplicateAdvisories(advisories: ServiceAdvisory[]): ServiceAdvisory[] {
+  const byText = new Map<string, number>();
+  const unique: ServiceAdvisory[] = [];
+  for (const notice of advisories) {
+    const key = notice.text.toLowerCase();
+    const index = byText.get(key);
+    if (index === undefined) {
+      byText.set(key, unique.length);
+      unique.push(notice);
+    } else if (notice.severity === "disruption" && unique[index].severity !== "disruption") {
+      unique[index] = notice;
+    }
+  }
+  return unique;
 }
 
 function normalized(value: string): string {
@@ -182,7 +193,7 @@ export function createServiceAdvisorySource(
     async getSnapshot(match: AdvisoryMatch): Promise<ServiceAdvisorySnapshot> {
       const notices = await get();
       return {
-        advisories: matchServiceAdvisories(notices, match),
+        advisories: withoutDuplicateAdvisories(matchServiceAdvisories(notices, match)),
         authoritativeRevisions: Object.fromEntries(
           notices.map((notice) => [notice.id, notice.revision]),
         ),

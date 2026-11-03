@@ -3,6 +3,7 @@ import {
   createServiceAdvisorySource,
   matchServiceAdvisories,
   parseServiceAdvisories,
+  withoutDuplicateAdvisories,
 } from "@/lib/serviceAdvisorySource";
 import {
   dismissServiceAdvisory,
@@ -61,17 +62,24 @@ describe("service-advisory source", () => {
     ]));
   });
 
-  it("shows a notice NJ Transit posted twice under different ids only once, at the higher severity", () => {
+  it("shows a notice NJ Transit posted twice under different ids only once, at the higher severity", async () => {
     const item = (guid: string, alert: string) => `<item>
       <description>Raritan Valley Line: Buses Replace Trains – Saturday, November 7, 2026</description>
       <link>https://www.njtransit.com/node/${guid}</link><guid>${guid}</guid><advisoryAlert>${alert}</advisoryAlert>
     </item>`;
     const twice = `<rss><channel>${item("2189911", "1")}${item("2189920", "1")}</channel></rss>`;
-    expect(parseServiceAdvisories(twice).map((notice) => notice.id)).toEqual(["2189911"]);
+    expect(withoutDuplicateAdvisories(parseServiceAdvisories(twice)).map((notice) => notice.id)).toEqual(["2189911"]);
     const escalated = `<rss><channel>${item("2189911", "1")}${item("2189920", "0")}</channel></rss>`;
-    expect(parseServiceAdvisories(escalated)).toEqual([
+    expect(withoutDuplicateAdvisories(parseServiceAdvisories(escalated))).toEqual([
       expect.objectContaining({ id: "2189920", severity: "disruption" }),
     ]);
+
+    // A rider who dismissed the first copy keeps that dismissal while a
+    // same-text disruption is shown in its place: both ids stay authoritative.
+    const source = createServiceAdvisorySource(vi.fn().mockResolvedValue(new Response(escalated)));
+    const snapshot = await source.getSnapshot({ lineCodes: ["RV"] });
+    expect(snapshot.advisories.map((notice) => notice.id)).toEqual(["2189920"]);
+    expect(Object.keys(snapshot.authoritativeRevisions)).toEqual(["2189911", "2189920"]);
   });
 
   it("matches a station board by its station or rail lines, and a train page by line only", () => {
