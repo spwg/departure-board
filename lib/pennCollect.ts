@@ -10,7 +10,7 @@ import {
   trainId,
   type BoardLogSource,
 } from "./boardLog";
-import { normalizeDepartures, type RawDeparture, type TrainPosition } from "./departures";
+import { normalizeDepartures, type Departure, type RawDeparture, type TrainPosition } from "./departures";
 import { InvalidTokenError } from "./njtApi";
 import {
   ageHistory,
@@ -69,8 +69,8 @@ export type CollectSummary = {
  *
  * The board itself must load, or nothing is written. The vehicle feed is
  * best-effort: without it the collection still logs the board, marked as
- * unable to predict, and publishes no predictions. Redis is read once and
- * written once (lib/pennStore).
+ * unable to predict, and publishes only the predictions it holds from earlier
+ * runs (holdPredictions). Redis is read once and written once (lib/pennStore).
  */
 export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
   const at = new Date((deps.now ?? Date.now)()).toISOString();
@@ -135,7 +135,7 @@ export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
   }
   if (rawVehicles) state.table = flattenCircuitTable(table);
 
-  const board = withTrainPositions(departures, readings, table);
+  const board = holdPredictions(withTrainPositions(departures, readings, table), previous.trains);
   const predictions: Record<string, TrainPosition> = {};
   for (const departure of board) {
     if (departure.position?.predictedTrack) predictions[trainId(departure)] = departure.position;
@@ -150,6 +150,10 @@ export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
     if (!last) entries.push(JSON.stringify(firstEvent(at, SOURCE, snapshot)));
     else if (last.key !== key) entries.push(JSON.stringify(changeEvent(at, SOURCE, snapshot)));
     state.trains[snapshot.id] = { key };
+  }
+  for (const departure of board) {
+    const id = trainId(departure);
+    if (predictions[id] && state.trains[id]) state.trains[id].held = predictions[id];
   }
   for (const id of Object.keys(previous.trains)) {
     if (!state.trains[id]) entries.push(JSON.stringify(goneEvent(at, SOURCE, id)));
@@ -183,6 +187,28 @@ export async function collectPenn(deps: CollectDeps): Promise<CollectSummary> {
     vehicles: rawVehicles !== null,
     history: rawVehicles !== null,
   };
+}
+
+/**
+ * Keeps showing a train's last predicted track until NJ Transit posts one.
+ *
+ * The vehicle feed often stops reporting a train for minutes at a time while
+ * it waits in Penn — the very minutes before its track posts. Without this,
+ * each such gap withdrew a prediction that was usually right, so riders saw it
+ * for only a few minutes. A fresh prediction always replaces the held one; a
+ * posted track, a cancellation, a departure or the train leaving the board
+ * ends it.
+ */
+export function holdPredictions(
+  board: Departure[],
+  previous: Record<string, { held?: TrainPosition }>,
+): Departure[] {
+  return board.map((departure) => {
+    if (departure.position?.predictedTrack) return departure;
+    if (departure.track || departure.status === "cancelled" || departure.status === "departed") return departure;
+    const held = previous[trainId(departure)]?.held;
+    return held?.predictedTrack ? { ...departure, position: held } : departure;
+  });
 }
 
 /**

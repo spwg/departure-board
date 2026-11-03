@@ -61,6 +61,19 @@ describe("service-advisory source", () => {
     ]));
   });
 
+  it("shows a notice NJ Transit posted twice under different ids only once, at the higher severity", () => {
+    const item = (guid: string, alert: string) => `<item>
+      <description>Raritan Valley Line: Buses Replace Trains – Saturday, November 7, 2026</description>
+      <link>https://www.njtransit.com/node/${guid}</link><guid>${guid}</guid><advisoryAlert>${alert}</advisoryAlert>
+    </item>`;
+    const twice = `<rss><channel>${item("2189911", "1")}${item("2189920", "1")}</channel></rss>`;
+    expect(parseServiceAdvisories(twice).map((notice) => notice.id)).toEqual(["2189911"]);
+    const escalated = `<rss><channel>${item("2189911", "1")}${item("2189920", "0")}</channel></rss>`;
+    expect(parseServiceAdvisories(escalated)).toEqual([
+      expect.objectContaining({ id: "2189920", severity: "disruption" }),
+    ]);
+  });
+
   it("matches a station board by its station or rail lines, and a train page by line only", () => {
     const advisories = parseServiceAdvisories(feed);
     expect(matchServiceAdvisories(advisories, {

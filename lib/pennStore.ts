@@ -50,8 +50,12 @@ export const PREDICTIONS_TTL = 3 * 60;
 /** What the collector remembers between runs. */
 export type CollectorState = {
   v: 1;
-  /** Per train id on the board: its last logged change key, hashed. */
-  trains: Record<string, { key: number }>;
+  /**
+   * Per train id on the board: its last logged change key, hashed, and the
+   * last predicted track it showed while unposted, held until NJ Transit posts
+   * one (lib/pennCollect).
+   */
+  trains: Record<string, { key: number; held?: TrainPosition }>;
   /**
    * Pairings already recorded, as "train number|circuit|track", with when
    * each may be recorded again. Kept apart from `trains` so a train that

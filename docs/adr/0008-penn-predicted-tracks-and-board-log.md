@@ -22,6 +22,12 @@ their precision or recall.
   than switching it off. Posted tracks, at every station, are a soft green chip;
   the grey chip becomes the posted track in place when NJ Transit posts. Trains without a prediction
   show nothing about their position.
+- **Predictions hold until the track posts.** The vehicle feed often stops
+  reporting a train for minutes while it waits in Penn, just before its track
+  posts. A train's last prediction therefore stays until NJ Transit posts a
+  track, the train is cancelled or departs, or it leaves the board; a fresh
+  prediction replaces it. Withdrawing it on each gap left riders a few minutes
+  of a prediction that was right 99% of the time.
 - **History only from inside Penn.** A pairing is recorded only while the
   train's coordinates are inside the station, so circuits in the tunnel or at
   Secaucus never enter the history.

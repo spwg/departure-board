@@ -139,6 +139,49 @@ describe("Penn collector", () => {
     expect(saved(saves(d.redis).at(-1)!).pairings).toEqual(["P7\t7"]);
   });
 
+  it("holds a prediction while the vehicle feed loses the train, until its track posts", async () => {
+    const d = deps();
+    const id = "3861|2026-09-28T20:10:00.000Z";
+    await collectPenn(d);
+    expect(saved(saves(d.redis)[0]).state.trains[id].held).toMatchObject({ predictedTrack: "9" });
+
+    // The feed stops reporting 3861, as it often does while a train waits in Penn.
+    d.njt.vehicles = vi.fn(async () => [{ ID: "3247", ICS_TRACK_CKT: "P7", ...AT_PENN }]);
+    expect(await collectPenn({ ...d, now: () => NOW + 60_000 })).toMatchObject({ predicted: 1 });
+    const gap = saved(saves(d.redis)[1]);
+    expect(gap.predictions.predictions[id]).toMatchObject({ circuit: "P9", predictedTrack: "9" });
+    expect(gap.entries).toEqual([
+      expect.objectContaining({ kind: "change", id, circuit: null, shownTrack: "9", shownTrackKind: "predicted", shownConfidence: 95 }),
+    ]);
+
+    // Still lost a minute later: the prediction holds, and nothing new is logged.
+    await collectPenn({ ...d, now: () => NOW + 120_000 });
+    const still = saved(saves(d.redis)[2]);
+    expect(still.predictions.predictions[id]).toMatchObject({ predictedTrack: "9" });
+    expect(still.entries).toEqual([]);
+
+    // The track posts, which ends the hold.
+    d.njt.departures = vi.fn(async () => [raw("3861", "9", 10), raw("3247", "7", 20)]);
+    expect(await collectPenn({ ...d, now: () => NOW + 180_000 })).toMatchObject({ predicted: 0 });
+    const posted = saved(saves(d.redis)[3]);
+    expect(posted.predictions.predictions).toEqual({});
+    expect(posted.state.trains[id].held).toBeUndefined();
+  });
+
+  it("replaces a held prediction with a fresh one, and drops it when the train is cancelled", async () => {
+    const d = deps({ redis: fakeRedis(["P9\t9", "20", "P4\t4", "20"]) });
+    const id = "3861|2026-09-28T20:10:00.000Z";
+    await collectPenn(d);
+    d.njt.vehicles = vi.fn(async () => [{ ID: "3861", ICS_TRACK_CKT: "P4", ...AT_PENN }]);
+    await collectPenn({ ...d, now: () => NOW + 60_000 });
+    expect(saved(saves(d.redis)[1]).predictions.predictions[id]).toMatchObject({ circuit: "P4", predictedTrack: "4" });
+
+    d.njt.vehicles = vi.fn(async () => []);
+    d.njt.departures = vi.fn(async () => [{ ...raw("3861", "", 10), STATUS: "Cancelled" } as RawDeparture]);
+    await collectPenn({ ...d, now: () => NOW + 120_000 });
+    expect(saved(saves(d.redis)[2]).predictions.predictions).toEqual({});
+  });
+
   it("still logs the board, marked unable to predict, when the vehicle feed fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const d = deps({ njt: { departures: vi.fn(async () => [raw("3861", "", 10)]), vehicles: vi.fn(async () => { throw new Error("down"); }) } });

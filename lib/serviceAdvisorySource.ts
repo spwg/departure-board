@@ -63,6 +63,9 @@ function rssTagText(item: string, name: string): string | null {
 export function parseServiceAdvisories(xml: string): ServiceAdvisory[] {
   const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/gi) ?? [];
   const seen = new Set<string>();
+  // NJ Transit sometimes posts the same notice twice under different ids;
+  // riders should read it once, at the higher of the two severities.
+  const byText = new Map<string, number>();
   const notices: ServiceAdvisory[] = [];
 
   for (const item of items) {
@@ -78,14 +81,22 @@ export function parseServiceAdvisories(xml: string): ServiceAdvisory[] {
     const severity = rssTagText(item, "advisoryAlert") === "0"
       ? "disruption"
       : "advisory";
-    notices.push({
+    const notice: ServiceAdvisory = {
       id,
       text,
       url,
       severity,
       publishedAt,
       revision: advisoryRevision(id, text, url, severity, publishedAt),
-    });
+    };
+    const textKey = text.toLowerCase();
+    const duplicate = byText.get(textKey);
+    if (duplicate === undefined) {
+      byText.set(textKey, notices.length);
+      notices.push(notice);
+    } else if (severity === "disruption" && notices[duplicate].severity !== "disruption") {
+      notices[duplicate] = notice;
+    }
   }
 
   return notices;
