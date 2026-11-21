@@ -1,8 +1,12 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CollectSummary } from "@/lib/pennCollect";
 
 const collectPenn = vi.fn();
 vi.mock("@/lib/pennCollect", () => ({ collectPenn }));
+const checkUsage = vi.fn(async () => {});
+vi.mock("@/lib/upstashUsage", () => ({ checkUsage }));
 vi.mock("@/lib/njtTokenStore", () => ({ getOrCreateStoredToken: vi.fn(), invalidateStoredToken: vi.fn(), redisCommand: vi.fn() }));
 afterEach(() => { delete process.env.HEALTHCHECK_URL; vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
@@ -51,5 +55,33 @@ describe("collector Worker health pings", () => {
     const { reportHealthy } = await import("@/collector/worker");
     await expect(reportHealthy(healthy)).resolves.toBeUndefined();
     expect(JSON.parse(error.mock.calls[0][0] as string)).toEqual({ event: "healthcheck-ping-failed", error: "Error: HTTP 404" });
+  });
+});
+
+describe("collector Worker crons", () => {
+  const run = async (cron: string) => {
+    const { default: worker } = await import("@/collector/worker");
+    const pending: Promise<unknown>[] = [];
+    worker.scheduled({ cron }, {}, { waitUntil: (promise) => { pending.push(promise); } });
+    await Promise.all(pending);
+  };
+
+  it("runs the usage check on its daily cron and collects on every other", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    collectPenn.mockResolvedValue({ ...healthy, vehicles: false });
+    const { USAGE_CRON } = await import("@/collector/worker");
+    await run(USAGE_CRON);
+    expect(checkUsage).toHaveBeenCalledTimes(1);
+    expect(collectPenn).not.toHaveBeenCalled();
+    await run("* * * * *");
+    expect(checkUsage).toHaveBeenCalledTimes(1);
+    expect(collectPenn).toHaveBeenCalledTimes(1);
+  });
+
+  it("lists both crons in wrangler.toml", async () => {
+    const { USAGE_CRON } = await import("@/collector/worker");
+    const toml = readFileSync(path.resolve(process.cwd(), "collector/wrangler.toml"), "utf8");
+    const crons = toml.match(/^crons = (\[.*\])$/m)?.[1];
+    expect(JSON.parse(crons ?? "[]")).toEqual(["* * * * *", USAGE_CRON]);
   });
 });

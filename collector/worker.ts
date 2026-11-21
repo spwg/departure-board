@@ -7,15 +7,24 @@
  *
  * Secrets (wrangler secret put): NJT_API_USERNAME, NJT_API_PASSWORD,
  * UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN, and optionally
- * HEALTHCHECK_URL. NJT_ENV, which picks the NJ Transit backend, is a plain
+ * HEALTHCHECK_URL, plus the usage check's secrets (lib/upstashUsage). NJT_ENV, which picks the NJ Transit backend, is a plain
  * variable in wrangler.toml. With the nodejs_compat flag they arrive in
  * process.env, which the shared modules read.
  */
 import { fetchToken, requestDepartures, requestVehicles } from "../lib/njtApi";
 import { getOrCreateStoredToken, invalidateStoredToken, redisCommand } from "../lib/njtTokenStore";
 import { collectPenn, type CollectSummary } from "../lib/pennCollect";
+import { checkUsage } from "../lib/upstashUsage";
 
 type ExecutionContext = { waitUntil(promise: Promise<unknown>): void };
+type ScheduledController = { cron: string };
+
+/**
+ * The once-a-day cron for the Upstash usage check (lib/upstashUsage), listed
+ * in wrangler.toml beside the every-minute collection cron. 12:17 UTC, off the
+ * hour, so the day is half counted when today's pace is judged.
+ */
+export const USAGE_CRON = "17 12 * * *";
 
 export async function collect(): Promise<void> {
   try {
@@ -57,8 +66,8 @@ export async function reportHealthy(summary: CollectSummary): Promise<void> {
 }
 
 const worker = {
-  scheduled(_controller: unknown, _env: unknown, context: ExecutionContext) {
-    context.waitUntil(collect());
+  scheduled(controller: ScheduledController, _env: unknown, context: ExecutionContext) {
+    context.waitUntil(controller.cron === USAGE_CRON ? checkUsage() : collect());
   },
 };
 

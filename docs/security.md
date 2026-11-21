@@ -16,7 +16,10 @@ its visitors on a server: favorites and preferences stay in the browser's
   board down until midnight. This is the asset most exposed to attack.
 - **Credentials.** The NJ Transit RailData username and password, and the
   Upstash Redis REST token. They live in Vercel's and Cloudflare's environment
-  settings and in an ignored `.env.local`.
+  settings and in an ignored `.env.local`. The collector Worker alone also
+  holds an Upstash Developer API key for its daily usage check; that key can
+  manage the whole Upstash account, including deleting the database, so it is
+  never given to the Vercel app.
 - **The integrity of what riders see.** A rider acting on a board that has
   been tampered with, or that passes old times off as current, could miss a
   train.
